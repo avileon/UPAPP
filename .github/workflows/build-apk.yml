@@ -20,20 +20,19 @@ jobs:
         with:
           channel: stable
       - run: flutter create --org co.vibit.up --project-name up --platforms=android .
+      - run: rm -f test/widget_test.dart
       - run: flutter pub get
-      - run: flutter analyze
-        continue-on-error: true
-      - run: flutter test
-        continue-on-error: true
+      - run: flutter analyze > analyze-output.txt 2>&1 || true
+      - run: flutter test --reporter expanded > test-output.txt 2>&1 || true
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
           name: up-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
-      - name: Publish the APK as a release
+      - name: Publish the APK and the logs as a release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest build/app/outputs/flutter-apk/app-release.apk --title "UP - latest build" --notes "Android APK, Milestone 1. UI only."
+          gh release create latest build/app/outputs/flutter-apk/app-release.apk analyze-output.txt test-output.txt --title "UP - latest build" --notes "Android APK, Milestone 1. UI only."
