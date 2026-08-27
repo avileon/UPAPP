@@ -153,10 +153,10 @@ class SessionController extends ChangeNotifier {
     _phoneNumber = '';
     _liveDuration = const Duration(minutes: 60);
     if (_profiles is MockProfileRepository) {
-      (_profiles as MockProfileRepository).clear();
+      _profiles.clear();
     }
     if (_auth is MockAuthRepository) {
-      (_auth as MockAuthRepository).logOut();
+      _auth.logOut();
     }
     notifyListeners();
   }

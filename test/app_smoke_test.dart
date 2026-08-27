@@ -8,9 +8,9 @@ import 'package:up/core/l10n/app_strings.dart';
 /// Two things this file has to get right, and got wrong the first time:
 ///
 /// 1. The surface is pinned to a phone size, so a genuine layout overflow
-///    fails the test instead of passing on the default 800x600 canvas.
+///    fails the test instead of passing on the default 800×600 canvas.
 /// 2. `MaterialApp`'s localization delegates resolve asynchronously. Until
-///    they do, `Localizations` renders nothing at all - so the frame that
+///    they do, `Localizations` renders nothing at all — so the frame that
 ///    `pumpWidget` produces is empty and no widget can be found in it. Every
 ///    test here pumps once more before asserting or advancing the clock;
 ///    without that, the splash timer has not even been scheduled yet and all
