@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/l10n/app_strings.dart';
+import '../core/l10n/error_text.dart';
 
 import '../data/api/api_auth_repository.dart';
 import '../data/api/api_client.dart';
@@ -67,46 +68,7 @@ class SessionController extends ChangeNotifier {
   String get localeCode => _locale.languageCode;
 
   /// Turns [lastErrorCode] into something a person can act on.
-  ///
-  /// Only the codes worth distinguishing get their own sentence: "you are not
-  /// old enough" and "the server is unreachable" lead somewhere different, and
-  /// everything else is noise a user cannot do anything with.
-  String errorMessage(AppStrings strings) {
-    switch (_lastErrorCode) {
-      case null:
-        return '';
-      case 'no_server':
-      case 'timeout':
-      case 'unreachable':
-      case 'tls_failed':
-      case 'bad_response':
-        return strings.errorOffline;
-      case 'under_minimum_age':
-        return strings.errorUnderAge;
-      case 'otp_incorrect':
-      case 'otp_expired':
-      case 'otp_not_requested':
-        return strings.errorOtpWrong;
-      case 'otp_rate_limited':
-      case 'otp_attempts_exhausted':
-      case 'like_rate_limited':
-        return strings.errorRateLimited;
-      default:
-        return strings.errorGeneric;
-    }
-  }
-  bool get isSignedIn => _profile != null;
-
-  /// A draft profile so the setup screens always have something to edit.
-  UserProfile get draftProfile =>
-      _profile ??
-      UserProfile(
-        id: 'me',
-        firstName: '',
-        birthDate: _defaultBirthDate,
-        gender: Gender.male,
-        interestedIn: InterestedIn.women,
-      );
+  String errorMessage(AppStrings strings) => errorText(strings, _lastErrorCode);
 
   void setLocale(Locale locale) {
     if (_locale == locale) {

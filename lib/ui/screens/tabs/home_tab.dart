@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/l10n/error_text.dart';
 import '../../../core/theme/palette.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../domain/entities/live_session.dart';
@@ -68,7 +69,7 @@ class HomeTab extends StatelessWidget {
                 child: _GoLiveButton(
                   isLive: live.isLive,
                   label: live.isLive ? s.stopLive : s.goLive,
-                  onPressed: () => live.toggle(session.liveDuration),
+                  onPressed: () => _toggleLive(context, live, session),
                 ),
               ),
               const SizedBox(height: Insets.xl),
@@ -123,6 +124,22 @@ class HomeTab extends StatelessWidget {
     final int minutes = d.inMinutes;
     final int seconds = d.inSeconds % 60;
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+}
+
+
+/// Goes Live, and surfaces a refusal instead of swallowing it.
+Future<void> _toggleLive(
+  BuildContext context,
+  LiveController live,
+  SessionController session,
+) async {
+  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+  final AppStrings s = context.strings;
+  await live.toggle(session.liveDuration);
+  final String? code = live.lastErrorCode;
+  if (code != null) {
+    messenger.showSnackBar(SnackBar(content: Text(errorText(s, code))));
   }
 }
 

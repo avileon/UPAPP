@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/l10n/error_text.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/entities/nearby_person.dart';
@@ -189,8 +190,9 @@ class ProfilePreviewScreen extends StatelessWidget {
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     final AppStrings s = context.strings;
     final String name = person.nameFor(context.session.localeCode);
+    final InteractionController interactions = context.interactions;
 
-    final UpResult result = await context.interactions.sendUp(person.id);
+    final UpResult result = await interactions.sendUp(person.id);
 
     switch (result.outcome) {
       case UpOutcome.matched:
@@ -205,7 +207,17 @@ class ProfilePreviewScreen extends StatelessWidget {
         navigator.pop();
       case UpOutcome.rateLimited:
         messenger.showSnackBar(
-          SnackBar(content: Text(s.upSentLabel)),
+          SnackBar(content: Text(s.errorRateLimited)),
+        );
+      case UpOutcome.failed:
+        // Deliberately no `pop()`: the card stays open so the UP can be sent
+        // again once the connection is back.
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              errorText(s, interactions.lastErrorCode),
+            ),
+          ),
         );
     }
   }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../data/api/api_client.dart';
 import '../domain/entities/live_session.dart';
 import '../domain/entities/nearby_person.dart';
 import '../domain/repositories/presence_repository.dart';
@@ -31,6 +32,11 @@ class LiveController extends ChangeNotifier {
 
   LiveSession? get session => _session;
   bool get isLive => _session != null;
+
+  /// Why the last attempt to go Live failed, as the server's error code.
+  /// Cleared by the next attempt.
+  String? get lastErrorCode => _lastErrorCode;
+  String? _lastErrorCode;
   Duration get remaining => _remaining;
   List<NearbyPerson> get nearby => _nearby;
 
@@ -46,13 +52,24 @@ class LiveController extends ChangeNotifier {
   }
 
   Future<void> start(Duration duration) async {
-    _session = await _presence.startLive(duration);
-    _remaining = _session!.remainingAt(_now());
-    _startTicker();
+    _lastErrorCode = null;
+    try {
+      final LiveSession session = await _presence.startLive(duration);
+      _session = session;
+      _remaining = session.remainingAt(_now());
+      _startTicker();
+    } on ApiException catch (error) {
+      // Going Live is one tap on the main screen. A dead tunnel there must
+      // leave the button where it was and say why, not throw into the void.
+      _lastErrorCode = error.code;
+      _session = null;
+      _remaining = Duration.zero;
+    }
     notifyListeners();
   }
 
   Future<void> stop() async {
+    _lastErrorCode = null;
     _ticker?.cancel();
     _ticker = null;
     _session = null;

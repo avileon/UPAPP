@@ -69,8 +69,14 @@ class ApiAuthRepository implements AuthRepository {
   Future<void> deleteAccount() async {
     try {
       await _client.delete('/me');
-    } on ApiException catch (_) {
-      // Whatever the server says, this device is done with the account.
+    } on ApiException catch (error) {
+      // A server that refused is a server that has considered the request; a
+      // server that was never reached has not. Signing out locally in the
+      // second case would tell the user their account is gone while it is
+      // still there.
+      if (error.isOffline) {
+        rethrow;
+      }
     }
     await logOut();
   }

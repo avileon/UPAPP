@@ -17,9 +17,18 @@ import 'package:flutter/foundation.dart';
 /// keystore, the access and refresh tokens move there first and this file keeps
 /// only the address.
 class BackendConfig extends ChangeNotifier {
-  BackendConfig({String baseUrl = '', String venueCode = ''})
-      : _baseUrl = _normaliseBaseUrl(baseUrl),
-        _venueCode = normaliseVenue(venueCode) ?? '';
+  BackendConfig({
+    String baseUrl = '',
+    String venueCode = '',
+    Directory? storageDirectory,
+  })  : _baseUrl = _normaliseBaseUrl(baseUrl),
+        _venueCode = normaliseVenue(venueCode) ?? '',
+        _storageDirectory = storageDirectory;
+
+  /// Where the settings file lives. Injectable so tests get a directory of
+  /// their own — sharing the process-wide temp directory means one test's
+  /// saved server address is another test's surprise.
+  final Directory? _storageDirectory;
 
   String _baseUrl;
   String _venueCode;
@@ -126,7 +135,8 @@ class BackendConfig extends ChangeNotifier {
     if (cached != null) {
       return cached;
     }
-    final File file = File('${Directory.systemTemp.path}/$_fileName');
+    final Directory directory = _storageDirectory ?? Directory.systemTemp;
+    final File file = File('${directory.path}/$_fileName');
     _file = file;
     return file;
   }

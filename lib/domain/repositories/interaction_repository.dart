@@ -14,6 +14,11 @@ enum UpOutcome {
 
   /// Blocked by the rate limiter.
   rateLimited,
+
+  /// The server could not be reached, or refused. Nothing was recorded, and
+  /// saying so is the point: an UP that silently did not happen is worse than
+  /// an error, because the sender spends the evening believing they sent it.
+  failed,
 }
 
 class UpResult {

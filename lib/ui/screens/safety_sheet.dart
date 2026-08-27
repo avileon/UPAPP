@@ -6,6 +6,7 @@ import '../../core/theme/tokens.dart';
 import '../../domain/entities/match_thread.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../state/app_scope.dart';
+import '../../state/people_directory.dart';
 import '../../state/interaction_controller.dart';
 import '../components/common.dart';
 import '../components/up_buttons.dart';
@@ -99,7 +100,11 @@ class SafetySheet extends StatelessWidget {
   Future<void> _block(BuildContext context, String confirmation) async {
     final NavigatorState navigator = Navigator.of(context);
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final PeopleDirectory people = context.people;
     await context.interactions.block(personId);
+    // Nothing about someone the user has blocked should survive in the app's
+    // memory either.
+    people.forget(personId);
     navigator.pop();
     if (navigator.canPop()) {
       navigator.pop();

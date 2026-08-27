@@ -211,13 +211,16 @@ class _ServerSectionState extends State<_ServerSection> {
 
     await config.setVenueCode(_venue.text);
     await config.setServer(baseUrl: _url.text);
+    if (!mounted) {
+      // Backed out of settings while the save was in flight; the controllers
+      // below are already disposed.
+      return;
+    }
     _venue.text = config.venueCode;
     _url.text = config.baseUrl;
 
     if (!config.isConfigured) {
-      if (mounted) {
-        setState(() => _status = _Reachability.unknown);
-      }
+      setState(() => _status = _Reachability.unknown);
       return;
     }
 

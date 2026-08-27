@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:up/data/api/backend_config.dart';
 import 'package:up/domain/entities/user_profile.dart';
@@ -75,15 +77,21 @@ void main() {
   });
 
   group('server address', () {
+    // Its own directory, so nothing here leaks into the widget tests through
+    // a settings file in the shared temp folder.
+    BackendConfig freshConfig() => BackendConfig(
+          storageDirectory: Directory.systemTemp.createTempSync('up_test'),
+        );
+
     test('a pasted tunnel URL is cleaned up rather than refused', () async {
-      final BackendConfig config = BackendConfig();
+      final BackendConfig config = freshConfig();
       await config.setServer(baseUrl: '  xyz.trycloudflare.com/  ');
       expect(config.baseUrl, 'https://xyz.trycloudflare.com');
       expect(config.isConfigured, isTrue);
     });
 
     test('changing server drops the previous server\'s tokens', () async {
-      final BackendConfig config = BackendConfig();
+      final BackendConfig config = freshConfig();
       await config.setServer(baseUrl: 'https://one.example');
       await config.setTokens(accessToken: 'a', refreshToken: 'r');
       expect(config.isSignedIn, isTrue);
@@ -93,7 +101,7 @@ void main() {
     });
 
     test('no address means the app stays on mock data', () {
-      expect(BackendConfig().isConfigured, isFalse);
+      expect(freshConfig().isConfigured, isFalse);
     });
   });
 }
