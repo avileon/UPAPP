@@ -4,7 +4,6 @@ import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
-import '../../data/mock/mock_data.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../domain/repositories/interaction_repository.dart';
 import '../../state/app_scope.dart';
@@ -32,7 +31,7 @@ class ProfilePreviewScreen extends StatelessWidget {
     final AppStrings s = context.strings;
     final UpPalette p = context.palette;
     final InteractionController interactions = context.interactions;
-    final NearbyPerson? person = MockData.byId(personId);
+    final NearbyPerson? person = context.people.byId(personId);
 
     if (person == null) {
       return UpScaffold(

@@ -4,7 +4,6 @@ import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
-import '../../data/mock/mock_data.dart';
 import '../../domain/entities/match_thread.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../state/app_scope.dart';
@@ -46,7 +45,7 @@ class _MatchScreenState extends State<MatchScreen>
     final AppStrings s = context.strings;
     final UpPalette p = context.palette;
     final String localeCode = context.session.localeCode;
-    final NearbyPerson? person = MockData.byId(widget.personId);
+    final NearbyPerson? person = context.people.byId(widget.personId);
 
     if (person == null) {
       return const UpScaffold(child: SizedBox.shrink());

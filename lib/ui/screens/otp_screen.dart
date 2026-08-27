@@ -62,9 +62,19 @@ class _OtpScreenState extends State<OtpScreen> {
       return;
     }
     setState(() => _verifying = false);
-    if (ok) {
-      await Navigator.of(context).pushNamed(Routes.profileSetup);
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.session.errorMessage(context.strings))),
+      );
+      return;
     }
+    // A returning user already has a profile; sending them back through setup
+    // would ask them to retype what the server just handed back.
+    await Navigator.of(context).pushNamed(
+      context.session.profile?.firstName.isNotEmpty ?? false
+          ? Routes.main
+          : Routes.profileSetup,
+    );
   }
 
   @override
@@ -134,9 +144,26 @@ class _OtpScreenState extends State<OtpScreen> {
           ),
           const SizedBox(height: Insets.md),
           Center(
-            child: Text(
-              s.otpDemoHint,
-              style: Theme.of(context).textTheme.bodySmall,
+            child: Builder(
+              builder: (BuildContext context) {
+                // While the server runs on the mock SMS provider it hands the
+                // code straight back, so the screen shows it. The moment a real
+                // provider is configured the server stops sending it and this
+                // falls back to the demo hint on its own.
+                final String? dev = context.session.devCode;
+                if (dev == null || dev.isEmpty) {
+                  return Text(
+                    s.otpDemoHint,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  );
+                }
+                return Text(
+                  '${s.devCodeLabel}: $dev',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: context.palette.foreground,
+                      ),
+                );
+              },
             ),
           ),
           const Spacer(),

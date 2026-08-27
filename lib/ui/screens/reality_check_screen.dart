@@ -4,7 +4,6 @@ import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
-import '../../data/mock/mock_data.dart';
 import '../../domain/entities/match_thread.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../domain/entities/reality_answer.dart';
@@ -37,7 +36,7 @@ class RealityCheckScreen extends StatelessWidget {
       builder: (BuildContext context, Widget? _) {
         final MatchThread? match = context.interactions.matchById(matchId);
         final NearbyPerson? person =
-            match == null ? null : MockData.byId(match.personId);
+            match == null ? null : context.people.byId(match.personId);
         if (match == null || person == null) {
           return const UpScaffold(child: SizedBox.shrink());
         }

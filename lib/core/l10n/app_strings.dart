@@ -35,7 +35,10 @@ class AppStrings {
     required this.verify,
     required this.profileTitle,
     required this.firstName,
-    required this.birthYear,
+    required this.birthDate,
+    required this.birthDayHint,
+    required this.birthMonthHint,
+    required this.birthYearHint,
     required this.iAm,
     required this.interestedIn,
     required this.genderMale,
@@ -108,6 +111,24 @@ class AppStrings {
     required this.settingAppearance,
     required this.settingLiveDuration,
     required this.settingHideContacts,
+    required this.sectionServer,
+    required this.serverUrlLabel,
+    required this.serverUrlHint,
+    required this.serverUrlBody,
+    required this.serverStatusMock,
+    required this.serverStatusChecking,
+    required this.serverStatusOk,
+    required this.serverStatusFail,
+    required this.serverSave,
+    required this.venueLabel,
+    required this.venueHint,
+    required this.venueBody,
+    required this.devCodeLabel,
+    required this.errorOffline,
+    required this.errorUnderAge,
+    required this.errorOtpWrong,
+    required this.errorRateLimited,
+    required this.errorGeneric,
     required this.blockedList,
     required this.reportAndHelp,
     required this.privacyPolicy,
@@ -178,7 +199,10 @@ class AppStrings {
 
   final String profileTitle;
   final String firstName;
-  final String birthYear;
+  final String birthDate;
+  final String birthDayHint;
+  final String birthMonthHint;
+  final String birthYearHint;
   final String iAm;
   final String interestedIn;
   final String genderMale;
@@ -261,6 +285,24 @@ class AppStrings {
   final String settingAppearance;
   final String settingLiveDuration;
   final String settingHideContacts;
+  final String sectionServer;
+  final String serverUrlLabel;
+  final String serverUrlHint;
+  final String serverUrlBody;
+  final String serverStatusMock;
+  final String serverStatusChecking;
+  final String serverStatusOk;
+  final String serverStatusFail;
+  final String serverSave;
+  final String venueLabel;
+  final String venueHint;
+  final String venueBody;
+  final String devCodeLabel;
+  final String errorOffline;
+  final String errorUnderAge;
+  final String errorOtpWrong;
+  final String errorRateLimited;
+  final String errorGeneric;
   final String blockedList;
   final String reportAndHelp;
   final String privacyPolicy;
@@ -333,7 +375,10 @@ class AppStrings {
     verify: 'אמת',
     profileTitle: 'קצת עליך',
     firstName: 'שם פרטי',
-    birthYear: 'שנת לידה',
+    birthDate: 'תאריך לידה',
+    birthDayHint: 'יום',
+    birthMonthHint: 'חודש',
+    birthYearHint: 'שנה',
     iAm: 'אני',
     interestedIn: 'מעניין אותי',
     genderMale: 'גבר',
@@ -411,6 +456,25 @@ class AppStrings {
     settingAppearance: 'מראה',
     settingLiveDuration: 'משך Live ברירת מחדל',
     settingHideContacts: 'הסתר אותי מאנשי הקשר שלי',
+    sectionServer: 'שרת',
+    serverUrlLabel: 'כתובת השרת',
+    serverUrlHint: 'https://xxx.trycloudflare.com',
+    serverUrlBody: 'בלי כתובת האפליקציה רצה על נתונים מדומים בלבד.',
+    serverStatusMock: 'נתונים מדומים',
+    serverStatusChecking: 'בודק…',
+    serverStatusOk: 'מחובר',
+    serverStatusFail: 'אין חיבור',
+    serverSave: 'שמור והתחבר',
+    venueLabel: 'קוד מקום',
+    venueHint: 'BAR12',
+    venueBody: 'מי שמזין את אותו הקוד יופיע אצלך כשאתם Live. '
+        'הקוד לא נשמר ונמחק בסוף הסשן.',
+    devCodeLabel: 'קוד לפיתוח',
+    errorOffline: 'אין חיבור לשרת. בדוק את הכתובת בהגדרות.',
+    errorUnderAge: 'צריך להיות בן 18 ומעלה.',
+    errorOtpWrong: 'הקוד לא נכון.',
+    errorRateLimited: 'יותר מדי ניסיונות. נסה שוב עוד קצת.',
+    errorGeneric: 'משהו השתבש. נסה שוב.',
     blockedList: 'רשימת חסומים',
     reportAndHelp: 'דיווח ועזרה',
     privacyPolicy: 'מדיניות פרטיות',
@@ -480,7 +544,10 @@ class AppStrings {
     verify: 'Verify',
     profileTitle: 'A bit about you',
     firstName: 'First name',
-    birthYear: 'Birth year',
+    birthDate: 'Birth date',
+    birthDayHint: 'Day',
+    birthMonthHint: 'Month',
+    birthYearHint: 'Year',
     iAm: 'I am',
     interestedIn: 'Interested in',
     genderMale: 'Man',
@@ -562,6 +629,25 @@ class AppStrings {
     settingAppearance: 'Appearance',
     settingLiveDuration: 'Default Live duration',
     settingHideContacts: 'Hide me from my contacts',
+    sectionServer: 'Server',
+    serverUrlLabel: 'Server address',
+    serverUrlHint: 'https://xxx.trycloudflare.com',
+    serverUrlBody: 'Without an address the app runs on mock data only.',
+    serverStatusMock: 'Mock data',
+    serverStatusChecking: 'Checking…',
+    serverStatusOk: 'Connected',
+    serverStatusFail: 'No connection',
+    serverSave: 'Save and connect',
+    venueLabel: 'Venue code',
+    venueHint: 'BAR12',
+    venueBody: 'Anyone who types the same code shows up while you are both '
+        'Live. The code is never stored and dies with the session.',
+    devCodeLabel: 'Dev code',
+    errorOffline: 'Cannot reach the server. Check the address in settings.',
+    errorUnderAge: 'You have to be 18 or over.',
+    errorOtpWrong: 'That code is not right.',
+    errorRateLimited: 'Too many tries. Give it a minute.',
+    errorGeneric: 'Something went wrong. Try again.',
     blockedList: 'Blocked list',
     reportAndHelp: 'Report & help',
     privacyPolicy: 'Privacy policy',

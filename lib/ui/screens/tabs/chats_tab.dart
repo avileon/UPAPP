@@ -4,7 +4,6 @@ import '../../../core/l10n/app_localizations.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/palette.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../data/mock/mock_data.dart';
 import '../../../domain/entities/match_thread.dart';
 import '../../../domain/entities/message.dart';
 import '../../../domain/entities/nearby_person.dart';
@@ -84,7 +83,7 @@ class _MatchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final NearbyPerson? person = MockData.byId(match.personId);
+    final NearbyPerson? person = context.people.byId(match.personId);
     if (person == null) {
       return const SizedBox.shrink();
     }

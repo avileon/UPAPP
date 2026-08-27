@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/tokens.dart';
-import '../../data/mock/mock_data.dart';
 import '../../domain/entities/match_thread.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../state/app_scope.dart';
@@ -32,7 +31,7 @@ class SafetySheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppStrings s = context.strings;
     final InteractionController interactions = context.interactions;
-    final NearbyPerson? person = MockData.byId(personId);
+    final NearbyPerson? person = context.people.byId(personId);
     final MatchThread? match = interactions.matchForPerson(personId);
     final String name =
         person?.nameFor(context.session.localeCode) ?? '';

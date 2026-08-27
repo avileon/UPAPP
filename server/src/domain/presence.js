@@ -16,17 +16,35 @@ import { hashSecret, newId, randomToken } from '../lib/crypto.js';
  * therefore tells an attacker nothing, and replaying it after the session ends
  * resolves to nobody.
  */
+/**
+ * Turns whatever the user typed into a venue key, or null.
+ *
+ * Two people standing in the same bar will type `bar12`, `BAR 12` and
+ * `bar-12`, and they have to land on the same key or the feature does not
+ * work. Uppercase, drop everything that is not a letter or a digit, and
+ * require enough characters that a typo is not a collision. Latin letters and
+ * digits only: the key travels in a URL-ish payload and is compared exactly,
+ * so a Hebrew code that survives one normalisation pass and not another would
+ * silently split a room in two. The UI asks for a short code, not a name.
+ */
+export function normaliseVenue(raw) {
+  if (typeof raw !== 'string') return null;
+  const key = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (key.length < 3 || key.length > 12) return null;
+  return key;
+}
+
 export class PresenceStore {
   constructor({ now = () => Date.now() } = {}) {
     this._now = now;
-    /** @type {Map<string, {id: string, userId: string, startedAt: number, expiresAt: number}>} */
+    /** @type {Map<string, {id: string, userId: string, startedAt: number, expiresAt: number, venue: string|null}>} */
     this._sessionsByUser = new Map();
     /** @type {Map<string, {userId: string, sessionId: string, validUntil: number}>} */
     this._tokensByHash = new Map();
   }
 
   /** Starts (or replaces) a user's live session and mints a first token batch. */
-  startLive(userId, durationSeconds) {
+  startLive(userId, durationSeconds, venue = null) {
     const capped = Math.min(
       Math.max(Number(durationSeconds) || 0, 60),
       config.live.maxDurationSeconds,
@@ -39,9 +57,32 @@ export class PresenceStore {
       userId,
       startedAt,
       expiresAt: startedAt + capped * 1000,
+      venue: normaliseVenue(venue),
     };
     this._sessionsByUser.set(userId, session);
     return { session, tokens: this.mintTokens(userId) };
+  }
+
+  /**
+   * Everyone else currently live under the same venue key.
+   *
+   * This is the presence fallback, and it is a product decision rather than a
+   * stand-in for BLE: in a crowded room the radio under-discovers badly, which
+   * is exactly where the product is supposed to work. A venue key is coarse by
+   * construction — it is a label two people agree on, it holds no coordinates,
+   * and it dies with the session.
+   */
+  venuePeers(userId) {
+    const session = this.activeSession(userId);
+    if (!session?.venue) return [];
+    const peers = [];
+    for (const [otherId, other] of this._sessionsByUser) {
+      if (otherId === userId) continue;
+      if (other.venue !== session.venue) continue;
+      if (other.expiresAt <= this._now()) continue;
+      peers.push(otherId);
+    }
+    return peers;
   }
 
   stopLive(userId) {

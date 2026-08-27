@@ -3,7 +3,7 @@
 Phone auth, profiles, presence, likes, matches, chat and safety. Runs on your
 own machine and reaches the phone through a Cloudflare tunnel.
 
-**28 tests, all passing.** Unlike the Flutter code, this was written and run in
+**45 tests, all passing.** Unlike the Flutter code, this was written and run in
 the same place — every claim below is something the test suite asserts.
 
 ---
@@ -86,6 +86,15 @@ in one transaction. There is a test that fires both directions concurrently.
 match object only on mutuality. The receiving side has no endpoint that would
 reveal a pending like — not one that filters it out, one that does not exist.
 
+**Two people in one room find each other without BLE.** `POST /live/start`
+accepts an optional `venue` — a short code both people type, normalised to
+`BAR12` however it was written. Anyone live under the same key is resolved into
+the same nearby list. This is a product decision, not a stand-in for the radio:
+BLE under-discovers badly in a crowded bar, which is exactly where UP has to
+work. The key holds no coordinates, is never stored, and dies with the session.
+The response carries profiles and no provenance, so nothing downstream can tell
+— or show — which channel surfaced a person.
+
 **`/nearby/resolve` is the privacy boundary.** Observed BLE tokens go in,
 permitted profiles come out. Token validity, both live sessions, blocks in
 either direction and mutual preference are all decided there. The serialiser is
@@ -124,7 +133,7 @@ positive.
 | GET / PUT | `/me/profile` | PUT enforces 18+ |
 | POST | `/media/upload-url` | placeholder key; S3 presign later |
 | DELETE | `/me` | anonymises immediately |
-| POST | `/live/start` `/live/refresh` `/live/stop` | mints and rotates BLE tokens |
+| POST | `/live/start` `/live/refresh` `/live/stop` | mints and rotates BLE tokens; `venue` is optional |
 | POST | `/nearby/resolve` | the privacy boundary |
 | POST / DELETE | `/likes/:userId` | rate limited |
 | GET | `/matches` | |
@@ -159,6 +168,8 @@ Everything has a working default. Set these when it stops being a laptop:
   `match.created` and `message.created` is the next piece.
 - **Push.** FCM/APNs as the fallback when the socket is down, never as the
   primary path.
-- **Wiring the Flutter app to it.** The four repository interfaces in
-  `lib/domain/repositories/` are the seam — HTTP implementations go in
-  `lib/data/api/` and `app_scope.dart` picks which stack to build.
+- **Real BLE.** The app sends an empty token list today; the venue key is the
+  discovery channel until the radio lands.
+
+The Flutter app **is** wired to this now — see `lib/data/api/`. Paste the tunnel
+URL into the app's settings and it stops using mock data.

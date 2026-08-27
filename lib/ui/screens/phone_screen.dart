@@ -37,11 +37,19 @@ class _PhoneScreenState extends State<PhoneScreen> {
 
   Future<void> _submit() async {
     setState(() => _sending = true);
-    await context.session.requestOtp(_controller.text);
+    final bool sent = await context.session.requestOtp(_controller.text);
     if (!mounted) {
       return;
     }
     setState(() => _sending = false);
+    if (!sent) {
+      // Nothing was sent, so there is no code to type. Walking on to the OTP
+      // screen would only produce a second, more confusing failure.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.session.errorMessage(context.strings))),
+      );
+      return;
+    }
     await Navigator.of(context).pushNamed(Routes.otp);
   }
 

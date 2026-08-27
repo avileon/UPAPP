@@ -241,12 +241,15 @@ export function createApp({ database = ':memory:', presence } = {}) {
     if (!isOfAge(user.birth_date)) throw forbidden('profile_incomplete');
     const body = await readJsonBody(req);
     const seconds = Number(body.durationSeconds) || 3600;
-    const { session, tokens } = live.startLive(user.id, seconds);
+    const { session, tokens } = live.startLive(user.id, seconds, body.venue);
     return {
       status: 200,
       body: {
         sessionId: session.id,
         expiresAt: new Date(session.expiresAt).toISOString(),
+        // Echoed back normalised so the client can show the key it actually
+        // joined rather than the characters the user typed.
+        venue: session.venue,
         tokens,
       },
     };
@@ -261,6 +264,7 @@ export function createApp({ database = ':memory:', presence } = {}) {
       body: {
         sessionId: session.id,
         expiresAt: new Date(session.expiresAt).toISOString(),
+        venue: session.venue,
         tokens: live.mintTokens(user.id),
       },
     };
@@ -279,6 +283,12 @@ export function createApp({ database = ':memory:', presence } = {}) {
    * Everything is decided here — token validity, both live sessions, blocks in
    * either direction, mutual preference. Nothing is filtered on the client,
    * because a client filter is a client that received the data.
+   *
+   * People found through the venue key join the same list through the same
+   * gate. Which of the two channels surfaced a person is decided here and
+   * never leaves: the response carries profiles, not provenance, so the app
+   * has nothing to render a "found by radio" badge from even if someone later
+   * wanted one.
    */
   router.post('/nearby/resolve', async (req) => {
     const user = requireUser(req);
@@ -288,21 +298,28 @@ export function createApp({ database = ':memory:', presence } = {}) {
     if (!live.isLive(user.id)) throw forbidden('not_live');
 
     const profile = store.findProfile(user.id);
-    const seen = new Set();
+    const seen = new Set([user.id]);
     const people = [];
 
-    for (const raw of tokens) {
-      if (typeof raw !== 'string') continue;
-      const otherId = live.resolveToken(raw);
-      if (!otherId || otherId === user.id || seen.has(otherId)) continue;
+    /** One gate, whichever channel found them. */
+    const admit = (otherId) => {
+      if (!otherId || seen.has(otherId)) return;
       seen.add(otherId);
 
       const other = store.findUser(otherId);
-      if (!other) continue;
-      if (store.isBlockedEitherWay(user.id, otherId)) continue;
-      if (!mutuallyCompatible(user, other)) continue;
+      if (!other) return;
+      if (store.isBlockedEitherWay(user.id, otherId)) return;
+      if (!mutuallyCompatible(user, other)) return;
 
       people.push(publicProfile(store, other, store.findProfile(otherId)));
+    };
+
+    for (const raw of tokens) {
+      if (typeof raw !== 'string') continue;
+      admit(live.resolveToken(raw));
+    }
+    for (const peerId of live.venuePeers(user.id)) {
+      admit(peerId);
     }
 
     return {

@@ -4,6 +4,8 @@ import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/api/api_client.dart';
+import '../../data/api/backend_config.dart';
 import '../../state/app_scope.dart';
 import '../../state/interaction_controller.dart';
 import '../../state/live_controller.dart';
@@ -86,6 +88,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _Row(label: s.termsOfUse, onTap: () {}),
                       ],
                     ),
+                    const _ServerSection(),
                     _Section(
                       title: s.sectionSafety,
                       rows: <Widget>[
@@ -159,6 +162,162 @@ class _SettingsScreenState extends State<SettingsScreen> {
     navigator.pushNamedAndRemoveUntil(
       Routes.splash,
       (Route<dynamic> route) => false,
+    );
+  }
+}
+
+/// Where the app points, and which room it is in.
+///
+/// This lives in settings rather than in a hidden developer menu because in
+/// Milestone 2 it is the whole difference between a demo and two phones talking
+/// to each other. It disappears the day the app ships against a fixed address.
+class _ServerSection extends StatefulWidget {
+  const _ServerSection();
+
+  @override
+  State<_ServerSection> createState() => _ServerSectionState();
+}
+
+enum _Reachability { unknown, checking, ok, failed }
+
+class _ServerSectionState extends State<_ServerSection> {
+  final TextEditingController _url = TextEditingController();
+  final TextEditingController _venue = TextEditingController();
+  _Reachability _status = _Reachability.unknown;
+  bool _loaded = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_loaded) {
+      return;
+    }
+    _loaded = true;
+    final BackendConfig config = context.backend;
+    _url.text = config.baseUrl;
+    _venue.text = config.venueCode;
+  }
+
+  @override
+  void dispose() {
+    _url.dispose();
+    _venue.dispose();
+    super.dispose();
+  }
+
+  Future<void> _apply() async {
+    final BackendConfig config = context.backend;
+    setState(() => _status = _Reachability.checking);
+
+    await config.setVenueCode(_venue.text);
+    await config.setServer(baseUrl: _url.text);
+    _venue.text = config.venueCode;
+    _url.text = config.baseUrl;
+
+    if (!config.isConfigured) {
+      if (mounted) {
+        setState(() => _status = _Reachability.unknown);
+      }
+      return;
+    }
+
+    // A client of its own: the app's stack is rebuilt asynchronously when the
+    // address changes, and this check should not depend on that having
+    // happened yet.
+    final ApiClient probe = ApiClient(config);
+    final bool ok = await probe.ping();
+    probe.dispose();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _status = ok ? _Reachability.ok : _Reachability.failed);
+  }
+
+  String _statusLabel(AppStrings s, BackendConfig config) {
+    switch (_status) {
+      case _Reachability.checking:
+        return s.serverStatusChecking;
+      case _Reachability.ok:
+        return s.serverStatusOk;
+      case _Reachability.failed:
+        return s.serverStatusFail;
+      case _Reachability.unknown:
+        return config.isConfigured ? '' : s.serverStatusMock;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final UpPalette p = context.palette;
+    final BackendConfig config = context.backend;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Insets.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(child: SectionLabel(s.sectionServer)),
+              Text(
+                _statusLabel(s, config),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: p.muted),
+              ),
+            ],
+          ),
+          const SizedBox(height: Insets.sm),
+          UpCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(s.serverUrlLabel,
+                    style: Theme.of(context).textTheme.bodyLarge),
+                const SizedBox(height: Insets.xs),
+                // A URL is always LTR, whatever the interface language.
+                Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: TextField(
+                    controller: _url,
+                    keyboardType: TextInputType.url,
+                    autocorrect: false,
+                    decoration: InputDecoration(hintText: s.serverUrlHint),
+                  ),
+                ),
+                const SizedBox(height: Insets.xs),
+                Text(s.serverUrlBody,
+                    style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(height: Insets.lg),
+                Text(s.venueLabel,
+                    style: Theme.of(context).textTheme.bodyLarge),
+                const SizedBox(height: Insets.xs),
+                Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: TextField(
+                    controller: _venue,
+                    textCapitalization: TextCapitalization.characters,
+                    autocorrect: false,
+                    decoration: InputDecoration(hintText: s.venueHint),
+                  ),
+                ),
+                const SizedBox(height: Insets.xs),
+                Text(s.venueBody,
+                    style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(height: Insets.md),
+                UpButton(
+                  label: s.serverSave,
+                  style: UpButtonStyle.quiet,
+                  onPressed:
+                      _status == _Reachability.checking ? null : _apply,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../data/api/api_interaction_repository.dart';
 import '../domain/entities/match_thread.dart';
 import '../domain/entities/reality_answer.dart';
 import '../domain/repositories/interaction_repository.dart';
@@ -81,6 +82,13 @@ class InteractionController extends ChangeNotifier {
   Future<void> report(String personId) => _interactions.report(personId);
 
   void markRead(String matchId) {
+    // The server has no read receipts by design, so "read" is this device's
+    // own note. Tell the repository too, or the next poll brings the badge
+    // straight back.
+    final InteractionRepository repository = _interactions;
+    if (repository is ApiInteractionRepository) {
+      repository.markRead(matchId);
+    }
     final int index = _matches.indexWhere((MatchThread m) => m.id == matchId);
     if (index == -1 || !_matches[index].isUnread) {
       return;

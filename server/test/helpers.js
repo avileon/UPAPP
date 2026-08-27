@@ -70,11 +70,22 @@ export async function startTestServer() {
     };
   };
 
+  /** Goes live under a venue key, the way the app does when a code is set. */
+  const goLiveAt = async (user, venue) =>
+    call('POST', '/live/start', {
+      token: user.token,
+      body: { durationSeconds: 3600, venue },
+    });
+
+  /** Who this user can see right now with no BLE tokens at all. */
+  const nearby = async (user, tokens = []) =>
+    call('POST', '/nearby/resolve', { token: user.token, body: { tokens } });
+
   const close = async () => {
     server.close();
     await once(server, 'close');
     app.db.close();
   };
 
-  return { app, call, signUp, goLiveTogether, close, base };
+  return { app, call, signUp, goLiveTogether, goLiveAt, nearby, close, base };
 }

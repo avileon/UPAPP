@@ -1,6 +1,10 @@
 import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/profile_repository.dart';
 
+/// A plausible default so the setup screens open on something rather than an
+/// empty date. Chosen once, at the top, instead of appearing inline twice.
+final DateTime _defaultBirthDate = DateTime(1994, 5, 1);
+
 class MockProfileRepository implements ProfileRepository {
   UserProfile? _profile;
 
@@ -17,10 +21,10 @@ class MockProfileRepository implements ProfileRepository {
   @override
   Future<UserProfile> addPhoto() async {
     final UserProfile current = _profile ??
-        const UserProfile(
+        UserProfile(
           id: 'me',
           firstName: '',
-          birthYear: 1994,
+          birthDate: _defaultBirthDate,
           gender: Gender.male,
           interestedIn: InterestedIn.women,
         );

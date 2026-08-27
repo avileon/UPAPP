@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../core/l10n/app_strings.dart';
+
+import '../data/api/api_auth_repository.dart';
+import '../data/api/api_client.dart';
 import '../data/mock/mock_auth_repository.dart';
 import '../data/mock/mock_profile_repository.dart';
 import '../domain/entities/live_session.dart';
@@ -7,16 +11,26 @@ import '../domain/entities/user_profile.dart';
 import '../domain/repositories/auth_repository.dart';
 import '../domain/repositories/profile_repository.dart';
 
+/// A plausible default so the setup screens open on something rather than an
+/// empty date.
+final DateTime _defaultBirthDate = DateTime(1994, 5, 1);
+
 /// Identity, profile and app-level preferences.
 class SessionController extends ChangeNotifier {
   SessionController({
     required AuthRepository auth,
     required ProfileRepository profiles,
+    VoidCallback? onSignedIn,
+    VoidCallback? onSignedOut,
   })  : _auth = auth,
-        _profiles = profiles;
+        _profiles = profiles,
+        _onSignedIn = onSignedIn,
+        _onSignedOut = onSignedOut;
 
   final AuthRepository _auth;
   final ProfileRepository _profiles;
+  final VoidCallback? _onSignedIn;
+  final VoidCallback? _onSignedOut;
 
   Locale _locale = const Locale('he');
   ThemeMode _themeMode = ThemeMode.dark;
@@ -36,16 +50,60 @@ class SessionController extends ChangeNotifier {
   Duration get liveDuration => _liveDuration;
   bool get hideFromContacts => _hideFromContacts;
 
+  /// The last thing that went wrong, as the server's error code. Cleared by the
+  /// next attempt. The screens turn it into a sentence; nothing switches on the
+  /// message text.
+  String? get lastErrorCode => _lastErrorCode;
+  String? _lastErrorCode;
+
+  /// While the server runs with `SMS_PROVIDER=mock` it hands the code straight
+  /// back, so the OTP screen can show it instead of asking you to go and read a
+  /// terminal. Null against any real provider.
+  String? get devCode {
+    final AuthRepository auth = _auth;
+    return auth is ApiAuthRepository ? auth.devCode : null;
+  }
+
   String get localeCode => _locale.languageCode;
+
+  /// Turns [lastErrorCode] into something a person can act on.
+  ///
+  /// Only the codes worth distinguishing get their own sentence: "you are not
+  /// old enough" and "the server is unreachable" lead somewhere different, and
+  /// everything else is noise a user cannot do anything with.
+  String errorMessage(AppStrings strings) {
+    switch (_lastErrorCode) {
+      case null:
+        return '';
+      case 'no_server':
+      case 'timeout':
+      case 'unreachable':
+      case 'tls_failed':
+      case 'bad_response':
+        return strings.errorOffline;
+      case 'under_minimum_age':
+        return strings.errorUnderAge;
+      case 'otp_incorrect':
+      case 'otp_expired':
+      case 'otp_not_requested':
+        return strings.errorOtpWrong;
+      case 'otp_rate_limited':
+      case 'otp_attempts_exhausted':
+      case 'like_rate_limited':
+        return strings.errorRateLimited;
+      default:
+        return strings.errorGeneric;
+    }
+  }
   bool get isSignedIn => _profile != null;
 
   /// A draft profile so the setup screens always have something to edit.
   UserProfile get draftProfile =>
       _profile ??
-      const UserProfile(
+      UserProfile(
         id: 'me',
         firstName: '',
-        birthYear: 1994,
+        birthDate: _defaultBirthDate,
         gender: Gender.male,
         interestedIn: InterestedIn.women,
       );
@@ -95,34 +153,73 @@ class SessionController extends ChangeNotifier {
     setLiveDuration(LiveSession.selectableDurations[next]);
   }
 
-  Future<void> requestOtp(String phoneNumber) async {
-    _phoneNumber = phoneNumber.trim();
-    _setBusy(true);
+  /// Signs back in from a stored refresh token, if there is one.
+  ///
+  /// Failure here is ordinary — an expired token, a server that has moved — and
+  /// lands on the intro screen rather than an error.
+  Future<void> restore() async {
     try {
-      await _auth.requestOtp(_phoneNumber);
-    } finally {
-      _setBusy(false);
+      final UserProfile? stored = await _profiles.load();
+      if (stored == null) {
+        return;
+      }
+      _profile = stored;
+      _acceptedTerms = true;
+      _onSignedIn?.call();
+      notifyListeners();
+    } on ApiException catch (_) {
+      // Not signed in. That is a normal first run.
     }
   }
 
-  Future<bool> verifyOtp(String code) async {
+  Future<bool> requestOtp(String phoneNumber) async {
+    _phoneNumber = phoneNumber.trim();
+    _lastErrorCode = null;
     _setBusy(true);
     try {
-      await _auth.verifyOtp(phoneNumber: _phoneNumber, code: code);
-      _profile ??= draftProfile;
-      notifyListeners();
+      await _auth.requestOtp(_phoneNumber);
       return true;
-    } on FormatException {
+    } on ApiException catch (error) {
+      _lastErrorCode = error.code;
       return false;
     } finally {
       _setBusy(false);
     }
   }
 
-  Future<void> saveProfile(UserProfile profile) async {
+  Future<bool> verifyOtp(String code) async {
+    _lastErrorCode = null;
+    _setBusy(true);
+    try {
+      await _auth.verifyOtp(phoneNumber: _phoneNumber, code: code);
+      // Against the server this returns the profile that already exists, so a
+      // returning user skips setup. Against the mocks it is null and the draft
+      // takes over — the same code path either way.
+      _profile = (await _profiles.load()) ?? draftProfile;
+      _onSignedIn?.call();
+      notifyListeners();
+      return true;
+    } on ApiException catch (error) {
+      _lastErrorCode = error.code;
+      return false;
+    } on FormatException {
+      _lastErrorCode = 'otp_incorrect';
+      return false;
+    } finally {
+      _setBusy(false);
+    }
+  }
+
+  /// Returns false when the server refused the profile — under 18, above all.
+  Future<bool> saveProfile(UserProfile profile) async {
+    _lastErrorCode = null;
     _setBusy(true);
     try {
       _profile = await _profiles.save(profile);
+      return true;
+    } on ApiException catch (error) {
+      _lastErrorCode = error.code;
+      return false;
     } finally {
       _setBusy(false);
     }
@@ -135,6 +232,7 @@ class SessionController extends ChangeNotifier {
 
   Future<void> deleteAccount() async {
     await _auth.deleteAccount();
+    _onSignedOut?.call();
     _profile = null;
     _acceptedTerms = false;
     _phoneNumber = '';
@@ -143,6 +241,7 @@ class SessionController extends ChangeNotifier {
 
   Future<void> logOut() async {
     await _auth.logOut();
+    _onSignedOut?.call();
     _profile = null;
     notifyListeners();
   }
