@@ -24,15 +24,16 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze > analyze-output.txt 2>&1 || true
       - run: flutter test --reporter expanded > test-output.txt 2>&1 || true
-      - run: flutter build apk --release
-      - uses: actions/upload-artifact@v4
-        with:
-          name: up-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-      - name: Publish the APK and the logs as a release
+      - run: flutter build apk --debug 2>&1 | tee build-debug.txt
+      - run: flutter build apk --release 2>&1 | tee build-release.txt
+      - name: Show how each APK is signed
+        run: |
+          ls -la build/app/outputs/flutter-apk/ > signing.txt 2>&1
+          $ANDROID_HOME/build-tools/*/apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk >> signing.txt 2>&1 || echo "release APK is NOT signed" >> signing.txt
+          $ANDROID_HOME/build-tools/*/apksigner verify --print-certs build/app/outputs/flutter-apk/app-debug.apk >> signing.txt 2>&1 || echo "debug APK is NOT signed" >> signing.txt
+      - name: Publish everything as a release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest build/app/outputs/flutter-apk/app-release.apk analyze-output.txt test-output.txt --title "UP - latest build" --notes "Android APK, Milestone 1. UI only."
+          gh release create latest build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/app-debug.apk analyze-output.txt test-output.txt signing.txt --title "UP - latest build" --notes "Try app-debug.apk first."
