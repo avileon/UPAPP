@@ -1,0 +1,25 @@
+name: up
+description: >-
+  UP — Bluetooth-first proximity discovery. Milestone 1: complete UI with mock
+  data. No backend, no real BLE.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+# Deliberately zero third-party dependencies for Milestone 1.
+# Everything here ships inside the Flutter SDK, so `flutter pub get` resolves
+# offline and there is no supply chain to audit before the first demo.
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
