@@ -69,6 +69,37 @@ void main() {
     expect(cache.bytesFor('a'), isNull);
   });
 
+  test('a blip parks a photo briefly; a real 404 parks it for good', () async {
+    // The distinction that matters on a scrolling list: two seconds of dead
+    // tunnel must not blank someone's face for the rest of the session, and a
+    // photo that genuinely is not there must not be asked for every frame.
+    int calls = 0;
+    bool offline = true;
+    final PhotoCache cache = PhotoCache(fetch: (String key) async {
+      calls++;
+      if (offline) {
+        throw Exception('tunnel down');
+      }
+      return bytes;
+    });
+
+    cache.bytesFor('a');
+    await Future<void>.delayed(Duration.zero);
+    expect(calls, 1);
+
+    // Still parked a moment later — no request storm while the tunnel is down.
+    cache.bytesFor('a');
+    expect(calls, 1);
+
+    // The connection comes back and something says so.
+    offline = false;
+    cache.retryFailed();
+    cache.bytesFor('a');
+    await Future<void>.delayed(Duration.zero);
+    expect(calls, 2);
+    expect(cache.bytesFor('a'), bytes);
+  });
+
   test('with no fetcher every key is a placeholder', () {
     // This is the mock stack: the app runs end to end with no server at all.
     final PhotoCache cache = PhotoCache();

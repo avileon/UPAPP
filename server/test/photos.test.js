@@ -51,6 +51,27 @@ test('photos', async (t) => {
     assert.deepEqual(body, PNG, 'the bytes that come back are the bytes that went in');
   });
 
+  await t.test('a second fetch of the same photo is a 304, with its ETag', async () => {
+    const a = await s.signUp('+972530000013');
+    const upload = await s.uploadPhoto(a, PNG);
+
+    const first = await fetch(`${s.base}/media/${upload.body.key}`, {
+      headers: { authorization: `Bearer ${a.token}` },
+    });
+    const etag = first.headers.get('etag');
+    assert.ok(etag, 'a photo must be cacheable by its content');
+
+    const second = await fetch(`${s.base}/media/${upload.body.key}`, {
+      headers: {
+        authorization: `Bearer ${a.token}`,
+        'if-none-match': etag,
+      },
+    });
+    assert.equal(second.status, 304);
+    assert.equal(second.headers.get('etag'), etag);
+    assert.equal(second.headers.get('content-length'), null);
+  });
+
   await t.test('a stranger cannot fetch a photo', async () => {
     // Not "a different user cannot" — that is the next rule to build. This is
     // the floor: an unauthenticated URL is worthless on its own.

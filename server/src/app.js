@@ -254,7 +254,14 @@ export function createApp({ database = ':memory:', presence, photos } = {}) {
     const file = media.open(params.key);
     if (!file) throw notFound('photo_not_found');
     if (req.headers['if-none-match'] === file.etag) {
-      return { binary: { status: 304, body: Buffer.alloc(0), mime: file.mime } };
+      return {
+        binary: {
+          status: 304,
+          body: Buffer.alloc(0),
+          mime: file.mime,
+          etag: file.etag,
+        },
+      };
     }
     return { binary: { status: 200, ...file } };
   });

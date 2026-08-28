@@ -177,7 +177,11 @@ class _AppScopeHostState extends State<AppScopeHost> {
     _auth = MockAuthRepository();
     _profiles = MockProfileRepository();
     _presence = MockPresenceRepository();
-    _session = SessionController(auth: _auth, profiles: _profiles);
+    _session = SessionController(
+      auth: _auth,
+      profiles: _profiles,
+      onSignedOut: () => _photoCache.clear(),
+    );
     _interactions = MockInteractionRepository(
       localeCode: () => _session.localeCode,
     );
@@ -189,7 +193,9 @@ class _AppScopeHostState extends State<AppScopeHost> {
   void _buildApiStack() {
     final ApiClient client = ApiClient(_config);
     _client = client;
-    _photoCache = PhotoCache(fetch: (String key) => client.getBytes('/media/$key'));
+    _photoCache = PhotoCache(
+      fetch: (String key) => client.getBytes('/media/$key'),
+    );
     _auth = ApiAuthRepository(
       client: client,
       acceptedTerms: () => _session.acceptedTerms,
@@ -209,7 +215,12 @@ class _AppScopeHostState extends State<AppScopeHost> {
       auth: _auth,
       profiles: _profiles,
       onSignedIn: interactions.startPolling,
-      onSignedOut: interactions.stopPolling,
+      onSignedOut: () {
+        interactions.stopPolling();
+        // Other people's photographs do not outlive the session they were
+        // shown in.
+        _photoCache.clear();
+      },
     );
     // A stored refresh token means this phone was signed in last time.
     _session.restore();

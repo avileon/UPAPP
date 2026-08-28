@@ -233,10 +233,15 @@ class ApiClient {
     }
   }
 
-  /// Downloads raw bytes. Returns null when the server has no such file.
-  Future<Uint8List?> getBytes(String path) async {
+  /// Downloads raw bytes.
+  ///
+  /// Null means the server answered and does not have this file. A transport
+  /// failure — timeout, dead tunnel, no signal — throws instead, because the
+  /// caller has to tell those apart: one is permanent and the other is worth
+  /// trying again in a minute.
+  Future<Uint8List?> getBytes(String path, {bool allowRefresh = true}) async {
     if (!config.isConfigured) {
-      return null;
+      throw const ApiException(0, 'no_server');
     }
     final Uri uri = Uri.parse('${config.baseUrl}$path');
     try {
@@ -249,12 +254,14 @@ class ApiClient {
           await request.close().timeout(const Duration(seconds: 60));
       if (response.statusCode != 200) {
         await response.drain<void>();
-        // 401 is worth one refresh: a photo request can easily be the first
-        // call after an access token quietly expired.
+        // 401 is worth exactly one refresh: a photo request can easily be the
+        // first call after an access token quietly expired. One, not a loop —
+        // a server that keeps answering 401 while refresh keeps succeeding
+        // would otherwise recurse without bound.
         final String? refresh = config.refreshToken;
-        if (response.statusCode == 401 && refresh != null) {
+        if (response.statusCode == 401 && allowRefresh && refresh != null) {
           if (await _refresh(refresh)) {
-            return getBytes(path);
+            return getBytes(path, allowRefresh: false);
           }
         }
         return null;
@@ -265,11 +272,11 @@ class ApiClient {
       }
       return Uint8List.fromList(bytes);
     } on TimeoutException {
-      return null;
+      throw const ApiException(0, 'timeout');
     } on SocketException {
-      return null;
+      throw const ApiException(0, 'unreachable');
     } on HttpException {
-      return null;
+      throw const ApiException(0, 'unreachable');
     }
   }
 

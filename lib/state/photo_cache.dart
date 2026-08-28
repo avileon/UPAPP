@@ -20,8 +20,19 @@ class PhotoCache extends ChangeNotifier {
   final Map<String, Uint8List> _bytes = <String, Uint8List>{};
   final List<String> _order = <String>[];
   final Set<String> _inFlight = <String>{};
-  final Set<String> _failed = <String>{};
+
+  /// Keys not worth asking about again, and until when.
+  ///
+  /// Two very different failures land here. A photo the server says it does
+  /// not have will never appear, so it is parked for good. A photo that failed
+  /// because the tunnel blinked will be there in a moment, so it is parked
+  /// briefly — a two-second hiccup while scrolling must not blank someone's
+  /// face for the rest of the session.
+  final Map<String, DateTime> _quietUntil = <String, DateTime>{};
   bool _disposed = false;
+
+  static final DateTime _forever = DateTime.utc(9999);
+  static const Duration _afterTransientFailure = Duration(seconds: 15);
 
   /// Roughly a screen or two of faces. Past this the oldest are dropped and
   /// re-fetched if they come back into view.
@@ -40,25 +51,39 @@ class PhotoCache extends ChangeNotifier {
     if (cached != null) {
       return cached;
     }
-    if (_fetch == null || _inFlight.contains(key) || _failed.contains(key)) {
+    if (_fetch == null || _inFlight.contains(key) || _isQuiet(key)) {
       return null;
     }
     _inFlight.add(key);
     _fetch(key).then((Uint8List? value) {
       _inFlight.remove(key);
       if (value == null || value.isEmpty) {
-        // Remember the failure. Without this a missing photo becomes a request
-        // on every rebuild, which on a list is a request per frame.
-        _failed.add(key);
+        // The server answered and has nothing. Without parking the key, a
+        // missing photo becomes a request on every rebuild — on a scrolling
+        // list, a request per frame.
+        _quietUntil[key] = _forever;
         return;
       }
+      _quietUntil.remove(key);
       _put(key, value);
       _notify();
     }).catchError((Object _) {
       _inFlight.remove(key);
-      _failed.add(key);
+      _quietUntil[key] = DateTime.now().add(_afterTransientFailure);
     });
     return null;
+  }
+
+  bool _isQuiet(String key) {
+    final DateTime? until = _quietUntil[key];
+    if (until == null) {
+      return false;
+    }
+    if (until.isAfter(DateTime.now())) {
+      return true;
+    }
+    _quietUntil.remove(key);
+    return false;
   }
 
   void _put(String key, Uint8List value) {
@@ -75,7 +100,7 @@ class PhotoCache extends ChangeNotifier {
   /// even finished, so your own grid fills the moment you choose the picture.
   void remember(String key, Uint8List value) {
     _put(key, value);
-    _failed.remove(key);
+    _quietUntil.remove(key);
     _notify();
   }
 
@@ -84,22 +109,22 @@ class PhotoCache extends ChangeNotifier {
       _order.remove(key);
       _notify();
     }
-    _failed.remove(key);
+    _quietUntil.remove(key);
   }
 
-  /// Lets a key that failed be tried again — after a reconnect, say.
+  /// Lets every parked key be tried again — after a reconnect, say.
   void retryFailed() {
-    if (_failed.isEmpty) {
+    if (_quietUntil.isEmpty) {
       return;
     }
-    _failed.clear();
+    _quietUntil.clear();
     _notify();
   }
 
   void clear() {
     _bytes.clear();
     _order.clear();
-    _failed.clear();
+    _quietUntil.clear();
     _notify();
   }
 

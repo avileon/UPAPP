@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../../core/theme/tokens.dart';
 import '../../state/app_scope.dart';
 import '../../state/photo_cache.dart';
 import 'aura_photo.dart';
@@ -67,7 +68,9 @@ class UpPhoto extends StatelessWidget {
         Widget image = ClipPath(
           clipper: _ShapeClipper(
             shape: shape,
-            borderRadius: borderRadius ?? BorderRadius.circular(12),
+            // The same radius AuraPhoto falls back to. Different values here
+            // make a tile's corners visibly tighten the moment bytes arrive.
+            borderRadius: borderRadius ?? BorderRadius.circular(Radii.md),
           ),
           child: Image.memory(
             bytes,

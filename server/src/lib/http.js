@@ -99,12 +99,15 @@ export async function readJsonBody(req) {
 export function sendBinary(res, status, { body, mime, etag }) {
   const headers = {
     'content-type': mime,
-    'content-length': body.length,
     'x-content-type-options': 'nosniff',
     'content-disposition': 'inline',
     // Private: a photo is not something a shared proxy should keep.
     'cache-control': 'private, max-age=86400',
   };
+  // A 304 carries no body, and a content-length on one makes some
+  // intermediaries treat the response as framed with one. It does have to
+  // carry the ETag it would have sent with the 200.
+  if (status !== 304) headers['content-length'] = body.length;
   if (etag) headers.etag = etag;
   res.writeHead(status, headers);
   res.end(body);

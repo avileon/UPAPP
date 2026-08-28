@@ -65,19 +65,20 @@ class ApiProfileRepository implements ProfileRepository {
   /// response is authoritative about the photo list and about nothing else,
   /// and a stale name or bio sitting next to a fresh photo list is the kind of
   /// inconsistency that is very hard to see and very easy to ship.
+  /// The profile the server now holds, with the keys it just returned.
+  ///
+  /// Throws rather than inventing a profile when the server has none. An empty
+  /// `UserProfile` handed back here would replace the caller's real one and
+  /// show up as a blank name and a reset birth date on every screen — silent,
+  /// and indistinguishable from data loss.
   Future<UserProfile> _withKeys(Object? photos) async {
     final List<String> keys = photos is List
         ? photos.whereType<String>().toList(growable: false)
         : const <String>[];
     final UserProfile? current = await load();
-    return (current ?? _placeholder()).copyWith(photoKeys: keys);
+    if (current == null) {
+      throw const ApiException(409, 'profile_incomplete');
+    }
+    return current.copyWith(photoKeys: keys);
   }
-
-  UserProfile _placeholder() => UserProfile(
-        id: '',
-        firstName: '',
-        birthDate: DateTime(1994, 5, 1),
-        gender: Gender.male,
-        interestedIn: InterestedIn.women,
-      );
 }
