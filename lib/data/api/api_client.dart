@@ -261,7 +261,9 @@ class ApiClient {
         final String? refresh = config.refreshToken;
         if (response.statusCode == 401 && allowRefresh && refresh != null) {
           if (await _refresh(refresh)) {
-            return getBytes(path, allowRefresh: false);
+            // Awaited inside the try on purpose: without it, a failure in
+            // the retry escapes this method's own error handling.
+            return await getBytes(path, allowRefresh: false);
           }
         }
         return null;
