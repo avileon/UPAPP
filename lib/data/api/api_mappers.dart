@@ -45,6 +45,14 @@ abstract final class ApiMappers {
 
   // -- profile -------------------------------------------------------------
 
+  /// The `photos` array as it comes off any profile payload.
+  static List<String> photoKeys(Object? value) {
+    if (value is! List) {
+      return const <String>[];
+    }
+    return value.whereType<String>().toList(growable: false);
+  }
+
   static Gender gender(Object? value) {
     switch (value) {
       case 'female':
@@ -86,7 +94,6 @@ abstract final class ApiMappers {
     if (id.isEmpty || firstName.isEmpty || birthDate == null) {
       return null;
     }
-    final int photoCount = (json['photos'] as List?)?.length ?? 0;
     return UserProfile(
       id: id,
       firstName: firstName,
@@ -94,7 +101,7 @@ abstract final class ApiMappers {
       gender: gender(json['gender']),
       interestedIn: interestedIn(json['interestedIn']),
       bio: string(json['bio']),
-      photoCount: photoCount < 1 ? 1 : photoCount,
+      photoKeys: photoKeys(json['photos']),
       isPhotoVerified: json['photoVerified'] == true,
     );
   }
@@ -120,6 +127,7 @@ abstract final class ApiMappers {
       bioEn: bio,
       isPhotoVerified: json['photoVerified'] == true,
       auraSeed: id.hashCode.abs() % 360,
+      photoKeys: photoKeys(json['photos']),
     );
   }
 

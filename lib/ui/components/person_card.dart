@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/entities/nearby_person.dart';
-import 'aura_photo.dart';
+import 'up_photo.dart';
 
 /// One tile in the Nearby grid.
 ///
@@ -39,7 +39,8 @@ class PersonCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.passthrough,
             children: <Widget>[
-              AuraPhoto(
+              UpPhoto(
+                photoKey: person.mainPhotoKey,
                 seed: person.auraSeed,
                 initial: person.initialFor(localeCode),
                 aspectRatio: 3 / 4,

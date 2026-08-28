@@ -10,7 +10,6 @@ import {
   generateOtp,
   hashSecret,
   issueAccessToken,
-  newId,
   safeEqual,
   verifyAccessToken,
 } from './lib/crypto.js';
@@ -21,10 +20,12 @@ import {
   HttpError,
   notFound,
   readJsonBody,
+  sendBinary,
   sendJson,
   tooManyRequests,
   unauthorized,
 } from './lib/http.js';
+import { PhotoStore, readBinaryBody } from './lib/media.js';
 import { Store } from './store.js';
 
 const GENDERS = ['male', 'female', 'other'];
@@ -83,10 +84,11 @@ function privateProfile(store, user, profile) {
   };
 }
 
-export function createApp({ database = ':memory:', presence } = {}) {
+export function createApp({ database = ':memory:', presence, photos } = {}) {
   const db = openDatabase(database);
   const store = new Store(db);
   const live = presence ?? new PresenceStore();
+  const media = photos ?? new PhotoStore();
   const router = createRouter();
 
   const requireUser = (req) => {
@@ -211,25 +213,68 @@ export function createApp({ database = ':memory:', presence } = {}) {
   });
 
   /**
-   * Milestone 2 hands back a local placeholder key. The contract is what
-   * matters: the client uploads straight to object storage and the server only
-   * ever holds the key. Swapping in S3 presigned PUTs changes this handler and
-   * nothing else.
+   * Uploads one photo. The body is the image itself, not a JSON envelope or a
+   * multipart form: the app has exactly one file to send, and base64 in JSON
+   * would cost a third more bytes over a phone connection for nothing.
+   *
+   * The declared content type is ignored. `PhotoStore` reads the magic bytes
+   * and stores the file under the extension those bytes justify, so an
+   * executable renamed to `.jpg` is refused here rather than served later.
    */
-  router.post('/media/upload-url', async (req) => {
+  router.post('/media/photo', async (req) => {
     const user = requireUser(req);
-    const key = `u/${user.id}/${newId()}`;
-    const result = store.addPhoto(user.id, key);
-    if (!result.added) throw badRequest('photo_limit_reached');
-    return {
-      status: 200,
-      body: { key, uploadUrl: null, photos: result.photos, note: 'local placeholder' },
-    };
+    const existing = JSON.parse(store.findProfile(user.id)?.photos ?? '[]');
+    if (existing.length >= config.maxPhotos) throw badRequest('photo_limit_reached');
+
+    const body = await readBinaryBody(req);
+    if (body.length === 0) throw badRequest('empty_body');
+
+    const saved = media.save(body);
+    const result = store.addPhoto(user.id, saved.key);
+    if (!result.added) {
+      // Losing the race for the last slot should not leave an orphan on disk.
+      media.remove(saved.key);
+      throw badRequest('photo_limit_reached');
+    }
+    return { status: 200, body: { key: saved.key, photos: result.photos } };
+  });
+
+  /**
+   * Serves one photo, to a signed-in caller only.
+   *
+   * Authentication rather than an unguessable URL: a link that works for
+   * anyone who has it is a link that works forever once it is forwarded, and
+   * these are photographs of real people. The next step, when the app has more
+   * than a handful of users, is to decide per request whether *this* caller is
+   * allowed to see *this* person — the same question `/nearby/resolve` already
+   * answers — and it goes here.
+   */
+  router.get('/media/:key', async (req, params) => {
+    requireUser(req);
+    const file = media.open(params.key);
+    if (!file) throw notFound('photo_not_found');
+    if (req.headers['if-none-match'] === file.etag) {
+      return { binary: { status: 304, body: Buffer.alloc(0), mime: file.mime } };
+    }
+    return { binary: { status: 200, ...file } };
+  });
+
+  router.delete('/media/:key', async (req, params) => {
+    const user = requireUser(req);
+    const result = store.removePhoto(user.id, params.key);
+    if (!result.removed) throw notFound('photo_not_found');
+    media.remove(params.key);
+    return { status: 200, body: { photos: result.photos } };
   });
 
   router.delete('/me', async (req) => {
     const user = requireUser(req);
     live.stopLive(user.id);
+    // The photos go before the row that names them, or nothing is left to say
+    // which files on disk belonged to this person.
+    for (const key of JSON.parse(store.findProfile(user.id)?.photos ?? '[]')) {
+      media.remove(key);
+    }
     store.deleteUser(user.id);
     return { status: 200, body: { deleted: true } };
   });
@@ -491,6 +536,10 @@ export function createApp({ database = ':memory:', presence } = {}) {
     }
     try {
       const result = await route.handler(req, route.params, url);
+      if (result.binary) {
+        sendBinary(res, result.binary.status ?? 200, result.binary);
+        return;
+      }
       sendJson(res, result.status ?? 200, result.body ?? {});
     } catch (error) {
       if (error instanceof HttpError) {
@@ -502,5 +551,5 @@ export function createApp({ database = ':memory:', presence } = {}) {
     }
   };
 
-  return { handle, store, live, db, router };
+  return { handle, store, live, media, db, router };
 }

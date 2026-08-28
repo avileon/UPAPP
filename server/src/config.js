@@ -55,6 +55,17 @@ export const config = {
     tokenBatchSize: int('BLE_TOKEN_BATCH', 6),
   },
 
+  media: {
+    /** Where photos land. Relative paths resolve next to the server code. */
+    directory: process.env.MEDIA_DIR ?? 'uploads',
+    /**
+     * Six megabytes. A phone camera JPEG is two to four; the app downscales
+     * before uploading, so anything near this cap is either a very large photo
+     * or someone testing the limit.
+     */
+    maxBytes: int('MEDIA_MAX_BYTES', 6 * 1024 * 1024),
+  },
+
   minimumAge: 18,
   maxPhotos: 6,
   maxMessageLength: 1000,

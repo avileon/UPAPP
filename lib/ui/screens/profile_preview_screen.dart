@@ -9,13 +9,13 @@ import '../../domain/entities/nearby_person.dart';
 import '../../domain/repositories/interaction_repository.dart';
 import '../../state/app_scope.dart';
 import '../../state/interaction_controller.dart';
-import '../components/aura_photo.dart';
 import '../components/common.dart';
 import '../components/up_buttons.dart';
 import '../components/up_chip.dart';
 import '../components/up_scaffold.dart';
 import '../navigation/routes.dart';
 import 'safety_sheet.dart';
+import '../components/up_photo.dart';
 
 /// One profile, two actions.
 ///
@@ -70,7 +70,8 @@ class ProfilePreviewScreen extends StatelessWidget {
                   children: <Widget>[
                     ClipRRect(
                       borderRadius: BorderRadius.circular(Radii.lg),
-                      child: AuraPhoto(
+                      child: UpPhoto(
+                        photoKey: person.mainPhotoKey,
                         seed: person.auraSeed,
                         initial: person.initialFor(localeCode),
                         aspectRatio: 4 / 5,

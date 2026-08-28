@@ -9,11 +9,11 @@ import '../../domain/entities/message.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../state/app_scope.dart';
 import '../../state/interaction_controller.dart';
-import '../components/aura_photo.dart';
 import '../components/common.dart';
 import '../components/up_scaffold.dart';
 import '../navigation/routes.dart';
 import 'safety_sheet.dart';
+import '../components/up_photo.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({required this.matchId, super.key});
@@ -108,7 +108,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 onBack: () => Navigator.of(context).pop(),
                 leading: person == null
                     ? null
-                    : AuraPhoto.circle(
+                    : UpPhoto.circle(
+                        photoKey: person.mainPhotoKey,
                         seed: person.auraSeed,
                         initial: person.initialFor(localeCode),
                         diameter: 38,

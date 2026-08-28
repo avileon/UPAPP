@@ -8,10 +8,10 @@ import '../../domain/entities/match_thread.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../domain/entities/reality_answer.dart';
 import '../../state/app_scope.dart';
-import '../components/aura_photo.dart';
 import '../components/up_buttons.dart';
 import '../components/up_chip.dart';
 import '../components/up_scaffold.dart';
+import '../components/up_photo.dart';
 
 /// Reality Check.
 ///
@@ -82,7 +82,8 @@ class RealityCheckScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                AuraPhoto.circle(
+                UpPhoto.circle(
+                  photoKey: person.mainPhotoKey,
                   seed: person.auraSeed,
                   initial: person.initialFor(localeCode),
                   diameter: 72,

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../core/l10n/app_strings.dart';
@@ -199,10 +201,42 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  Future<void> addPhoto() async {
-    _profile = await _profiles.addPhoto();
+  /// Uploads one photo and returns its key, or null if the upload failed.
+  ///
+  /// The key comes back so the caller can show the picture immediately from
+  /// the bytes it already has, instead of waiting for a round trip to fetch
+  /// back the image the person just chose.
+  Future<String?> addPhoto(Uint8List bytes) async {
+    _lastErrorCode = null;
+    final List<String> before = _profile?.photoKeys ?? const <String>[];
+    try {
+      _profile = await _profiles.addPhoto(bytes);
+    } on ApiException catch (error) {
+      _lastErrorCode = error.code;
+      notifyListeners();
+      return null;
+    }
+    notifyListeners();
+    final List<String> after = _profile?.photoKeys ?? const <String>[];
+    for (final String key in after) {
+      if (!before.contains(key)) {
+        return key;
+      }
+    }
+    return null;
+  }
+
+  Future<void> removePhoto(String key) async {
+    _lastErrorCode = null;
+    try {
+      _profile = await _profiles.removePhoto(key);
+    } on ApiException catch (error) {
+      _lastErrorCode = error.code;
+    }
     notifyListeners();
   }
+
+  Future<Uint8List?> photoBytes(String key) => _profiles.photoBytes(key);
 
   Future<void> deleteAccount() async {
     await _auth.deleteAccount();

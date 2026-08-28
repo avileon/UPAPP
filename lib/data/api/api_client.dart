@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'backend_config.dart';
 
@@ -165,6 +166,111 @@ class ApiClient {
       );
     }
     return decoded;
+  }
+
+  /// Uploads raw bytes — a photo, and nothing else so far.
+  ///
+  /// The body is the image itself rather than JSON or a multipart form. There
+  /// is one file, and base64 in an envelope would cost a third more bytes over
+  /// a phone connection to say the same thing.
+  Future<Map<String, dynamic>> postBytes(
+    String path,
+    Uint8List body,
+    String contentType,
+  ) async {
+    if (!config.isConfigured) {
+      throw const ApiException(0, 'no_server');
+    }
+    try {
+      return await _sendBytes(path, body, contentType);
+    } on ApiException catch (error) {
+      final String? refresh = config.refreshToken;
+      if (!error.isUnauthorized || refresh == null) {
+        rethrow;
+      }
+      if (!await _refresh(refresh)) {
+        rethrow;
+      }
+      return _sendBytes(path, body, contentType);
+    }
+  }
+
+  Future<Map<String, dynamic>> _sendBytes(
+    String path,
+    Uint8List body,
+    String contentType,
+  ) async {
+    final Uri uri = Uri.parse('${config.baseUrl}$path');
+    try {
+      final HttpClientRequest request = await _http.openUrl('POST', uri);
+      request.headers.set(HttpHeaders.contentTypeHeader, contentType);
+      final String? token = config.accessToken;
+      if (token != null) {
+        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+      }
+      request.add(body);
+      // A photo over a phone uplink is not a 20-second request.
+      final HttpClientResponse response =
+          await request.close().timeout(const Duration(seconds: 90));
+      final String text = await response.transform(utf8.decoder).join();
+      final Object? decoded = text.isEmpty ? null : jsonDecode(text);
+      final Map<String, dynamic> map =
+          decoded is Map<String, dynamic> ? decoded : const <String, dynamic>{};
+      if (response.statusCode >= 400) {
+        throw ApiException(
+          response.statusCode,
+          map['error'] as String? ?? 'http_${response.statusCode}',
+          map['message'] as String? ?? '',
+        );
+      }
+      return map;
+    } on TimeoutException {
+      throw const ApiException(0, 'timeout');
+    } on SocketException {
+      throw const ApiException(0, 'unreachable');
+    } on FormatException {
+      throw const ApiException(0, 'bad_response');
+    }
+  }
+
+  /// Downloads raw bytes. Returns null when the server has no such file.
+  Future<Uint8List?> getBytes(String path) async {
+    if (!config.isConfigured) {
+      return null;
+    }
+    final Uri uri = Uri.parse('${config.baseUrl}$path');
+    try {
+      final HttpClientRequest request = await _http.openUrl('GET', uri);
+      final String? token = config.accessToken;
+      if (token != null) {
+        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+      }
+      final HttpClientResponse response =
+          await request.close().timeout(const Duration(seconds: 60));
+      if (response.statusCode != 200) {
+        await response.drain<void>();
+        // 401 is worth one refresh: a photo request can easily be the first
+        // call after an access token quietly expired.
+        final String? refresh = config.refreshToken;
+        if (response.statusCode == 401 && refresh != null) {
+          if (await _refresh(refresh)) {
+            return getBytes(path);
+          }
+        }
+        return null;
+      }
+      final List<int> bytes = <int>[];
+      await for (final List<int> chunk in response) {
+        bytes.addAll(chunk);
+      }
+      return Uint8List.fromList(bytes);
+    } on TimeoutException {
+      return null;
+    } on SocketException {
+      return null;
+    } on HttpException {
+      return null;
+    }
   }
 
   /// A cheap round trip for the settings screen. Never throws.

@@ -25,7 +25,7 @@ class UserProfile {
     required this.gender,
     required this.interestedIn,
     this.bio = '',
-    this.photoCount = 1,
+    this.photoKeys = const <String>[],
     this.isPhotoVerified = false,
   });
 
@@ -35,7 +35,14 @@ class UserProfile {
   final Gender gender;
   final InterestedIn interestedIn;
   final String bio;
-  final int photoCount;
+  /// Storage keys, in order. The first one is the main photo.
+  ///
+  /// Keys, not URLs: a photo is fetched through the API with the caller's own
+  /// token, so there is no address that works for whoever happens to have it.
+  final List<String> photoKeys;
+
+  int get photoCount => photoKeys.length;
+  String? get mainPhotoKey => photoKeys.isEmpty ? null : photoKeys.first;
   final bool isPhotoVerified;
 
   static const int minimumAge = 18;
@@ -79,7 +86,7 @@ class UserProfile {
     Gender? gender,
     InterestedIn? interestedIn,
     String? bio,
-    int? photoCount,
+    List<String>? photoKeys,
     bool? isPhotoVerified,
   }) {
     return UserProfile(
@@ -89,7 +96,7 @@ class UserProfile {
       gender: gender ?? this.gender,
       interestedIn: interestedIn ?? this.interestedIn,
       bio: bio ?? this.bio,
-      photoCount: photoCount ?? this.photoCount,
+      photoKeys: photoKeys ?? this.photoKeys,
       isPhotoVerified: isPhotoVerified ?? this.isPhotoVerified,
     );
   }
@@ -103,7 +110,7 @@ class UserProfile {
       other.gender == gender &&
       other.interestedIn == interestedIn &&
       other.bio == bio &&
-      other.photoCount == photoCount &&
+      _sameKeys(other.photoKeys, photoKeys) &&
       other.isPhotoVerified == isPhotoVerified;
 
   @override
@@ -114,7 +121,19 @@ class UserProfile {
         gender,
         interestedIn,
         bio,
-        photoCount,
+        Object.hashAll(photoKeys),
         isPhotoVerified,
       );
+}
+
+bool _sameKeys(List<String> a, List<String> b) {
+  if (a.length != b.length) {
+    return false;
+  }
+  for (int i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) {
+      return false;
+    }
+  }
+  return true;
 }

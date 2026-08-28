@@ -1,7 +1,11 @@
 import { createServer } from 'node:http';
 import { once } from 'node:events';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { createApp } from '../src/app.js';
+import { PhotoStore } from '../src/lib/media.js';
 
 /**
  * Spins the real app on an ephemeral port and talks to it over real HTTP.
@@ -11,7 +15,14 @@ import { createApp } from '../src/app.js';
  * shapes are all part of the contract the Flutter client depends on.
  */
 export async function startTestServer() {
-  const app = createApp({ database: ':memory:' });
+  // A directory of its own per suite. Photos are the one thing in this server
+  // that outlives the in-memory database, so without this the tests would be
+  // writing real files into the repository.
+  const photoDir = mkdtempSync(join(tmpdir(), 'up-photos-'));
+  const app = createApp({
+    database: ':memory:',
+    photos: new PhotoStore(photoDir),
+  });
   const server = createServer(app.handle);
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -81,11 +92,37 @@ export async function startTestServer() {
   const nearby = async (user, tokens = []) =>
     call('POST', '/nearby/resolve', { token: user.token, body: { tokens } });
 
+  /** Uploads raw bytes the way the app does — the body is the image itself. */
+  const uploadPhoto = async (user, bytes, contentType = 'image/png') => {
+    const response = await fetch(`${base}/media/photo`, {
+      method: 'POST',
+      headers: {
+        'content-type': contentType,
+        authorization: `Bearer ${user.token}`,
+      },
+      body: bytes,
+    });
+    const text = await response.text();
+    return { status: response.status, body: text ? JSON.parse(text) : {} };
+  };
+
   const close = async () => {
     server.close();
     await once(server, 'close');
     app.db.close();
+    rmSync(photoDir, { recursive: true, force: true });
   };
 
-  return { app, call, signUp, goLiveTogether, goLiveAt, nearby, close, base };
+  return {
+    app,
+    call,
+    signUp,
+    goLiveTogether,
+    goLiveAt,
+    nearby,
+    uploadPhoto,
+    close,
+    base,
+    photoDir,
+  };
 }

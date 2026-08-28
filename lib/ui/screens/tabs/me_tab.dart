@@ -7,7 +7,7 @@ import '../../../core/theme/tokens.dart';
 import '../../../domain/entities/user_profile.dart';
 import '../../../state/app_scope.dart';
 import '../../../state/session_controller.dart';
-import '../../components/aura_photo.dart';
+import '../../components/up_photo.dart';
 import '../../components/common.dart';
 import '../../components/up_buttons.dart';
 import '../../components/up_chip.dart';
@@ -51,7 +51,8 @@ class MeTab extends StatelessWidget {
               const SizedBox(height: Insets.md),
               ClipRRect(
                 borderRadius: BorderRadius.circular(Radii.lg),
-                child: AuraPhoto(
+                child: UpPhoto(
+                  photoKey: profile.mainPhotoKey,
                   seed: 0,
                   initial: name.substring(0, 1),
                   aspectRatio: 4 / 5,

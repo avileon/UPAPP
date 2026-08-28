@@ -18,6 +18,7 @@ import '../domain/repositories/profile_repository.dart';
 import 'interaction_controller.dart';
 import 'live_controller.dart';
 import 'people_directory.dart';
+import 'photo_cache.dart';
 import 'session_controller.dart';
 
 /// Dependency injection.
@@ -32,6 +33,7 @@ class AppScope extends InheritedWidget {
     required this.live,
     required this.interactions,
     required this.people,
+    required this.photos,
     required this.config,
     required super.child,
     super.key,
@@ -41,6 +43,7 @@ class AppScope extends InheritedWidget {
   final LiveController live;
   final InteractionController interactions;
   final PeopleDirectory people;
+  final PhotoCache photos;
   final BackendConfig config;
 
   static AppScope of(BuildContext context) {
@@ -56,6 +59,7 @@ class AppScope extends InheritedWidget {
       live != oldWidget.live ||
       interactions != oldWidget.interactions ||
       people != oldWidget.people ||
+      photos != oldWidget.photos ||
       config != oldWidget.config;
 }
 
@@ -64,6 +68,7 @@ extension AppScopeAccess on BuildContext {
   LiveController get live => AppScope.of(this).live;
   InteractionController get interactions => AppScope.of(this).interactions;
   PeopleDirectory get people => AppScope.of(this).people;
+  PhotoCache get photos => AppScope.of(this).photos;
   BackendConfig get backend => AppScope.of(this).config;
 }
 
@@ -87,6 +92,10 @@ class AppScopeHost extends StatefulWidget {
 class _AppScopeHostState extends State<AppScopeHost> {
   final BackendConfig _config = BackendConfig();
   final PeopleDirectory _people = PeopleDirectory();
+
+  /// Rebuilt with the stack: it holds other people's photographs, and those
+  /// must not survive a change of server or a sign-out.
+  PhotoCache _photoCache = PhotoCache();
 
   ApiClient? _client;
   late AuthRepository _auth;
@@ -125,10 +134,12 @@ class _AppScopeHostState extends State<AppScopeHost> {
       _session,
       if (_client != null) _client!,
     ];
+    final PhotoCache retiredPhotos = _photoCache;
     setState(() {
       _people.clear();
       _buildStack();
     });
+    retiredPhotos.dispose();
     // After the frame, so nothing still on screen is holding a controller that
     // has just been torn down.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -160,6 +171,9 @@ class _AppScopeHostState extends State<AppScopeHost> {
 
   void _buildMockStack() {
     _client = null;
+    // No fetcher: every key resolves to nothing and the aura placeholder
+    // stands in, which is exactly what the mock stack is for.
+    _photoCache = PhotoCache();
     _auth = MockAuthRepository();
     _profiles = MockProfileRepository();
     _presence = MockPresenceRepository();
@@ -175,6 +189,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
   void _buildApiStack() {
     final ApiClient client = ApiClient(_config);
     _client = client;
+    _photoCache = PhotoCache(fetch: (String key) => client.getBytes('/media/$key'));
     _auth = ApiAuthRepository(
       client: client,
       acceptedTerms: () => _session.acceptedTerms,
@@ -207,6 +222,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
     _interactionController.dispose();
     _session.dispose();
     _client?.dispose();
+    _photoCache.dispose();
     _people.dispose();
     _config.dispose();
     super.dispose();
@@ -219,6 +235,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
       live: _live,
       interactions: _interactionController,
       people: _people,
+      photos: _photoCache,
       config: _config,
       child: Builder(builder: widget.builder),
     );

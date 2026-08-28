@@ -7,7 +7,7 @@ import '../../core/theme/tokens.dart';
 import '../../domain/entities/match_thread.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../state/app_scope.dart';
-import '../components/aura_photo.dart';
+import '../components/up_photo.dart';
 import '../components/up_buttons.dart';
 import '../components/up_scaffold.dart';
 import '../navigation/routes.dart';
@@ -86,6 +86,7 @@ class _MatchScreenState extends State<MatchScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       _Portrait(
+                        photoKey: context.session.profile?.mainPhotoKey,
                         seed: 0,
                         initial: myInitial,
                         borderColor: p.background,
@@ -93,6 +94,7 @@ class _MatchScreenState extends State<MatchScreen>
                       Transform.translate(
                         offset: const Offset(-22, 0),
                         child: _Portrait(
+                          photoKey: person.mainPhotoKey,
                           seed: person.auraSeed,
                           initial: person.initialFor(localeCode),
                           borderColor: p.background,
@@ -147,11 +149,13 @@ class _MatchScreenState extends State<MatchScreen>
 
 class _Portrait extends StatelessWidget {
   const _Portrait({
+    required this.photoKey,
     required this.seed,
     required this.initial,
     required this.borderColor,
   });
 
+  final String? photoKey;
   final int seed;
   final String initial;
   final Color borderColor;
@@ -163,7 +167,12 @@ class _Portrait extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: borderColor, width: 3),
       ),
-      child: AuraPhoto.circle(seed: seed, initial: initial, diameter: 96),
+      child: UpPhoto.circle(
+        photoKey: photoKey,
+        seed: seed,
+        initial: initial,
+        diameter: 96,
+      ),
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/profile_repository.dart';
 
@@ -18,8 +20,13 @@ class MockProfileRepository implements ProfileRepository {
     return profile;
   }
 
+  /// The mock has no storage, so it invents a key and forgets the bytes.
+  ///
+  /// That is not a shortcut: the mock stack exists to run the whole UI with no
+  /// server, and a key that resolves to nothing is exactly the state the photo
+  /// widget already has to handle — the aura placeholder.
   @override
-  Future<UserProfile> addPhoto() async {
+  Future<UserProfile> addPhoto(Uint8List bytes) async {
     final UserProfile current = _profile ??
         UserProfile(
           id: 'me',
@@ -28,11 +35,38 @@ class MockProfileRepository implements ProfileRepository {
           gender: Gender.male,
           interestedIn: InterestedIn.women,
         );
-    final int next =
-        (current.photoCount + 1).clamp(1, UserProfile.maxPhotos).toInt();
-    _profile = current.copyWith(photoCount: next);
+    if (current.photoKeys.length >= UserProfile.maxPhotos) {
+      return current;
+    }
+    _profile = current.copyWith(
+      photoKeys: <String>[
+        ...current.photoKeys,
+        'mock-${current.photoKeys.length}',
+      ],
+    );
     return _profile!;
   }
+
+  @override
+  Future<UserProfile> removePhoto(String key) async {
+    final UserProfile current = _profile ??
+        UserProfile(
+          id: 'me',
+          firstName: '',
+          birthDate: _defaultBirthDate,
+          gender: Gender.male,
+          interestedIn: InterestedIn.women,
+        );
+    _profile = current.copyWith(
+      photoKeys: current.photoKeys
+          .where((String k) => k != key)
+          .toList(growable: false),
+    );
+    return _profile!;
+  }
+
+  @override
+  Future<Uint8List?> photoBytes(String key) async => null;
 
   void clear() => _profile = null;
 }

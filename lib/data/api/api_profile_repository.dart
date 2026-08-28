@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/profile_repository.dart';
 import 'api_client.dart';
@@ -39,17 +41,36 @@ class ApiProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<UserProfile> addPhoto() async {
+  Future<UserProfile> addPhoto(Uint8List bytes) async {
+    // The declared type is a courtesy; the server reads the magic bytes and
+    // decides for itself.
     final Map<String, dynamic> result =
-        await _client.post('/media/upload-url');
-    final int photos = (result['photos'] as List?)?.length ?? 1;
-    // Milestone 2's endpoint reserves a key and returns no upload URL — there
-    // is no object storage behind it yet. The count is real; the picture is
-    // still the generated placeholder.
+        await _client.postBytes('/media/photo', bytes, 'image/jpeg');
+    return _withKeys(result['photos']);
+  }
+
+  @override
+  Future<UserProfile> removePhoto(String key) async {
+    final Map<String, dynamic> result = await _client.delete('/media/$key');
+    return _withKeys(result['photos']);
+  }
+
+  @override
+  Future<Uint8List?> photoBytes(String key) =>
+      _client.getBytes('/media/$key');
+
+  /// The profile as the server now has it, with the keys it just returned.
+  ///
+  /// Re-reading the profile rather than patching the local copy: the upload
+  /// response is authoritative about the photo list and about nothing else,
+  /// and a stale name or bio sitting next to a fresh photo list is the kind of
+  /// inconsistency that is very hard to see and very easy to ship.
+  Future<UserProfile> _withKeys(Object? photos) async {
+    final List<String> keys = photos is List
+        ? photos.whereType<String>().toList(growable: false)
+        : const <String>[];
     final UserProfile? current = await load();
-    return (current ?? _placeholder()).copyWith(
-      photoCount: photos < 1 ? 1 : photos,
-    );
+    return (current ?? _placeholder()).copyWith(photoKeys: keys);
   }
 
   UserProfile _placeholder() => UserProfile(

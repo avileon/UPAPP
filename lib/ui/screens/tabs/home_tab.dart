@@ -13,7 +13,6 @@ import '../../../state/app_scope.dart';
 import '../../../state/interaction_controller.dart';
 import '../../../state/live_controller.dart';
 import '../../../state/session_controller.dart';
-import '../../components/aura_photo.dart';
 import '../../components/common.dart';
 import '../../components/radar_view.dart';
 import '../../components/up_buttons.dart';
@@ -22,6 +21,7 @@ import '../../components/up_nav_bar.dart';
 import '../../navigation/routes.dart';
 import '../demo_sheet.dart';
 import '../main_shell.dart';
+import '../../components/up_photo.dart';
 
 /// The one screen the product lives or dies on.
 ///
@@ -295,7 +295,8 @@ class _NearbySummary extends StatelessWidget {
                           shape: BoxShape.circle,
                           border: Border.all(color: p.background, width: 2),
                         ),
-                        child: AuraPhoto.circle(
+                        child: UpPhoto.circle(
+                          photoKey: people[i].mainPhotoKey,
                           seed: people[i].auraSeed,
                           initial: people[i].initialFor(localeCode),
                           diameter: Sizes.avatarSm,

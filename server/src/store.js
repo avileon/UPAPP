@@ -101,6 +101,31 @@ export class Store {
       .run(nowIso(), userId);
   }
 
+  /**
+   * Drops one photo from a profile.
+   *
+   * `photo_primary` is repaired here rather than left dangling: a profile whose
+   * primary key points at a file that no longer exists renders as a broken
+   * image on every screen that shows that person.
+   */
+  removePhoto(userId, storageKey) {
+    const profile = this.findProfile(userId);
+    const photos = JSON.parse(profile?.photos ?? '[]');
+    const index = photos.indexOf(storageKey);
+    if (index === -1) return { photos, removed: false };
+    photos.splice(index, 1);
+    const primary = profile?.photo_primary === storageKey
+      ? (photos[0] ?? null)
+      : (profile?.photo_primary ?? null);
+    this.db
+      .prepare(
+        `UPDATE profiles SET photos = ?, photo_primary = ?, updated_at = ?
+          WHERE user_id = ?`,
+      )
+      .run(JSON.stringify(photos), primary, nowIso(), userId);
+    return { photos, removed: true };
+  }
+
   addPhoto(userId, storageKey) {
     const profile = this.findProfile(userId);
     const photos = JSON.parse(profile?.photos ?? '[]');

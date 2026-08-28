@@ -1,21 +1,28 @@
 name: up
 description: >-
-  UP — Bluetooth-first proximity discovery. Milestone 1: complete UI with mock
-  data. No backend, no real BLE.
+  UP — Bluetooth-first proximity discovery. The app talks to a real backend;
+  BLE itself is still to come, and a shared venue code stands in for it.
 publish_to: "none"
 version: 0.1.0+1
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
 
-# Deliberately zero third-party dependencies for Milestone 1.
-# Everything here ships inside the Flutter SDK, so `flutter pub get` resolves
-# offline and there is no supply chain to audit before the first demo.
+# One third-party dependency, and it is here because there is no alternative:
+# nothing in the Flutter SDK can open the system photo picker, and a dating app
+# without photographs is not testable. `image_picker` is maintained by the
+# Flutter team itself, and it is used gallery-only — no camera, which is also
+# why the app asks for no permissions on Android 13 and later.
+#
+# Everything else still ships inside the SDK. That was never a purity rule; it
+# is why `flutter pub get` resolves in seconds and why there is almost no
+# supply chain to audit.
 dependencies:
   flutter:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:

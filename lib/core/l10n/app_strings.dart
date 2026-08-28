@@ -53,6 +53,9 @@ class AppStrings {
     required this.photosBody,
     required this.addPhoto,
     required this.mainPhoto,
+    required this.removePhoto,
+    required this.uploading,
+    required this.photosNoneYet,
     required this.permsTitle,
     required this.permBluetoothTitle,
     required this.permBluetoothBody,
@@ -218,6 +221,9 @@ class AppStrings {
   final String photosBody;
   final String addPhoto;
   final String mainPhoto;
+  final String removePhoto;
+  final String uploading;
+  final String photosNoneYet;
 
   final String permsTitle;
   final String permBluetoothTitle;
@@ -394,6 +400,9 @@ class AppStrings {
         'תמונה ראשית חובה, עד 6 בסך הכל. זה מה שאנשים יראו בשנייה שהם מרימים את המבט מהמסך.',
     addPhoto: 'הוסף',
     mainPhoto: 'ראשית',
+    removePhoto: 'הסר תמונה',
+    uploading: 'מעלה…',
+    photosNoneYet: 'בלי תמונה אף אחד לא יידע מי אתה. אפשר להוסיף עוד אחר כך.',
     permsTitle: 'שתי הרשאות, ואנחנו בפנים',
     permBluetoothTitle: 'Bluetooth',
     permBluetoothBody: 'ככה UP יודע מי נמצא ממש לידך. בלי זה אין אפליקציה.',
@@ -563,6 +572,9 @@ class AppStrings {
         'A main photo is required, up to 6 in total. This is what people see the second they look up from their screen.',
     addPhoto: 'Add',
     mainPhoto: 'Main',
+    removePhoto: 'Remove photo',
+    uploading: 'Uploading…',
+    photosNoneYet: 'Without a photo nobody knows who you are. You can add more later.',
     permsTitle: 'Two permissions and we’re in',
     permBluetoothTitle: 'Bluetooth',
     permBluetoothBody:

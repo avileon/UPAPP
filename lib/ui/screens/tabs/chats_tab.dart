@@ -9,10 +9,10 @@ import '../../../domain/entities/message.dart';
 import '../../../domain/entities/nearby_person.dart';
 import '../../../state/app_scope.dart';
 import '../../../state/interaction_controller.dart';
-import '../../components/aura_photo.dart';
 import '../../components/common.dart';
 import '../../components/up_chip.dart';
 import '../../navigation/routes.dart';
+import '../../components/up_photo.dart';
 
 class ChatsTab extends StatelessWidget {
   const ChatsTab({super.key});
@@ -99,7 +99,8 @@ class _MatchRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: Insets.md),
         child: Row(
           children: <Widget>[
-            AuraPhoto.circle(
+            UpPhoto.circle(
+              photoKey: person.mainPhotoKey,
               seed: person.auraSeed,
               initial: person.initialFor(localeCode),
               diameter: Sizes.avatarSm,

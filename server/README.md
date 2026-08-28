@@ -3,7 +3,7 @@
 Phone auth, profiles, presence, likes, matches, chat and safety. Runs on your
 own machine and reaches the phone through a Cloudflare tunnel.
 
-**45 tests, all passing.** Unlike the Flutter code, this was written and run in
+**58 tests, all passing.** Unlike the Flutter code, this was written and run in
 the same place — every claim below is something the test suite asserts.
 
 ---
@@ -108,6 +108,16 @@ attacker nothing; replaying it after the session ends resolves to nobody. Every
 failure — unknown, expired, session over — returns the same empty result, so a
 caller cannot tell them apart.
 
+**Photos are files, and the bytes decide what they are.** A photo is stored
+under a name the server chose — 32 hex characters plus an extension justified by
+the file's own magic bytes, so `content-type: image/jpeg` on an executable is
+refused at the door rather than served back later. `GET /media/:key` requires a
+valid token: an unguessable URL is still a URL that works forever once it is
+forwarded, and these are photographs of real people. What is *not* built yet is
+the per-request question of whether this caller may see this person — the same
+question `/nearby/resolve` already answers. Until it is, any signed-in account
+can fetch any key it knows.
+
 **18+ is enforced with the server's clock**, on profile save, and again before
 going live. The acceptance timestamp is written server-side.
 
@@ -131,7 +141,8 @@ positive.
 | POST | `/auth/verify-otp` | creates the user on first success |
 | POST | `/auth/refresh` | refresh tokens are single use |
 | GET / PUT | `/me/profile` | PUT enforces 18+ |
-| POST | `/media/upload-url` | placeholder key; S3 presign later |
+| POST | `/media/photo` | the body is the image itself |
+| GET / DELETE | `/media/:key` | signed-in callers only |
 | DELETE | `/me` | anonymises immediately |
 | POST | `/live/start` `/live/refresh` `/live/stop` | mints and rotates BLE tokens; `venue` is optional |
 | POST | `/nearby/resolve` | the privacy boundary |
@@ -163,7 +174,6 @@ Everything has a working default. Set these when it stops being a laptop:
 ## Not done yet, on purpose
 
 - **Real SMS.** The provider sits behind one function in `src/app.js`.
-- **Real photo storage.** `/media/upload-url` returns a key and no URL.
 - **Realtime.** No WebSocket yet; the app polls. Socket.IO or plain WS for
   `match.created` and `message.created` is the next piece.
 - **Push.** FCM/APNs as the fallback when the socket is down, never as the

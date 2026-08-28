@@ -16,6 +16,7 @@ class NearbyPerson {
     required this.bioEn,
     required this.isPhotoVerified,
     required this.auraSeed,
+    this.photoKeys = const <String>[],
   });
 
   final String id;
@@ -25,6 +26,12 @@ class NearbyPerson {
   final String bioHe;
   final String bioEn;
   final bool isPhotoVerified;
+
+  /// Storage keys for this person's photos, in order. Empty until they have
+  /// uploaded one — the aura placeholder covers that case.
+  final List<String> photoKeys;
+
+  String? get mainPhotoKey => photoKeys.isEmpty ? null : photoKeys.first;
 
   /// Deterministic seed for the placeholder portrait. Milestone 2 replaces this
   /// with a signed photo URL.

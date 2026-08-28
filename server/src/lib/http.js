@@ -89,6 +89,27 @@ export async function readJsonBody(req) {
   }
 }
 
+/**
+ * Writes bytes rather than JSON — photos, and nothing else so far.
+ *
+ * `nosniff` and an explicit content type matter more here than anywhere else
+ * in this file: these bytes were uploaded by a user, and a browser that
+ * guesses their type is a browser that can be talked into running them.
+ */
+export function sendBinary(res, status, { body, mime, etag }) {
+  const headers = {
+    'content-type': mime,
+    'content-length': body.length,
+    'x-content-type-options': 'nosniff',
+    'content-disposition': 'inline',
+    // Private: a photo is not something a shared proxy should keep.
+    'cache-control': 'private, max-age=86400',
+  };
+  if (etag) headers.etag = etag;
+  res.writeHead(status, headers);
+  res.end(body);
+}
+
 export function sendJson(res, status, payload) {
   const body = JSON.stringify(payload);
   res.writeHead(status, {
