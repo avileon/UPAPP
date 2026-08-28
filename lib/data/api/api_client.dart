@@ -193,6 +193,14 @@ class ApiClient {
       throw const ApiException(0, 'timeout');
     } on http.ClientException {
       throw const ApiException(0, 'unreachable');
+    } on Exception {
+      // `IOClient` wraps SocketException and HttpException as ClientException
+      // but lets TLS failures through untouched — an expired tunnel
+      // certificate, or `https://` typed at a plain-HTTP host. Those must not
+      // escape past every `on ApiException` handler above this line, `ping()`
+      // included. Nothing inside this method throws ApiException, so this
+      // cannot swallow one.
+      throw const ApiException(0, 'tls_failed');
     }
   }
 
@@ -243,7 +251,9 @@ class ApiClient {
     final http.Request request =
         http.Request('GET', Uri.parse('${config.baseUrl}$path'))
           ..headers.addAll(_headers(authenticated: true));
-    final http.Response response = await _perform(request, _timeout);
+    // The media timeout, not the API one: a photo coming down a phone uplink
+    // is not a twenty-second request either.
+    final http.Response response = await _perform(request, _mediaTimeout);
     if (response.statusCode == 200) {
       return response.bodyBytes;
     }

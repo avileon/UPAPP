@@ -83,24 +83,26 @@ class BackendConfig extends ChangeNotifier {
     } catch (_) {
       // A store that will not open is a first run, not an error.
     }
-    await applyUrl(url ?? Uri.base);
+    await _applyUrl(url ?? Uri.base);
     notifyListeners();
   }
 
-  /// Reads `?venue=` and `?server=` out of a URL. Does nothing on a phone,
-  /// where `Uri.base` is a file path.
-  Future<void> applyUrl(Uri url) async {
+  /// Reads the page's own address. Does nothing on a phone, where `Uri.base`
+  /// is a `file:///` path.
+  Future<void> _applyUrl(Uri url) async {
     if (!url.hasScheme || (!url.isScheme('http') && !url.isScheme('https'))) {
       return;
     }
     // Served from the server itself, so the page's own origin is the address —
-    // no pasting, and it cannot be pointed at the wrong place by a stale
-    // setting.
+    // nothing to paste.
+    //
+    // Only as a default, never as an override: someone who set a server
+    // explicitly must keep it. That costs nothing in the case this exists for,
+    // because browser storage is scoped per origin — a new tunnel URL is a new
+    // origin with an empty store, so the origin is adopted there anyway.
     final String origin = _normaliseBaseUrl('${url.scheme}://${url.authority}');
-    if (origin.isNotEmpty && origin != _baseUrl) {
+    if (origin.isNotEmpty && _baseUrl.isEmpty) {
       _baseUrl = origin;
-      _accessToken = null;
-      _refreshToken = null;
     }
     final String? venue = normaliseVenue(url.queryParameters['venue'] ?? '');
     if (venue != null) {

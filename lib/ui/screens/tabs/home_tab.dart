@@ -40,7 +40,9 @@ class HomeTab extends StatelessWidget {
 
     return ListenableBuilder(
       listenable: Listenable.merge(
-        <Listenable>[session, live, interactions],
+        // `backend` too: the room shown below changes on the venue screen, and
+        // without it the row keeps reading the old code after popping back.
+        <Listenable>[session, live, interactions, context.backend],
       ),
       builder: (BuildContext context, Widget? _) {
         final List<NearbyPerson> visible = live.visibleNearby(
