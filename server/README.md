@@ -3,7 +3,7 @@
 Phone auth, profiles, presence, likes, matches, chat and safety. Runs on your
 own machine and reaches the phone through a Cloudflare tunnel.
 
-**58 tests, all passing.** Unlike the Flutter code, this was written and run in
+**68 tests, all passing.** Unlike the Flutter code, this was written and run in
 the same place — every claim below is something the test suite asserts.
 
 ---
@@ -16,8 +16,12 @@ what ships inside Node.
 
 ```powershell
 cd server
-node src/server.js
+.\run.ps1
 ```
+
+`run.ps1` fetches the latest web build from the GitHub release, generates a
+persistent signing key, and starts the server. `node src/server.js` still works
+if you only want the API.
 
 That's it. The server creates `up.db` beside itself on first run.
 
@@ -108,6 +112,15 @@ attacker nothing; replaying it after the session ends resolves to nobody. Every
 failure — unknown, expired, session over — returns the same empty result, so a
 caller cannot tell them apart.
 
+**The app and the API share one origin.** `server/src/lib/static.js` serves the
+Flutter web build from `public/`, and every unknown GET falls through to
+`index.html` because the app owns its own routing. That is not just convenience:
+the page knows its own server address without anyone pasting one, a QR code can
+carry the address and the room in a single link, and there is no CORS story to
+get wrong. A URL is attacker-controlled, so the path is resolved and then
+checked for containment before the disk is touched — there is a test that tries
+to climb out four different ways.
+
 **Photos are files, and the bytes decide what they are.** A photo is stored
 under a name the server chose — 32 hex characters plus an extension justified by
 the file's own magic bytes, so `content-type: image/jpeg` on an executable is
@@ -153,6 +166,7 @@ positive.
 | POST | `/matches/:id/reality-feedback` | |
 | POST | `/users/:id/block` `/users/:id/report` | separate on purpose |
 | GET | `/health` | |
+| GET | anything else | the web app, if `public/` has one |
 
 ---
 
@@ -166,6 +180,8 @@ Everything has a working default. Set these when it stops being a laptop:
 | `DATABASE_FILE` | `up.db` | |
 | `JWT_SECRET` | random per boot | **set this** — otherwise every restart signs everyone out |
 | `SMS_PROVIDER` | `mock` | anything else stops revealing codes |
+| `SITE_DIR` | `public` | where the built web app lives |
+| `MEDIA_DIR` | `uploads` | where photos land |
 | `LIKES_MAX_PER_HOUR` | 60 | |
 | `OTP_MAX_PER_HOUR` | 5 | |
 

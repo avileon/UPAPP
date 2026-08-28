@@ -126,6 +126,14 @@ class AppStrings {
     required this.venueLabel,
     required this.venueHint,
     required this.venueBody,
+    required this.venueTitle,
+    required this.venueScanHint,
+    required this.venueNoCode,
+    required this.venueNoServer,
+    required this.venueRoom,
+    required this.venueNoCodeShort,
+    required this.copyLink,
+    required this.linkCopied,
     required this.devCodeLabel,
     required this.errorOffline,
     required this.errorUnderAge,
@@ -303,6 +311,14 @@ class AppStrings {
   final String venueLabel;
   final String venueHint;
   final String venueBody;
+  final String venueTitle;
+  final String venueScanHint;
+  final String venueNoCode;
+  final String venueNoServer;
+  final String venueRoom;
+  final String venueNoCodeShort;
+  final String copyLink;
+  final String linkCopied;
   final String devCodeLabel;
   final String errorOffline;
   final String errorUnderAge;
@@ -478,6 +494,14 @@ class AppStrings {
     venueHint: 'BAR12',
     venueBody: 'מי שמזין את אותו הקוד יופיע אצלך כשאתם Live. '
         'הקוד לא נשמר ונמחק בסוף הסשן.',
+    venueTitle: 'החדר שלכם',
+    venueScanHint: 'מי שסורק נכנס לאותו חדר — בלי להתקין כלום.',
+    venueNoCode: 'עוד אין קוד מקום. בחר קוד קצר ותקבל QR לשיתוף.',
+    venueNoServer: 'אין כתובת שרת, אז אין מה לשתף עדיין.',
+    venueRoom: 'חדר',
+    venueNoCodeShort: 'בחר קוד',
+    copyLink: 'העתק קישור',
+    linkCopied: 'הקישור הועתק',
     devCodeLabel: 'קוד לפיתוח',
     errorOffline: 'אין חיבור לשרת. בדוק את הכתובת בהגדרות.',
     errorUnderAge: 'צריך להיות בן 18 ומעלה.',
@@ -654,6 +678,14 @@ class AppStrings {
     venueHint: 'BAR12',
     venueBody: 'Anyone who types the same code shows up while you are both '
         'Live. The code is never stored and dies with the session.',
+    venueTitle: 'Your room',
+    venueScanHint: 'Whoever scans this lands in the same room — nothing to install.',
+    venueNoCode: 'No venue code yet. Pick a short one and you get a QR to share.',
+    venueNoServer: 'No server address, so there is nothing to share yet.',
+    venueRoom: 'Room',
+    venueNoCodeShort: 'Pick a code',
+    copyLink: 'Copy link',
+    linkCopied: 'Link copied',
     devCodeLabel: 'Dev code',
     errorOffline: 'Cannot reach the server. Check the address in settings.',
     errorUnderAge: 'You have to be 18 or over.',

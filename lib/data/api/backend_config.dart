@@ -1,7 +1,5 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Where the app points, and the tokens it points there with.
 ///
@@ -9,32 +7,21 @@ import 'package:flutter/foundation.dart';
 /// all change together, and every screen that cares listens to the same
 /// [ChangeNotifier].
 ///
-/// **On persistence.** This writes a small JSON file into the app's own
-/// temporary directory — the one place `dart:io` can reach on Android without
-/// a plugin. That directory is private to the app but the OS may clear it, so
-/// treat what is stored here as a convenience: losing it costs one sign-in and
-/// one paste of the server address, never any data. When the app grows a real
-/// keystore, the access and refresh tokens move there first and this file keeps
-/// only the address.
+/// **On persistence.** `shared_preferences` because it is the one store that
+/// exists on every platform this app runs on — Android's own preferences in the
+/// app, `localStorage` in a browser. It is not a keystore, so treat what is
+/// here as a convenience: losing it costs one sign-in and one paste of the
+/// server address, never any data. When the app grows a real secure store, the
+/// access and refresh tokens move there first and this keeps only the address.
 class BackendConfig extends ChangeNotifier {
-  BackendConfig({
-    String baseUrl = '',
-    String venueCode = '',
-    Directory? storageDirectory,
-  })  : _baseUrl = _normaliseBaseUrl(baseUrl),
-        _venueCode = normaliseVenue(venueCode) ?? '',
-        _storageDirectory = storageDirectory;
-
-  /// Where the settings file lives. Injectable so tests get a directory of
-  /// their own — sharing the process-wide temp directory means one test's
-  /// saved server address is another test's surprise.
-  final Directory? _storageDirectory;
+  BackendConfig({String baseUrl = '', String venueCode = ''})
+      : _baseUrl = _normaliseBaseUrl(baseUrl),
+        _venueCode = normaliseVenue(venueCode) ?? '';
 
   String _baseUrl;
   String _venueCode;
   String? _accessToken;
   String? _refreshToken;
-  File? _file;
 
   /// Empty means "no server configured" — the app runs on mock data.
   String get baseUrl => _baseUrl;
@@ -45,7 +32,10 @@ class BackendConfig extends ChangeNotifier {
   bool get isConfigured => _baseUrl.isNotEmpty;
   bool get isSignedIn => _accessToken != null;
 
-  static const String _fileName = 'up_backend.json';
+  static const String _keyBaseUrl = 'up.baseUrl';
+  static const String _keyVenue = 'up.venueCode';
+  static const String _keyAccess = 'up.accessToken';
+  static const String _keyRefresh = 'up.refreshToken';
 
   /// Strips what people actually paste: trailing slashes, stray spaces, and a
   /// missing scheme. A tunnel URL copied out of a terminal usually arrives with
@@ -69,32 +59,54 @@ class BackendConfig extends ChangeNotifier {
   /// hand with `normaliseVenue` in `server/src/domain/presence.js` — there is
   /// one test on each side and they assert the same examples.
   static String? normaliseVenue(String raw) {
-    final String key =
-        raw.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    final String key = raw.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
     if (key.length < 3 || key.length > 12) {
       return null;
     }
     return key;
   }
 
-  Future<void> load() async {
+  /// Loads what was stored, then lets the page's own URL override it.
+  ///
+  /// The override is what makes a link worth sharing. Opening
+  /// `https://…/?venue=BAR12` puts you in that room without typing anything,
+  /// and served from the same origin the app already knows its own address —
+  /// so a person who scans a QR code at a table is signed in to the right
+  /// server, in the right room, having typed nothing at all.
+  Future<void> load({Uri? url}) async {
     try {
-      final File file = await _resolveFile();
-      if (!file.existsSync()) {
-        return;
-      }
-      final Object? decoded = jsonDecode(await file.readAsString());
-      if (decoded is! Map<String, dynamic>) {
-        return;
-      }
-      _baseUrl = _normaliseBaseUrl(decoded['baseUrl'] as String? ?? '');
-      _venueCode = decoded['venueCode'] as String? ?? '';
-      _accessToken = decoded['accessToken'] as String?;
-      _refreshToken = decoded['refreshToken'] as String?;
-      notifyListeners();
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      _baseUrl = _normaliseBaseUrl(prefs.getString(_keyBaseUrl) ?? '');
+      _venueCode = prefs.getString(_keyVenue) ?? '';
+      _accessToken = prefs.getString(_keyAccess);
+      _refreshToken = prefs.getString(_keyRefresh);
     } catch (_) {
-      // A missing or corrupt settings file is a first run, not an error.
+      // A store that will not open is a first run, not an error.
     }
+    await applyUrl(url ?? Uri.base);
+    notifyListeners();
+  }
+
+  /// Reads `?venue=` and `?server=` out of a URL. Does nothing on a phone,
+  /// where `Uri.base` is a file path.
+  Future<void> applyUrl(Uri url) async {
+    if (!url.hasScheme || (!url.isScheme('http') && !url.isScheme('https'))) {
+      return;
+    }
+    // Served from the server itself, so the page's own origin is the address —
+    // no pasting, and it cannot be pointed at the wrong place by a stale
+    // setting.
+    final String origin = _normaliseBaseUrl('${url.scheme}://${url.authority}');
+    if (origin.isNotEmpty && origin != _baseUrl) {
+      _baseUrl = origin;
+      _accessToken = null;
+      _refreshToken = null;
+    }
+    final String? venue = normaliseVenue(url.queryParameters['venue'] ?? '');
+    if (venue != null) {
+      _venueCode = venue;
+    }
+    await _persist();
   }
 
   Future<void> setServer({required String baseUrl}) async {
@@ -130,29 +142,20 @@ class BackendConfig extends ChangeNotifier {
 
   Future<void> clearTokens() => setTokens();
 
-  Future<File> _resolveFile() async {
-    final File? cached = _file;
-    if (cached != null) {
-      return cached;
-    }
-    final Directory directory = _storageDirectory ?? Directory.systemTemp;
-    final File file = File('${directory.path}/$_fileName');
-    _file = file;
-    return file;
-  }
-
   Future<void> _persist() async {
     try {
-      final File file = await _resolveFile();
-      await file.writeAsString(jsonEncode(<String, dynamic>{
-        'baseUrl': _baseUrl,
-        'venueCode': _venueCode,
-        'accessToken': _accessToken,
-        'refreshToken': _refreshToken,
-      }));
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyBaseUrl, _baseUrl);
+      await prefs.setString(_keyVenue, _venueCode);
+      await _write(prefs, _keyAccess, _accessToken);
+      await _write(prefs, _keyRefresh, _refreshToken);
     } catch (_) {
       // Not being able to remember the address is survivable; failing to start
       // because of it is not.
     }
+  }
+
+  Future<void> _write(SharedPreferences prefs, String key, String? value) {
+    return value == null ? prefs.remove(key) : prefs.setString(key, value);
   }
 }

@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:up/data/api/backend_config.dart';
 import 'package:up/domain/entities/user_profile.dart';
 
@@ -13,6 +12,8 @@ import 'package:up/domain/entities/user_profile.dart';
 /// examples as in `server/test/venue.test.js`: when one side changes, one of
 /// the two suites goes red.
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('venue keys', () {
     test('the same room, however it is typed', () {
       for (final String raw in <String>[
@@ -77,11 +78,12 @@ void main() {
   });
 
   group('server address', () {
-    // Its own directory, so nothing here leaks into the widget tests through
-    // a settings file in the shared temp folder.
-    BackendConfig freshConfig() => BackendConfig(
-          storageDirectory: Directory.systemTemp.createTempSync('up_test'),
-        );
+    setUp(() {
+      // An empty store per test, so nothing here leaks into the widget tests.
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+    });
+
+    BackendConfig freshConfig() => BackendConfig();
 
     test('a pasted tunnel URL is cleaned up rather than refused', () async {
       final BackendConfig config = freshConfig();

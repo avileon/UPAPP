@@ -13,6 +13,7 @@ import '../screens/profile_setup_screen.dart';
 import '../screens/reality_check_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/splash_screen.dart';
+import '../screens/venue_screen.dart';
 
 abstract final class Routes {
   static const String splash = '/';
@@ -28,6 +29,7 @@ abstract final class Routes {
   static const String chat = '/chat';
   static const String realityCheck = '/reality-check';
   static const String settings = '/settings';
+  static const String venue = '/venue';
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     Widget page;
@@ -58,6 +60,8 @@ abstract final class Routes {
         page = RealityCheckScreen(matchId: settings.arguments! as String);
       case Routes.settings:
         page = const SettingsScreen();
+      case venue:
+        page = const VenueScreen();
       default:
         return null;
     }

@@ -112,6 +112,16 @@ class HomeTab extends StatelessWidget {
                   caption: s.durationLabel,
                   onSelect: session.setLiveDuration,
                 ),
+              const SizedBox(height: Insets.md),
+              // The room is the only thing that decides who is "here", so it
+              // belongs on the screen where you go Live — not buried in
+              // settings.
+              _RoomRow(
+                label: s.venueRoom,
+                code: context.backend.venueCode,
+                emptyLabel: s.venueNoCodeShort,
+                onTap: () => Navigator.of(context).pushNamed(Routes.venue),
+              ),
               const SizedBox(height: Insets.lg),
             ],
           ),
@@ -127,6 +137,49 @@ class HomeTab extends StatelessWidget {
   }
 }
 
+
+/// The current room, and a way into the screen that shares it.
+class _RoomRow extends StatelessWidget {
+  const _RoomRow({
+    required this.label,
+    required this.code,
+    required this.emptyLabel,
+    required this.onTap,
+  });
+
+  final String label;
+  final String code;
+  final String emptyLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final UpPalette p = context.palette;
+    return UpCard(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(
+        horizontal: Insets.lg,
+        vertical: Insets.md,
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(Icons.qr_code_rounded, size: 20, color: p.dim),
+          const SizedBox(width: Insets.sm),
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+          Text(
+            code.isEmpty ? emptyLabel : code,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: code.isEmpty ? p.dim : p.foreground,
+                  letterSpacing: code.isEmpty ? 0 : 2,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// Goes Live, and surfaces a refusal instead of swallowing it.
 Future<void> _toggleLive(

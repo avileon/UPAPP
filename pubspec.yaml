@@ -8,11 +8,19 @@ version: 0.1.0+1
 environment:
   sdk: ">=3.4.0 <4.0.0"
 
-# One third-party dependency, and it is here because there is no alternative:
-# nothing in the Flutter SDK can open the system photo picker, and a dating app
-# without photographs is not testable. `image_picker` is maintained by the
-# Flutter team itself, and it is used gallery-only — no camera, which is also
-# why the app asks for no permissions on Android 13 and later.
+# Four dependencies, all of them maintained by the Dart or Flutter team, and
+# each one here because there is no alternative inside the SDK:
+#
+#   http                — `dart:io` does not exist in a browser, so a single
+#                         import of it makes `flutter build web` fail. This is
+#                         the one client that works on a phone and on the web.
+#   shared_preferences  — likewise for storage: app preferences on Android,
+#                         localStorage in a browser.
+#   image_picker        — nothing in the SDK can open the system photo picker,
+#                         and a dating app without photographs is not testable.
+#                         Gallery only, no camera, which is why the app asks for
+#                         no permissions on Android 13 and later.
+#   qr_flutter          — draws the venue QR. Pure Dart, no platform code.
 #
 # Everything else still ships inside the SDK. That was never a purity rule; it
 # is why `flutter pub get` resolves in seconds and why there is almost no
@@ -22,7 +30,10 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  http: ^1.2.2
+  shared_preferences: ^2.3.2
   image_picker: ^1.1.2
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:

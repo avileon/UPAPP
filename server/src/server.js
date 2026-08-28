@@ -29,6 +29,7 @@ const server = createServer((req, res) => {
 server.listen(config.port, config.host, () => {
   console.log(`UP server listening on http://${config.host}:${config.port}`);
   console.log(`  database : ${config.databaseFile}`);
+  console.log(`  web app  : ${app.web.exists ? 'served from /' : 'not present (API only)'}`);
   console.log(`  sms      : ${config.smsProvider}${revealsOtp() ? ' (codes are returned in the response)' : ''}`);
   console.log('');
   console.log('  Expose it with:  cloudflared tunnel --url http://localhost:' + config.port);

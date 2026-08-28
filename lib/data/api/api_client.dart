@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
+
+import 'package:http/http.dart' as http;
 
 import 'backend_config.dart';
 
@@ -29,19 +30,25 @@ class ApiException implements Exception {
 
 /// The whole HTTP surface, in one file.
 ///
-/// `dart:io`'s own client rather than the `http` package, for the same reason
-/// the server has no dependencies: this is sixty lines of behaviour, and the
-/// two things that could go wrong — sending a stale token, and hiding a network
-/// failure behind a parse error — are both visible here in full.
+/// `package:http` rather than `dart:io`'s own client, and that is what lets
+/// this app run in a browser at all: `dart:io` does not exist on the web, so a
+/// single import of it anywhere in the tree makes `flutter build web` fail.
+/// The package is maintained by the Dart team and picks the right transport per
+/// platform — sockets on a phone, `fetch` in a browser — behind one API.
+///
+/// The two things that could go wrong here are still visible in full: sending a
+/// stale token, and hiding a network failure behind a parse error.
 class ApiClient {
-  ApiClient(this.config);
+  ApiClient(this.config, {http.Client? httpClient})
+      : _http = httpClient ?? http.Client();
 
   final BackendConfig config;
+  final http.Client _http;
 
-  final HttpClient _http = HttpClient()
-    ..connectionTimeout = const Duration(seconds: 12);
+  static const Duration _timeout = Duration(seconds: 20);
 
-  static const Duration _responseTimeout = Duration(seconds: 20);
+  /// A photo over a phone uplink is not a twenty-second request.
+  static const Duration _mediaTimeout = Duration(seconds: 90);
 
   Future<Map<String, dynamic>> get(String path) => send('GET', path);
 
@@ -65,13 +72,12 @@ class ApiClient {
     }
 
     try {
-      final Map<String, dynamic> result = await _once(
+      return await _once(
         method,
         path,
         body: body,
         authenticated: authenticated,
       );
-      return result;
     } on ApiException catch (error) {
       final String? refresh = config.refreshToken;
       // Exactly one refresh attempt, and only when there is something to
@@ -83,8 +89,7 @@ class ApiClient {
           refresh == null) {
         rethrow;
       }
-      final bool refreshed = await _refresh(refresh);
-      if (!refreshed) {
+      if (!await _refresh(refresh)) {
         rethrow;
       }
       return _once(method, path, body: body, authenticated: authenticated);
@@ -112,52 +117,56 @@ class ApiClient {
     }
   }
 
+  Map<String, String> _headers({
+    required bool authenticated,
+    String? contentType,
+  }) {
+    final Map<String, String> headers = <String, String>{};
+    if (contentType != null) {
+      headers['content-type'] = contentType;
+    }
+    final String? token = config.accessToken;
+    if (authenticated && token != null) {
+      headers['authorization'] = 'Bearer $token';
+    }
+    return headers;
+  }
+
   Future<Map<String, dynamic>> _once(
     String method,
     String path, {
     Object? body,
     required bool authenticated,
   }) async {
-    final Uri uri = Uri.parse('${config.baseUrl}$path');
-    HttpClientResponse response;
-    String text;
-    try {
-      final HttpClientRequest request = await _http.openUrl(method, uri);
-      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
-      final String? token = config.accessToken;
-      if (authenticated && token != null) {
-        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
-      }
-      if (body != null) {
-        request.add(utf8.encode(jsonEncode(body)));
-      }
-      response = await request.close().timeout(_responseTimeout);
-      text = await response.transform(utf8.decoder).join();
-    } on TimeoutException {
-      throw const ApiException(0, 'timeout');
-    } on SocketException {
-      throw const ApiException(0, 'unreachable');
-    } on HandshakeException {
-      throw const ApiException(0, 'tls_failed');
-    } on HttpException {
-      throw const ApiException(0, 'unreachable');
+    final http.Request request =
+        http.Request(method, Uri.parse('${config.baseUrl}$path'))
+          ..headers.addAll(
+            _headers(
+              authenticated: authenticated,
+              contentType: 'application/json',
+            ),
+          );
+    if (body != null) {
+      request.body = jsonEncode(body);
     }
+    return _decode(await _perform(request, _timeout));
+  }
 
+  Map<String, dynamic> _decode(http.Response response) {
     Map<String, dynamic> decoded = const <String, dynamic>{};
-    if (text.isNotEmpty) {
+    if (response.body.isNotEmpty) {
       try {
-        final Object? value = jsonDecode(text);
+        final Object? value = jsonDecode(response.body);
         if (value is Map<String, dynamic>) {
           decoded = value;
         }
       } on FormatException {
         // A tunnel that has expired answers with an HTML error page. Say the
-        // server is unreachable rather than reporting a JSON parse failure the
-        // user cannot act on.
+        // response was bad rather than reporting a JSON parse failure the user
+        // cannot act on.
         throw ApiException(response.statusCode, 'bad_response');
       }
     }
-
     if (response.statusCode >= 400) {
       throw ApiException(
         response.statusCode,
@@ -168,6 +177,25 @@ class ApiClient {
     return decoded;
   }
 
+  /// Sends a prepared request and turns transport failures into [ApiException].
+  ///
+  /// One place, so that "the server refused" and "the server was never reached"
+  /// cannot be confused anywhere above this line.
+  Future<http.Response> _perform(
+    http.BaseRequest request,
+    Duration timeout,
+  ) async {
+    try {
+      final http.StreamedResponse streamed =
+          await _http.send(request).timeout(timeout);
+      return await http.Response.fromStream(streamed);
+    } on TimeoutException {
+      throw const ApiException(0, 'timeout');
+    } on http.ClientException {
+      throw const ApiException(0, 'unreachable');
+    }
+  }
+
   /// Uploads raw bytes — a photo, and nothing else so far.
   ///
   /// The body is the image itself rather than JSON or a multipart form. There
@@ -176,60 +204,29 @@ class ApiClient {
   Future<Map<String, dynamic>> postBytes(
     String path,
     Uint8List body,
-    String contentType,
-  ) async {
+    String contentType, {
+    bool allowRefresh = true,
+  }) async {
     if (!config.isConfigured) {
       throw const ApiException(0, 'no_server');
     }
     try {
-      return await _sendBytes(path, body, contentType);
+      final http.Request request =
+          http.Request('POST', Uri.parse('${config.baseUrl}$path'))
+            ..headers.addAll(
+              _headers(authenticated: true, contentType: contentType),
+            )
+            ..bodyBytes = body;
+      return _decode(await _perform(request, _mediaTimeout));
     } on ApiException catch (error) {
       final String? refresh = config.refreshToken;
-      if (!error.isUnauthorized || refresh == null) {
+      if (!error.isUnauthorized || !allowRefresh || refresh == null) {
         rethrow;
       }
       if (!await _refresh(refresh)) {
         rethrow;
       }
-      return _sendBytes(path, body, contentType);
-    }
-  }
-
-  Future<Map<String, dynamic>> _sendBytes(
-    String path,
-    Uint8List body,
-    String contentType,
-  ) async {
-    final Uri uri = Uri.parse('${config.baseUrl}$path');
-    try {
-      final HttpClientRequest request = await _http.openUrl('POST', uri);
-      request.headers.set(HttpHeaders.contentTypeHeader, contentType);
-      final String? token = config.accessToken;
-      if (token != null) {
-        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
-      }
-      request.add(body);
-      // A photo over a phone uplink is not a 20-second request.
-      final HttpClientResponse response =
-          await request.close().timeout(const Duration(seconds: 90));
-      final String text = await response.transform(utf8.decoder).join();
-      final Object? decoded = text.isEmpty ? null : jsonDecode(text);
-      final Map<String, dynamic> map =
-          decoded is Map<String, dynamic> ? decoded : const <String, dynamic>{};
-      if (response.statusCode >= 400) {
-        throw ApiException(
-          response.statusCode,
-          map['error'] as String? ?? 'http_${response.statusCode}',
-          map['message'] as String? ?? '',
-        );
-      }
-      return map;
-    } on TimeoutException {
-      throw const ApiException(0, 'timeout');
-    } on SocketException {
-      throw const ApiException(0, 'unreachable');
-    } on FormatException {
-      throw const ApiException(0, 'bad_response');
+      return postBytes(path, body, contentType, allowRefresh: false);
     }
   }
 
@@ -243,43 +240,22 @@ class ApiClient {
     if (!config.isConfigured) {
       throw const ApiException(0, 'no_server');
     }
-    final Uri uri = Uri.parse('${config.baseUrl}$path');
-    try {
-      final HttpClientRequest request = await _http.openUrl('GET', uri);
-      final String? token = config.accessToken;
-      if (token != null) {
-        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
-      }
-      final HttpClientResponse response =
-          await request.close().timeout(const Duration(seconds: 60));
-      if (response.statusCode != 200) {
-        await response.drain<void>();
-        // 401 is worth exactly one refresh: a photo request can easily be the
-        // first call after an access token quietly expired. One, not a loop —
-        // a server that keeps answering 401 while refresh keeps succeeding
-        // would otherwise recurse without bound.
-        final String? refresh = config.refreshToken;
-        if (response.statusCode == 401 && allowRefresh && refresh != null) {
-          if (await _refresh(refresh)) {
-            // Awaited inside the try on purpose: without it, a failure in
-            // the retry escapes this method's own error handling.
-            return await getBytes(path, allowRefresh: false);
-          }
-        }
-        return null;
-      }
-      final List<int> bytes = <int>[];
-      await for (final List<int> chunk in response) {
-        bytes.addAll(chunk);
-      }
-      return Uint8List.fromList(bytes);
-    } on TimeoutException {
-      throw const ApiException(0, 'timeout');
-    } on SocketException {
-      throw const ApiException(0, 'unreachable');
-    } on HttpException {
-      throw const ApiException(0, 'unreachable');
+    final http.Request request =
+        http.Request('GET', Uri.parse('${config.baseUrl}$path'))
+          ..headers.addAll(_headers(authenticated: true));
+    final http.Response response = await _perform(request, _timeout);
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
     }
+    // 401 is worth exactly one refresh: a photo request can easily be the first
+    // call after an access token quietly expired. One, not a loop.
+    final String? refresh = config.refreshToken;
+    if (response.statusCode == 401 && allowRefresh && refresh != null) {
+      if (await _refresh(refresh)) {
+        return getBytes(path, allowRefresh: false);
+      }
+    }
+    return null;
   }
 
   /// A cheap round trip for the settings screen. Never throws.
@@ -293,5 +269,5 @@ class ApiClient {
     }
   }
 
-  void dispose() => _http.close(force: true);
+  void dispose() => _http.close();
 }

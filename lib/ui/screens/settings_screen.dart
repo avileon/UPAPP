@@ -316,6 +316,12 @@ class _ServerSectionState extends State<_ServerSection> {
                   onPressed:
                       _status == _Reachability.checking ? null : _apply,
                 ),
+                UpButton(
+                  label: s.venueTitle,
+                  style: UpButtonStyle.quiet,
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(Routes.venue),
+                ),
               ],
             ),
           ),

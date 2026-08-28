@@ -96,7 +96,7 @@ export async function readJsonBody(req) {
  * in this file: these bytes were uploaded by a user, and a browser that
  * guesses their type is a browser that can be talked into running them.
  */
-export function sendBinary(res, status, { body, mime, etag }) {
+export function sendBinary(res, status, { body, mime, etag, cacheControl }) {
   const headers = {
     'content-type': mime,
     'x-content-type-options': 'nosniff',
@@ -109,6 +109,7 @@ export function sendBinary(res, status, { body, mime, etag }) {
   // carry the ETag it would have sent with the 200.
   if (status !== 304) headers['content-length'] = body.length;
   if (etag) headers.etag = etag;
+  if (cacheControl) headers['cache-control'] = cacheControl;
   res.writeHead(status, headers);
   res.end(body);
 }

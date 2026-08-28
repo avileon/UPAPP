@@ -26,6 +26,7 @@ import {
   unauthorized,
 } from './lib/http.js';
 import { PhotoStore, readBinaryBody } from './lib/media.js';
+import { StaticSite } from './lib/static.js';
 import { Store } from './store.js';
 
 const GENDERS = ['male', 'female', 'other'];
@@ -84,11 +85,12 @@ function privateProfile(store, user, profile) {
   };
 }
 
-export function createApp({ database = ':memory:', presence, photos } = {}) {
+export function createApp({ database = ':memory:', presence, photos, site } = {}) {
   const db = openDatabase(database);
   const store = new Store(db);
   const live = presence ?? new PresenceStore();
   const media = photos ?? new PhotoStore();
+  const web = site ?? new StaticSite(config.siteDirectory);
   const router = createRouter();
 
   const requireUser = (req) => {
@@ -538,6 +540,19 @@ export function createApp({ database = ':memory:', presence, photos } = {}) {
     const url = new URL(req.url, 'http://localhost');
     const route = router.match(req.method, url.pathname);
     if (!route) {
+      // Not an API route. If a web build is present, this is the app itself
+      // being asked for — every unknown GET is one of its screens.
+      if (req.method === 'GET' && web.exists) {
+        const file = web.read(url.pathname);
+        if (file) {
+          if (req.headers['if-none-match'] === file.etag) {
+            sendBinary(res, 304, { ...file, body: Buffer.alloc(0) });
+            return;
+          }
+          sendBinary(res, 200, file);
+          return;
+        }
+      }
       sendJson(res, 404, { error: 'no_such_route' });
       return;
     }
@@ -558,5 +573,5 @@ export function createApp({ database = ':memory:', presence, photos } = {}) {
     }
   };
 
-  return { handle, store, live, media, db, router };
+  return { handle, store, live, media, web, db, router };
 }

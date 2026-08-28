@@ -1,8 +1,9 @@
 name: Build APK
 
-# Builds the Android APKs on GitHub's machines and publishes them — together
-# with the analyze and test logs — as the "latest" release, so both the app and
-# its diagnostics are reachable from a plain URL.
+# Builds the Android APKs and the web app on GitHub's machines and publishes
+# them — together with the analyze and test logs — as the "latest" release, so
+# the app, the browser build and the diagnostics are all reachable from a plain
+# URL.
 on:
   push:
   workflow_dispatch:
@@ -28,7 +29,7 @@ jobs:
       - run: flutter --version
 
       # The android/ folder is not committed — Flutter regenerates it.
-      - run: flutter create --org co.vibit.up --project-name up --platforms=android .
+      - run: flutter create --org co.vibit.up --project-name up --platforms=android,web .
 
       # `flutter create` also drops in a template test that references a MyApp
       # class this project does not have. It is not our test; remove it.
@@ -46,6 +47,12 @@ jobs:
       # actually needs.
       - run: flutter build apk --release
       - run: flutter build apk --release --split-per-abi
+
+      # The browser build. This is what makes the app shareable as a link —
+      # no install, and it reaches iPhones, which the APK never will.
+      - run: flutter build web --release
+      - name: Package the web app
+        run: cd build/web && zip -qr "$GITHUB_WORKSPACE/web.zip" .
 
       - name: Record how each APK is signed
         run: |
@@ -81,7 +88,7 @@ jobs:
           shopt -s nullglob
           APKS=(build/app/outputs/flutter-apk/*.apk)
           FILES=()
-          for f in analyze-output.txt test-output.txt signing.txt; do
+          for f in analyze-output.txt test-output.txt signing.txt web.zip; do
             if [ -f "$f" ]; then
               FILES+=("$f")
             fi
@@ -91,7 +98,7 @@ jobs:
           if [ "${#APKS[@]}" -eq 0 ]; then
             STATE="BUILD FAILED - logs only, no APK in this release."
           else
-            STATE="Most phones want app-arm64-v8a-release.apk."
+            STATE="Most phones want app-arm64-v8a-release.apk; web.zip is the browser build."
           fi
 
           gh release delete latest --yes --cleanup-tag || true

@@ -55,6 +55,9 @@ export const config = {
     tokenBatchSize: int('BLE_TOKEN_BATCH', 6),
   },
 
+  /** Where the built web app lives, if it has been fetched. */
+  siteDirectory: process.env.SITE_DIR ?? 'public',
+
   media: {
     /** Where photos land. Relative paths resolve next to the server code. */
     directory: process.env.MEDIA_DIR ?? 'uploads',
