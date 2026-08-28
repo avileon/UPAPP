@@ -66,6 +66,18 @@ class SessionController extends ChangeNotifier {
   }
 
   String get localeCode => _locale.languageCode;
+  bool get isSignedIn => _profile != null;
+
+  /// A draft profile so the setup screens always have something to edit.
+  UserProfile get draftProfile =>
+      _profile ??
+      UserProfile(
+        id: 'me',
+        firstName: '',
+        birthDate: _defaultBirthDate,
+        gender: Gender.male,
+        interestedIn: InterestedIn.women,
+      );
 
   /// Turns [lastErrorCode] into something a person can act on.
   String errorMessage(AppStrings strings) => errorText(strings, _lastErrorCode);
