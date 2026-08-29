@@ -64,16 +64,16 @@ if (-not $NoWeb -and ($Update -or -not $haveWeb)) {
 }
 
 Write-Host ""
-if ($haveWeb) {
-  Write-Host "In a SECOND PowerShell window, put it on the internet with:" -ForegroundColor Cyan
-  Write-Host "    cloudflared tunnel --url http://localhost:3000" -ForegroundColor Yellow
-  Write-Host ""
-  Write-Host "Then open the address it prints. That one link is the whole app -" -ForegroundColor Cyan
-  Write-Host "no install, works on iPhone too. Share it and you are testing." -ForegroundColor Cyan
-} else {
+if (-not $haveWeb) {
   Write-Host "No web build present - the API is running on its own." -ForegroundColor Yellow
-  Write-Host "    cloudflared tunnel --url http://localhost:3000" -ForegroundColor Yellow
+  Write-Host "Run .\run.ps1 -Update to fetch it." -ForegroundColor Yellow
+  Write-Host ""
 }
+Write-Host "In a SECOND PowerShell window, put it on the internet:" -ForegroundColor Cyan
+Write-Host "    .\tunnel.ps1                 fixed address (https://up.atar.co)" -ForegroundColor Yellow
+Write-Host "    .\tunnel.ps1 -Setup          the one-time setup for it" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "That one link is the whole app - no install, works on iPhone too." -ForegroundColor Cyan
 Write-Host ""
 
 node src/server.js
