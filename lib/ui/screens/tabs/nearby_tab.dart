@@ -106,7 +106,12 @@ class NearbyTab extends StatelessWidget {
         return PersonCard(
           person: person,
           localeCode: context.session.localeCode,
-          hasSentYouAnUp: incoming.contains(person.id),
+          // The server's answer first: it survives a reload, and on the mock
+          // stack it is the controller that knows.
+          hasSentYouAnUp: person.sentYouUp || incoming.contains(person.id),
+          youSentAnUp:
+              person.youSentUp || context.interactions.hasSentUpTo(person.id),
+          sentLabel: s.upSentLabel,
           onTap: () => Navigator.of(context).pushNamed(
             Routes.profilePreview,
             arguments: person.id,

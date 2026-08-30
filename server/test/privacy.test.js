@@ -24,10 +24,23 @@ test('privacy and safety', async (t) => {
     assert.equal(res.status, 200);
     assert.equal(res.body.people.length, 1);
 
+    // The list is exhaustive on purpose: anything new that shows up here is a
+    // decision somebody has to make deliberately. `sentYouUp` and `youSentUp`
+    // are facts about this pair and nobody else's business — and nobody else
+    // receives them.
     const person = res.body.people[0];
     assert.deepEqual(
       Object.keys(person).sort(),
-      ['age', 'bio', 'firstName', 'id', 'photoVerified', 'photos'],
+      [
+        'age',
+        'bio',
+        'firstName',
+        'id',
+        'photoVerified',
+        'photos',
+        'sentYouUp',
+        'youSentUp',
+      ].sort(),
     );
     const serialised = JSON.stringify(res.body);
     assert.ok(!serialised.includes('+9725100'), 'a phone number leaked');

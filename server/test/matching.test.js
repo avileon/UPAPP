@@ -26,6 +26,27 @@ test('matching', async (t) => {
     assert.deepEqual(bMatches.body.matches, []);
   });
 
+  await t.test('the person who received an UP is told, and the sender sees their own', async () => {
+    // An UP nobody can observe is a button that does nothing. The recipient
+    // learning of it is what "sending" means; the asymmetry that matters — a
+    // sender learning whether the other side liked them back — is unchanged
+    // and still only answered by a match.
+    const a = await s.signUp('+972500000031');
+    const b = await s.signUp('+972500000032');
+
+    await s.goLiveAt(a, 'UPROOM');
+    await s.goLiveAt(b, 'UPROOM');
+    await s.call('POST', `/likes/${b.id}`, { token: a.token });
+
+    const seenByB = (await s.nearby(b)).body.people[0];
+    assert.equal(seenByB.sentYouUp, true, 'B was sent an UP and must know');
+    assert.equal(seenByB.youSentUp, false, 'B has sent nothing');
+
+    const seenByA = (await s.nearby(a)).body.people[0];
+    assert.equal(seenByA.youSentUp, true, 'A must still see its own UP after a reload');
+    assert.equal(seenByA.sentYouUp, false, 'B has not answered, and A is not told otherwise');
+  });
+
   await t.test('a mutual UP creates exactly one match', async () => {
     const a = await s.signUp('+972500000003');
     const b = await s.signUp('+972500000004');

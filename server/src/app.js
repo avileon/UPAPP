@@ -365,7 +365,23 @@ export function createApp({ database = ':memory:', presence, photos, site } = {}
       if (store.isBlockedEitherWay(user.id, otherId)) return;
       if (!mutuallyCompatible(user, other)) return;
 
-      people.push(publicProfile(store, other, store.findProfile(otherId)));
+      people.push({
+        ...publicProfile(store, other, store.findProfile(otherId)),
+        // Two facts about *this pair*, and the only two the caller is party to.
+        //
+        // `sentYouUp` is the whole point of an UP: without it the person who
+        // received one has no way to know, and the feature is a button that
+        // does nothing anybody can observe. It is not a leak of the sender's
+        // intent — telling the recipient is what sending means. What stays
+        // hidden is the other direction, which is why `/likes` still answers a
+        // sender with nothing about the person they sent to.
+        //
+        // `youSentUp` is the caller's own action reflected back, so the "UP
+        // sent" state survives a reload instead of living in the app's memory
+        // until the page is refreshed.
+        sentYouUp: store.hasLiked(otherId, user.id),
+        youSentUp: store.hasLiked(user.id, otherId),
+      });
     };
 
     for (const raw of tokens) {

@@ -15,6 +15,8 @@ class PersonCard extends StatelessWidget {
     required this.localeCode,
     required this.onTap,
     this.hasSentYouAnUp = false,
+    this.youSentAnUp = false,
+    this.sentLabel = '',
     super.key,
   });
 
@@ -22,6 +24,14 @@ class PersonCard extends StatelessWidget {
   final String localeCode;
   final VoidCallback onTap;
   final bool hasSentYouAnUp;
+
+  /// You already UP'd this person. Quieter than the incoming badge on purpose:
+  /// one is news, the other is a reminder of something you did.
+  final bool youSentAnUp;
+
+  /// The wording for [youSentAnUp]. Passed in rather than read from context so
+  /// this component stays a pure view.
+  final String sentLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +85,41 @@ class PersonCard extends StatelessWidget {
                       Icons.check_rounded,
                       size: 13,
                       color: p.onCyan,
+                    ),
+                  ),
+                ),
+              if (!hasSentYouAnUp && youSentAnUp && sentLabel.isNotEmpty)
+                PositionedDirectional(
+                  top: Insets.sm,
+                  end: Insets.sm,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Insets.sm,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: p.surface,
+                      borderRadius: BorderRadius.circular(Radii.pill),
+                      border: Border.all(color: p.line),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Icon(
+                          Icons.arrow_upward_rounded,
+                          size: 11,
+                          color: p.dim,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          sentLabel,
+                          style: TextStyle(
+                            color: p.dim,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

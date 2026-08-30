@@ -46,12 +46,18 @@ class ProfilePreviewScreen extends StatelessWidget {
     }
 
     return ListenableBuilder(
-      listenable: interactions,
+      // The directory too: the UP flags on this person arrive with the next
+      // poll, and a screen that is already open has to notice.
+      listenable: Listenable.merge(<Listenable>[interactions, context.people]),
       builder: (BuildContext context, Widget? _) {
         final String localeCode = context.session.localeCode;
-        final bool alreadySent = interactions.hasSentUpTo(person.id);
+        // `person` comes from the directory, which the nearby poll refreshes,
+        // so the server's answer is what survives a reload — the controller's
+        // own set only lives until the page does.
+        final bool alreadySent =
+            person.youSentUp || interactions.hasSentUpTo(person.id);
         final bool sentYouAnUp =
-            interactions.incomingUpIds.contains(person.id);
+            person.sentYouUp || interactions.incomingUpIds.contains(person.id);
 
         return UpScaffold(
           child: Column(

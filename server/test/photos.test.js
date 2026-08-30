@@ -177,7 +177,16 @@ test('photos', async (t) => {
     assert.deepEqual(person.photos, [upload.body.key]);
     assert.deepEqual(
       Object.keys(person).sort(),
-      ['age', 'bio', 'firstName', 'id', 'photoVerified', 'photos'],
+      [
+        'age',
+        'bio',
+        'firstName',
+        'id',
+        'photoVerified',
+        'photos',
+        'sentYouUp',
+        'youSentUp',
+      ].sort(),
     );
   });
 

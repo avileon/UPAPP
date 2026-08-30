@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:up/data/api/api_mappers.dart';
 import 'package:up/data/api/backend_config.dart';
+import 'package:up/domain/entities/nearby_person.dart';
 import 'package:up/domain/entities/user_profile.dart';
 
 /// The two places where the app and the server have to agree exactly.
@@ -104,6 +106,47 @@ void main() {
 
     test('no address means the app stays on mock data', () {
       expect(freshConfig().isConfigured, isFalse);
+    });
+  });
+
+  group('the UP flags on a nearby person', () {
+    // These decide whether an UP is visible to anyone at all. Sent by the
+    // server per request, for people the caller is already allowed to see, and
+    // read here — so a rename on either side goes red rather than quietly
+    // turning the feature off, which is exactly how it was off to begin with.
+    Map<String, dynamic> person(Map<String, dynamic> extra) {
+      return <String, dynamic>{
+        'id': 'p1',
+        'firstName': 'Dana',
+        'age': 30,
+        'bio': '',
+        'photos': <String>[],
+        'photoVerified': false,
+        ...extra,
+      };
+    }
+
+    test('both directions are read', () {
+      final NearbyPerson mapped = ApiMappers.nearbyPerson(
+        person(<String, dynamic>{'sentYouUp': true, 'youSentUp': true}),
+      );
+      expect(mapped.sentYouUp, isTrue);
+      expect(mapped.youSentUp, isTrue);
+    });
+
+    test('they are independent of each other', () {
+      final NearbyPerson mapped = ApiMappers.nearbyPerson(
+        person(<String, dynamic>{'sentYouUp': true, 'youSentUp': false}),
+      );
+      expect(mapped.sentYouUp, isTrue);
+      expect(mapped.youSentUp, isFalse,
+          reason: 'receiving an UP is not the same as having sent one');
+    });
+
+    test('a server that says nothing means no', () {
+      final NearbyPerson mapped = ApiMappers.nearbyPerson(person(<String, dynamic>{}));
+      expect(mapped.sentYouUp, isFalse);
+      expect(mapped.youSentUp, isFalse);
     });
   });
 }

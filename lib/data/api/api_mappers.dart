@@ -128,6 +128,8 @@ abstract final class ApiMappers {
       isPhotoVerified: json['photoVerified'] == true,
       auraSeed: id.hashCode.abs() % 360,
       photoKeys: photoKeys(json['photos']),
+      sentYouUp: json['sentYouUp'] == true,
+      youSentUp: json['youSentUp'] == true,
     );
   }
 

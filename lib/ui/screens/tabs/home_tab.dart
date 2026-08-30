@@ -51,7 +51,15 @@ class HomeTab extends StatelessWidget {
           passedIds: interactions.passedIds,
           blockedIds: interactions.blockedIds,
         );
-        final int incoming = interactions.incomingUpIds.length;
+        // Both sources, deduplicated: the server marks the people in front of
+        // you who UP'd you, and the mock stack keeps its own set. Whoever knows
+        // it, the banner is what turns an UP into something the other person
+        // can actually notice.
+        final int incoming = <String>{
+          ...interactions.incomingUpIds,
+          for (final NearbyPerson person in visible)
+            if (person.sentYouUp) person.id,
+        }.length;
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: Insets.screen),

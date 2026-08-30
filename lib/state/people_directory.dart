@@ -26,11 +26,17 @@ class PeopleDirectory extends ChangeNotifier {
         continue;
       }
       // Always overwrite — a re-resolved profile is the fresher one. Notify
-      // only for a genuinely new person, so a poll that returns the same room
-      // every few seconds does not rebuild the whole tree on every tick.
-      final bool isNew = !_byId.containsKey(person.id);
+      // sparingly, so a poll that returns the same room every five seconds does
+      // not rebuild the whole tree on every tick: a new person, or one of the
+      // two UP flags flipping. Those flags are the only fields that change
+      // mid-session *and* change what a screen draws, and missing the flip is
+      // the difference between being told somebody UP'd you and not.
+      final NearbyPerson? existing = _byId[person.id];
+      final bool worthRebuilding = existing == null ||
+          existing.sentYouUp != person.sentYouUp ||
+          existing.youSentUp != person.youSentUp;
       _byId[person.id] = person;
-      changed = changed || isNew;
+      changed = changed || worthRebuilding;
     }
     if (changed) {
       notifyListeners();

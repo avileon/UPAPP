@@ -142,7 +142,8 @@ test('venue presence', async (t) => {
 
   await t.test('a venue peer is serialised exactly like anyone else', async () => {
     // No `via`, no `venue`, no provenance of any kind. The app cannot render a
-    // "found by radio" badge because it never receives the fact.
+    // "found by radio" badge because it never receives the fact. The two like
+    // flags below are about this pair, not about how it was found.
     const a = await s.signUp('+972520000021');
     const b = await s.signUp('+972520000022');
 
@@ -152,7 +153,16 @@ test('venue presence', async (t) => {
     const person = (await s.nearby(a)).body.people[0];
     assert.deepEqual(
       Object.keys(person).sort(),
-      ['age', 'bio', 'firstName', 'id', 'photoVerified', 'photos'],
+      [
+        'age',
+        'bio',
+        'firstName',
+        'id',
+        'photoVerified',
+        'photos',
+        'sentYouUp',
+        'youSentUp',
+      ].sort(),
     );
   });
 

@@ -17,6 +17,8 @@ class NearbyPerson {
     required this.isPhotoVerified,
     required this.auraSeed,
     this.photoKeys = const <String>[],
+    this.sentYouUp = false,
+    this.youSentUp = false,
   });
 
   final String id;
@@ -36,6 +38,18 @@ class NearbyPerson {
   /// Deterministic seed for the placeholder portrait. Milestone 2 replaces this
   /// with a signed photo URL.
   final int auraSeed;
+
+  /// This person has sent *you* an UP.
+  ///
+  /// The server decides it, per request, for people you are already allowed to
+  /// see. Without it an UP is a button whose effect nobody can observe.
+  final bool sentYouUp;
+
+  /// You have sent *them* one.
+  ///
+  /// Also from the server, which is what makes the "UP sent" state survive a
+  /// reload — on the web that is every refresh.
+  final bool youSentUp;
 
   String nameFor(String localeCode) =>
       localeCode == 'he' ? firstNameHe : firstNameEn;
