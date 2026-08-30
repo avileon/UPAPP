@@ -71,6 +71,11 @@ class ApiClient {
       throw const ApiException(0, 'no_server');
     }
 
+    // Read *before* sending, not in the catch: by the time a 401 comes back
+    // another request may already have refreshed, and the difference between
+    // the token this request was made with and the one stored now is exactly
+    // how that is detected. See [_refresh].
+    final String? held = config.refreshToken;
     try {
       return await _once(
         method,
@@ -79,24 +84,68 @@ class ApiClient {
         authenticated: authenticated,
       );
     } on ApiException catch (error) {
-      final String? refresh = config.refreshToken;
       // Exactly one refresh attempt, and only when there is something to
       // refresh with. A loop here would turn an expired session into a storm
       // of requests against a server that has already said no.
       if (!error.isUnauthorized ||
           !allowRefresh ||
           !authenticated ||
-          refresh == null) {
+          held == null) {
         rethrow;
       }
-      if (!await _refresh(refresh)) {
+      if (!await _refresh(held)) {
         rethrow;
       }
       return _once(method, path, body: body, authenticated: authenticated);
     }
   }
 
-  Future<bool> _refresh(String refreshToken) async {
+  /// The refresh in flight, if any. See [_refresh].
+  Future<bool>? _refreshing;
+
+  /// Exchanges the refresh token — at most once at a time, for everybody.
+  ///
+  /// **The bug this shape exists to prevent.** A refresh token is single use.
+  /// The app polls `/nearby/resolve` every five seconds while Live, so the
+  /// moment an access token expires there are several requests in flight, each
+  /// gets its own 401, and each would spend the *same* refresh token. One wins;
+  /// the losers get `refresh_invalid` — and the old code answered that by
+  /// clearing the tokens, wiping the perfectly good pair the winner had just
+  /// stored a millisecond earlier. The phone was then signed out in the middle
+  /// of an evening, with "something went wrong" as the only explanation.
+  ///
+  /// So: everyone who needs a refresh awaits the same future; a caller whose
+  /// 401 arrives after somebody else already refreshed simply retries; and a
+  /// failure only clears the tokens when the stored refresh token is still the
+  /// one that failed, because if it changed underneath us somebody else
+  /// succeeded and their credentials are not ours to throw away.
+  ///
+  /// [staleToken] is the refresh token the caller held when it *sent* the
+  /// request, which is what makes "somebody already fixed this" detectable.
+  Future<bool> _refresh(String staleToken) {
+    final Future<bool>? inFlight = _refreshing;
+    if (inFlight != null) {
+      return inFlight;
+    }
+    final String? current = config.refreshToken;
+    if (current == null) {
+      return Future<bool>.value(false);
+    }
+    if (current != staleToken) {
+      // A refresh already completed between this request being sent and its
+      // 401 arriving. The credentials are fresh; retrying is the whole fix.
+      return Future<bool>.value(true);
+    }
+    final Future<bool> attempt = _performRefresh(current);
+    _refreshing = attempt;
+    return attempt.whenComplete(() {
+      if (identical(_refreshing, attempt)) {
+        _refreshing = null;
+      }
+    });
+  }
+
+  Future<bool> _performRefresh(String refreshToken) async {
     try {
       final Map<String, dynamic> result = await _once(
         'POST',
@@ -110,9 +159,11 @@ class ApiClient {
       );
       return true;
     } on ApiException {
-      // The refresh token is single use and may already have been spent. Drop
-      // it rather than keeping a credential that cannot work.
-      await config.clearTokens();
+      if (config.refreshToken == refreshToken) {
+        // Still the token we just spent, so nobody replaced it: it is dead and
+        // keeping a credential that cannot work only delays the sign-in.
+        await config.clearTokens();
+      }
       return false;
     }
   }
@@ -218,6 +269,7 @@ class ApiClient {
     if (!config.isConfigured) {
       throw const ApiException(0, 'no_server');
     }
+    final String? held = config.refreshToken;
     try {
       final http.Request request =
           http.Request('POST', Uri.parse('${config.baseUrl}$path'))
@@ -227,11 +279,10 @@ class ApiClient {
             ..bodyBytes = body;
       return _decode(await _perform(request, _mediaTimeout));
     } on ApiException catch (error) {
-      final String? refresh = config.refreshToken;
-      if (!error.isUnauthorized || !allowRefresh || refresh == null) {
+      if (!error.isUnauthorized || !allowRefresh || held == null) {
         rethrow;
       }
-      if (!await _refresh(refresh)) {
+      if (!await _refresh(held)) {
         rethrow;
       }
       return postBytes(path, body, contentType, allowRefresh: false);
@@ -248,6 +299,7 @@ class ApiClient {
     if (!config.isConfigured) {
       throw const ApiException(0, 'no_server');
     }
+    final String? held = config.refreshToken;
     final http.Request request =
         http.Request('GET', Uri.parse('${config.baseUrl}$path'))
           ..headers.addAll(_headers(authenticated: true));
@@ -259,9 +311,8 @@ class ApiClient {
     }
     // 401 is worth exactly one refresh: a photo request can easily be the first
     // call after an access token quietly expired. One, not a loop.
-    final String? refresh = config.refreshToken;
-    if (response.statusCode == 401 && allowRefresh && refresh != null) {
-      if (await _refresh(refresh)) {
+    if (response.statusCode == 401 && allowRefresh && held != null) {
+      if (await _refresh(held)) {
         return getBytes(path, allowRefresh: false);
       }
     }
