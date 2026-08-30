@@ -25,18 +25,19 @@ void main() {
 
     await tester.pumpWidget(const UpApp());
     await tester.pump(); // let the localization delegates resolve
+
+    // And let the boot finish. Reading the stored session is asynchronous and
+    // guarded by a real timer, so a test that stops before it lands leaves that
+    // timer pending — which the framework, rightly, fails the test over.
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
   }
 
-  /// Waits out the splash hold and settles on the intro screen's entry point.
+  /// Settles on the splash screen's entry point.
   ///
-  /// Generously: the splash now waits for the app to work out whether this
-  /// device already has a session, and that involves the settings store, which
-  /// is not plugged in under `flutter test`. Pumping past its timeout is what
-  /// makes this deterministic instead of a race.
+  /// `bootApp` has already waited out the hold and the session check, so this
+  /// only has to let the button's fade finish.
   Future<void> reachSplashCta(WidgetTester tester) async {
-    await tester.pump(const Duration(milliseconds: 1400));
-    await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
   }
 
