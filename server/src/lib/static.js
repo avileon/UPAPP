@@ -87,16 +87,51 @@ export class StaticSite {
     const type = TYPES[file.slice(dot).toLowerCase()] ?? 'application/octet-stream';
     const body = readFileSync(file);
 
-    // The entry point must never be cached: a stale index.html points at
-    // hashed asset names that no longer exist, and the app comes up blank with
-    // nothing in the console to explain why. The hashed assets themselves are
-    // safe to keep for a long time, but this build does not fingerprint them,
-    // so nothing here is cached beyond a revalidation.
     return {
       body,
       mime: type,
       etag: `"${createHash('sha1').update(body).digest('hex')}"`,
-      cacheControl: 'no-cache',
+      cacheControl: cacheControlFor(file.slice(this.root.length + 1)),
     };
   }
+}
+
+/**
+ * The five files that *are* the app, none of which carry a hash in their name.
+ *
+ * Flutter's web output does not fingerprint them: every build writes the same
+ * `main.dart.js` at the same URL with different contents. A browser holding
+ * yesterday's copy therefore runs yesterday's app with no way to notice, which
+ * is exactly the failure this list exists to prevent.
+ */
+const APP_CODE = new Set([
+  'index.html',
+  'flutter_bootstrap.js',
+  'main.dart.js',
+  'flutter.js',
+  'flutter_service_worker.js',
+  'version.json',
+]);
+
+/**
+ * Why `no-store` rather than `no-cache`.
+ *
+ * `no-cache` is the right answer to a browser — keep it, but revalidate. It is
+ * not the answer this app gets, because the origin sits behind Cloudflare and a
+ * zone's Browser Cache TTL rewrites the header on anything cacheable: the
+ * server said `no-cache` and phones received `max-age=14400`, so every device
+ * that had opened the app ran a four-hour-old build and no amount of restarting
+ * the server changed that. `no-store` is not cacheable at all, so there is
+ * nothing left to rewrite.
+ *
+ * The cost is real and deliberately confined to these files: everything else —
+ * the CanvasKit wasm, fonts, images — keeps a long cache, because those change
+ * only when the Flutter version does and they are the bulk of the bytes.
+ */
+function cacheControlFor(relative) {
+  const name = relative.split(sep).join('/');
+  if (APP_CODE.has(name)) {
+    return 'no-store, must-revalidate';
+  }
+  return 'public, max-age=604800';
 }

@@ -55,6 +55,27 @@ test('the web app', async (t) => {
     assert.equal(png.headers.get('content-type'), 'image/png');
   });
 
+  await t.test('the app code is never stored, so an update is never missed', async () => {
+    // The bug this pins down cost an afternoon: the server said `no-cache`,
+    // Cloudflare's Browser Cache TTL rewrote it to `max-age=14400`, and every
+    // phone kept running a four-hour-old build. `no-store` is not cacheable, so
+    // there is nothing for a CDN to rewrite.
+    for (const path of ['/', '/index.html', '/main.dart.js']) {
+      const res = await fetch(`${base}${path}`);
+      assert.match(
+        res.headers.get('cache-control'),
+        /no-store/,
+        `${path} must not be stored`,
+      );
+    }
+  });
+
+  await t.test('everything else still caches, or every load is megabytes', async () => {
+    const res = await fetch(`${base}/assets/logo.png`);
+    assert.match(res.headers.get('cache-control'), /max-age=\d{4,}/);
+    assert.doesNotMatch(res.headers.get('cache-control'), /no-store/);
+  });
+
   await t.test('an unknown path is a screen, not a 404', async () => {
     // The app owns its own routing: /chat is a screen, not a file.
     const res = await fetch(`${base}/chat`);
