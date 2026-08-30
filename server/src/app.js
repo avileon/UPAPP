@@ -545,6 +545,23 @@ export function createApp({ database = ':memory:', presence, photos, site } = {}
     body: { ok: true, liveUsers: live.liveUserCount, env: config.env },
   }));
 
+  /**
+   * Prints every refusal, with its machine-readable code.
+   *
+   * The app deliberately collapses unknown codes into one sentence, because a
+   * person cannot act on `gender_and_preference_required`. That is right for
+   * the user and useless for whoever has to fix it: "something went wrong" on a
+   * phone in another room is unfalsifiable. This is the other half — the code
+   * the phone saw, on the machine running the server.
+   *
+   * Method, path and code only. No bodies, no tokens, no phone numbers: a log
+   * that quietly accumulates people's credentials is a worse problem than the
+   * one it solves.
+   */
+  const logRefusal = (req, url, status, code) => {
+    console.log(`[refused] ${req.method} ${url.pathname} -> ${status} ${code ?? ''}`);
+  };
+
   /** Node http handler. */
   const handle = async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
@@ -572,9 +589,13 @@ export function createApp({ database = ':memory:', presence, photos, site } = {}
         sendBinary(res, result.binary.status ?? 200, result.binary);
         return;
       }
+      if ((result.status ?? 200) >= 400) {
+        logRefusal(req, url, result.status, result.body?.error);
+      }
       sendJson(res, result.status ?? 200, result.body ?? {});
     } catch (error) {
       if (error instanceof HttpError) {
+        logRefusal(req, url, error.status, error.code);
         sendJson(res, error.status, { error: error.code, message: error.message });
         return;
       }
