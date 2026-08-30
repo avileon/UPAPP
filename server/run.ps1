@@ -33,7 +33,8 @@ Write-Host "Node $version - OK" -ForegroundColor Green
 $secretFile = Join-Path $PSScriptRoot '.jwt-secret'
 if (-not (Test-Path $secretFile)) {
   $bytes = New-Object byte[] 32
-  [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+  # `::Fill` is .NET Core only; Windows PowerShell 5.1 is .NET Framework.
+  ([System.Security.Cryptography.RandomNumberGenerator]::Create()).GetBytes($bytes)
   ($bytes | ForEach-Object { $_.ToString('x2') }) -join '' | Set-Content -NoNewline $secretFile
   Write-Host "Created a signing key in server\.jwt-secret" -ForegroundColor DarkGray
 }
