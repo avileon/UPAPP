@@ -534,9 +534,7 @@ class AppStrings {
     roomNotLive: 'לא פעיל',
     roomAlone: 'אתה לבד כאן',
     roomOthers: _heRoomOthers,
-    quietNoRoomBody:
-        'אין לך קוד מקום, אז אין חדר להיות בו. בחר קוד ושתף אותו — '
-        'שניכם צריכים את אותו הקוד.',
+    quietNoRoomBody: 'אין קוד מקום, אז אין חדר. בחרו קוד אחד ושתפו אותו.',
     quietEmptyRoomBody: _heQuietEmptyRoom,
     quietFilteredBody: _heQuietFiltered,
     copyLink: 'העתק קישור',
@@ -730,9 +728,7 @@ class AppStrings {
     roomNotLive: 'not active',
     roomAlone: 'just you here',
     roomOthers: _enRoomOthers,
-    quietNoRoomBody:
-        'You have no venue code, so there is no room to be in. Pick one and '
-        'share it — you both need the same code.',
+    quietNoRoomBody: 'No venue code, so there is no room. Pick one and share it.',
     quietEmptyRoomBody: _enQuietEmptyRoom,
     quietFilteredBody: _enQuietFiltered,
     copyLink: 'Copy link',
@@ -848,21 +844,20 @@ String _enRoomOthers(int others) =>
     others == 1 ? '1 other here' : '$others others here';
 
 String _heQuietEmptyRoom(String code) =>
-    'אתה בחדר $code ואף אחד אחר לא בו. ודאו שכולם הזינו בדיוק את אותו הקוד '
-    'ושכל אחד לחץ GO LIVE אצלו.';
+    'אתה לבד בחדר $code. ודאו שכולם על אותו קוד ושכל אחד לחץ GO LIVE.';
 String _enQuietEmptyRoom(String code) =>
-    'You are in $code and nobody else is. Check that everyone typed the exact '
-    'same code and pressed GO LIVE on their own phone.';
+    'You are alone in $code. Check everyone is on that code and pressed GO LIVE.';
 
 /// The case that looks like a bug and is not: everyone is in the room, and the
 /// preference rules — which have to agree in both directions — rule them out.
-String _heQuietFiltered(int others) => others == 1
-    ? 'יש עוד אדם אחד בחדר, אבל ההעדפות שלכם לא מסתדרות בשני הכיוונים. '
-        'לבדיקה מהירה: בחרו "מעניין אותי כולם" אצל שניכם.'
-    : 'יש עוד $others בחדר, אבל ההעדפות לא מסתדרות בשני הכיוונים. '
-        'לבדיקה מהירה: בחרו "מעניין אותי כולם" אצל כולם.';
-String _enQuietFiltered(int others) => others == 1
-    ? 'There is 1 other person in the room, but your preferences do not agree '
-        'in both directions. Quick check: set “interested in everyone” on both.'
-    : 'There are $others others in the room, but the preferences do not agree '
-        'in both directions. Quick check: set “interested in everyone” on all.';
+String _heQuietFiltered(int others) {
+  final String who = others == 1 ? 'עוד אחד' : 'עוד $others';
+  return '$who בחדר, אבל ההעדפות לא מסתדרות בשני הכיוונים. '
+      'נסו "מעניין אותי: כולם".';
+}
+
+String _enQuietFiltered(int others) {
+  final String who = others == 1 ? '1 other' : '$others others';
+  return '$who in the room, but the preferences do not agree both ways. '
+      'Try “interested in: everyone”.';
+}

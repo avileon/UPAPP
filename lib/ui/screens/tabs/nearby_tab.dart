@@ -14,6 +14,7 @@ import '../../components/up_buttons.dart';
 import '../../components/up_nav_bar.dart';
 import '../../navigation/routes.dart';
 import '../main_shell.dart';
+import 'quiet_reason.dart';
 
 class NearbyTab extends StatelessWidget {
   const NearbyTab({super.key});
@@ -55,33 +56,6 @@ class NearbyTab extends StatelessWidget {
     );
   }
 
-  /// Why the list is empty — which is three different situations with three
-  /// different fixes.
-  ///
-  /// Without this the screen said "quiet in here" whether the phone had no room
-  /// at all, was alone in one, or was in a full room whose people the
-  /// preference rules exclude. Those look identical to the person holding it
-  /// and are nothing alike.
-  static String _quietBody(
-    AppStrings s,
-    LiveController live,
-    bool hasServer,
-  ) {
-    if (!hasServer) {
-      // The mock stack finds people with a fake radio and has no room at all.
-      // Sending someone to the venue screen there would be advice they cannot
-      // act on.
-      return s.nearbyQuietBody;
-    }
-    if (!live.room.isJoined) {
-      return s.quietNoRoomBody;
-    }
-    if (live.room.peers == 0) {
-      return s.quietEmptyRoomBody(live.room.code);
-    }
-    return s.quietFilteredBody(live.room.peers);
-  }
-
   Widget _body(
     BuildContext context, {
     required LiveController live,
@@ -106,7 +80,13 @@ class NearbyTab extends StatelessWidget {
       return EmptyState(
         icon: Icons.people_outline_rounded,
         title: s.nearbyQuietTitle,
-        body: _quietBody(s, live, context.backend.isConfigured),
+        body: quietReason(
+              strings: s,
+              live: live,
+              hasServer: context.backend.isConfigured,
+              anyoneVisible: false,
+            ) ??
+            s.nearbyQuietBody,
       );
     }
 

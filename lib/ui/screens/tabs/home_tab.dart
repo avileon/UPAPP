@@ -22,6 +22,7 @@ import '../../components/up_nav_bar.dart';
 import '../../navigation/routes.dart';
 import '../demo_sheet.dart';
 import '../main_shell.dart';
+import 'quiet_reason.dart';
 import '../../components/up_photo.dart';
 
 /// The one screen the product lives or dies on.
@@ -106,6 +107,15 @@ class HomeTab extends StatelessWidget {
                   people: visible,
                   localeCode: session.localeCode,
                   label: '${s.peopleNearby(visible.length)} · ${s.seeNearby}',
+                  // The home screen is where someone stands waiting for a name
+                  // to appear. If none is coming, the reason belongs here and
+                  // not one tab away.
+                  hint: quietReason(
+                    strings: s,
+                    live: live,
+                    hasServer: context.backend.isConfigured,
+                    anyoneVisible: visible.isNotEmpty,
+                  ),
                   onTap: () => MainShell.of(context)?.select(UpTab.nearby),
                 )
               else
@@ -380,12 +390,16 @@ class _NearbySummary extends StatelessWidget {
     required this.people,
     required this.localeCode,
     required this.label,
+    required this.hint,
     required this.onTap,
   });
 
   final List<NearbyPerson> people;
   final String localeCode;
   final String label;
+
+  /// Why nobody is showing, when nobody is. Null when people are.
+  final String? hint;
   final VoidCallback onTap;
 
   @override
@@ -423,6 +437,19 @@ class _NearbySummary extends StatelessWidget {
               ),
             ),
           ),
+        if (hint != null) ...<Widget>[
+          const SizedBox(height: Insets.sm),
+          Text(
+            hint!,
+            textAlign: TextAlign.center,
+            // The home column is fixed-height with a Spacer above; three lines
+            // is what fits on the shortest phone this runs on. The full text is
+            // one tap away on the nearby screen, which scrolls.
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
         const SizedBox(height: Insets.md),
         UpButton(
           label: label,
