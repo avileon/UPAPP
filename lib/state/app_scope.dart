@@ -35,6 +35,7 @@ class AppScope extends InheritedWidget {
     required this.people,
     required this.photos,
     required this.config,
+    required this.booting,
     required super.child,
     super.key,
   });
@@ -45,6 +46,15 @@ class AppScope extends InheritedWidget {
   final PeopleDirectory people;
   final PhotoCache photos;
   final BackendConfig config;
+
+  /// True until the app knows whether this device is already signed in.
+  ///
+  /// Reading the stored session is two asynchronous steps — open the settings
+  /// store, then ask the server who this token belongs to — and the second one
+  /// is a network round trip. Anything that decides *where to send the user*
+  /// has to wait for this, or a returning user gets shown the sign-up flow
+  /// they already completed.
+  final bool booting;
 
   static AppScope of(BuildContext context) {
     final AppScope? scope =
@@ -60,7 +70,8 @@ class AppScope extends InheritedWidget {
       interactions != oldWidget.interactions ||
       people != oldWidget.people ||
       photos != oldWidget.photos ||
-      config != oldWidget.config;
+      config != oldWidget.config ||
+      booting != oldWidget.booting;
 }
 
 extension AppScopeAccess on BuildContext {
@@ -69,6 +80,7 @@ extension AppScopeAccess on BuildContext {
   InteractionController get interactions => AppScope.of(this).interactions;
   PeopleDirectory get people => AppScope.of(this).people;
   PhotoCache get photos => AppScope.of(this).photos;
+  bool get booting => AppScope.of(this).booting;
   BackendConfig get backend => AppScope.of(this).config;
 }
 
@@ -108,15 +120,27 @@ class _AppScopeHostState extends State<AppScopeHost> {
   late InteractionController _interactionController;
 
   bool _usingApi = false;
+  bool _booting = true;
 
   @override
   void initState() {
     super.initState();
     _buildStack();
     _config.addListener(_onConfigChanged);
-    // The stored address and tokens arrive a frame or two later; the mock stack
-    // is already up, so nothing is waiting on this.
-    _config.load();
+    // The stored address and tokens arrive a frame or two later. The mock stack
+    // is already up so the first frame can paint, but `_booting` stays true
+    // until we know whether this device has a session — see [AppScope.booting].
+    _config.load().whenComplete(() {
+      if (mounted && !_usingApi) {
+        setState(() => _booting = false);
+      }
+    });
+  }
+
+  void _finishBooting() {
+    if (mounted) {
+      setState(() => _booting = false);
+    }
   }
 
   /// Rebuilds the stack when — and only when — the *server* changed.
@@ -222,8 +246,9 @@ class _AppScopeHostState extends State<AppScopeHost> {
         _photoCache.clear();
       },
     );
-    // A stored refresh token means this phone was signed in last time.
-    _session.restore();
+    // A stored refresh token means this phone was signed in last time. Nothing
+    // may route on `isSignedIn` until this has answered.
+    _session.restore().whenComplete(_finishBooting);
   }
 
   @override
@@ -248,6 +273,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
       people: _people,
       photos: _photoCache,
       config: _config,
+      booting: _booting,
       child: Builder(builder: widget.builder),
     );
   }

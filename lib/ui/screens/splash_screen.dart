@@ -10,10 +10,13 @@ import '../components/up_buttons.dart';
 import '../components/up_scaffold.dart';
 import '../navigation/routes.dart';
 
-/// Short hold while the app would check for an existing session.
+/// The hold while the app works out whether this device is already signed in.
 ///
-/// In Milestone 2 this is where a valid refresh token skips straight to
-/// [Routes.main]. Today it just gives the wordmark a beat.
+/// It waits for the answer rather than guessing after a fixed beat. Reading a
+/// stored session ends in a network round trip, and a phone on a slow
+/// connection took longer than the old 1.2-second timer allowed — so a person
+/// who had already registered was shown the sign-up flow again, every single
+/// time they opened the app.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -24,20 +27,45 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   Timer? _timer;
   bool _ready = false;
+  bool _decided = false;
+  int _waitedMs = 0;
+
+  /// The wordmark gets a beat regardless — an instant jump reads as a glitch.
+  static const int _minimumHoldMs = 1200;
+
+  /// And a ceiling, so an unreachable server cannot hold someone on a splash
+  /// screen forever. Past this we treat them as signed out, which is
+  /// recoverable: they land on the intro and can try again.
+  static const int _maximumWaitMs = 12000;
+
+  static const Duration _tick = Duration(milliseconds: 200);
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer(const Duration(milliseconds: 1200), () {
-      if (!mounted) {
-        return;
-      }
-      if (context.session.isSignedIn) {
-        Navigator.of(context).pushReplacementNamed(Routes.main);
-      } else {
-        setState(() => _ready = true);
-      }
+    _timer = Timer(const Duration(milliseconds: _minimumHoldMs), () {
+      _waitedMs = _minimumHoldMs;
+      _check();
     });
+  }
+
+  void _check() {
+    if (!mounted || _decided) {
+      return;
+    }
+    if (context.booting && _waitedMs < _maximumWaitMs) {
+      _timer = Timer(_tick, () {
+        _waitedMs += _tick.inMilliseconds;
+        _check();
+      });
+      return;
+    }
+    _decided = true;
+    if (context.session.isSignedIn) {
+      Navigator.of(context).pushReplacementNamed(Routes.main);
+    } else {
+      setState(() => _ready = true);
+    }
   }
 
   @override
