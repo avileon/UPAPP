@@ -25,42 +25,57 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  Timer? _timer;
+  Timer? _hold;
+  Timer? _ceiling;
+  bool _held = false;
   bool _ready = false;
   bool _decided = false;
-  int _waitedMs = 0;
 
   /// The wordmark gets a beat regardless — an instant jump reads as a glitch.
-  static const int _minimumHoldMs = 1200;
+  static const Duration _minimumHold = Duration(milliseconds: 1200);
 
-  /// And a ceiling, so an unreachable server cannot hold someone on a splash
-  /// screen forever. Past this we treat them as signed out, which is
-  /// recoverable: they land on the intro and can try again.
-  static const int _maximumWaitMs = 12000;
-
-  static const Duration _tick = Duration(milliseconds: 200);
+  /// And a ceiling, so an unreachable server cannot hold someone here forever.
+  /// Past it we treat them as signed out, which is recoverable: they land on
+  /// the intro and can try again.
+  static const Duration _maximumWait = Duration(seconds: 12);
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer(const Duration(milliseconds: _minimumHoldMs), () {
-      _waitedMs = _minimumHoldMs;
-      _check();
+    _hold = Timer(_minimumHold, () {
+      _held = true;
+      _decideIfReady();
+    });
+    _ceiling = Timer(_maximumWait, () {
+      _held = true;
+      _decide();
     });
   }
 
-  void _check() {
+  /// [AppScope.booting] lives on an InheritedWidget, so this fires the moment
+  /// the answer lands. Waiting on a notification rather than polling matters:
+  /// a bare `Timer` schedules no frame, so a poll can sit unrun while the rest
+  /// of the app is perfectly idle.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _decideIfReady();
+  }
+
+  void _decideIfReady() {
+    if (!mounted || _decided || !_held || context.booting) {
+      return;
+    }
+    _decide();
+  }
+
+  void _decide() {
     if (!mounted || _decided) {
       return;
     }
-    if (context.booting && _waitedMs < _maximumWaitMs) {
-      _timer = Timer(_tick, () {
-        _waitedMs += _tick.inMilliseconds;
-        _check();
-      });
-      return;
-    }
     _decided = true;
+    _hold?.cancel();
+    _ceiling?.cancel();
     if (context.session.isSignedIn) {
       Navigator.of(context).pushReplacementNamed(Routes.main);
     } else {
@@ -70,7 +85,8 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _hold?.cancel();
+    _ceiling?.cancel();
     super.dispose();
   }
 

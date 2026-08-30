@@ -28,8 +28,15 @@ void main() {
   }
 
   /// Waits out the splash hold and settles on the intro screen's entry point.
+  ///
+  /// Generously: the splash now waits for the app to work out whether this
+  /// device already has a session, and that involves the settings store, which
+  /// is not plugged in under `flutter test`. Pumping past its timeout is what
+  /// makes this deterministic instead of a race.
   Future<void> reachSplashCta(WidgetTester tester) async {
     await tester.pump(const Duration(milliseconds: 1400));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
   }
 

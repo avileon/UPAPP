@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -73,9 +75,17 @@ class BackendConfig extends ChangeNotifier {
   /// and served from the same origin the app already knows its own address —
   /// so a person who scans a QR code at a table is signed in to the right
   /// server, in the right room, having typed nothing at all.
+  /// How long the boot will wait on the settings store.
+  ///
+  /// A platform channel that never answers must not leave the app on its
+  /// splash screen. Losing what was stored costs one sign-in; hanging costs
+  /// the whole app.
+  static const Duration _storeTimeout = Duration(seconds: 3);
+
   Future<void> load({Uri? url}) async {
     try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance().timeout(_storeTimeout);
       _baseUrl = _normaliseBaseUrl(prefs.getString(_keyBaseUrl) ?? '');
       _venueCode = prefs.getString(_keyVenue) ?? '';
       _accessToken = prefs.getString(_keyAccess);
