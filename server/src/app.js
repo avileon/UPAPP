@@ -372,7 +372,8 @@ export function createApp({ database = ':memory:', presence, photos, site } = {}
       if (typeof raw !== 'string') continue;
       admit(live.resolveToken(raw));
     }
-    for (const peerId of live.venuePeers(user.id)) {
+    const peers = live.venuePeers(user.id);
+    for (const peerId of peers) {
       admit(peerId);
     }
 
@@ -383,6 +384,15 @@ export function createApp({ database = ':memory:', presence, photos, site } = {}
         // A coarse count so the home screen can say "3 people nearby" without
         // any of them being identifiable.
         liveNearbyCount: people.length,
+        // The room this session actually joined, and how many other people are
+        // live in it. Not a nicety: without them "nobody is here" is
+        // indistinguishable from "you never joined the room" and from "you are
+        // both here but your preferences rule each other out", and a person
+        // holding a phone cannot tell those apart by staring at an empty list.
+        // A count carries no identity — a venue key is a label two people
+        // already agreed on, and everyone counted here typed it themselves.
+        room: live.activeSession(user.id)?.venue ?? null,
+        roomPeers: peers.length,
         self: { firstName: profile?.first_name ?? '' },
       },
     };

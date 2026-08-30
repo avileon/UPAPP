@@ -9,6 +9,7 @@ import '../../../core/theme/palette.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../domain/entities/live_session.dart';
 import '../../../domain/entities/nearby_person.dart';
+import '../../../domain/entities/room_status.dart';
 import '../../../state/app_scope.dart';
 import '../../../state/interaction_controller.dart';
 import '../../../state/live_controller.dart';
@@ -120,8 +121,13 @@ class HomeTab extends StatelessWidget {
               // settings.
               _RoomRow(
                 label: s.venueRoom,
-                code: context.backend.venueCode,
-                emptyLabel: s.venueNoCodeShort,
+                // The saved code is what you chose; the room is what the server
+                // put you in. They differ exactly when it matters — a code
+                // picked before going Live — so both are on screen.
+                savedCode: context.backend.venueCode,
+                room: live.room,
+                isLive: live.isLive,
+                strings: s,
                 onTap: () => Navigator.of(context).pushNamed(Routes.venue),
               ),
               const SizedBox(height: Insets.lg),
@@ -141,45 +147,100 @@ class HomeTab extends StatelessWidget {
 
 
 /// The current room, and a way into the screen that shares it.
+///
+/// Reads as one line, and that line is the answer to the question people
+/// actually have while holding the phone: *am I in the room, and is anyone else
+/// in it?* Saving a code is not joining — going Live is — so a code with no
+/// session says so rather than implying otherwise.
 class _RoomRow extends StatelessWidget {
   const _RoomRow({
     required this.label,
-    required this.code,
-    required this.emptyLabel,
+    required this.savedCode,
+    required this.room,
+    required this.isLive,
+    required this.strings,
     required this.onTap,
   });
 
   final String label;
-  final String code;
-  final String emptyLabel;
+  final String savedCode;
+  final RoomStatus room;
+  final bool isLive;
+  final AppStrings strings;
   final VoidCallback onTap;
+
+  /// The code to show: what the server confirmed while Live, otherwise what is
+  /// saved. Never the saved one while Live — that is the lie this fixes.
+  String get _code => isLive && room.isJoined ? room.code : savedCode;
 
   @override
   Widget build(BuildContext context) {
     final UpPalette p = context.palette;
+    final bool joined = isLive && room.isJoined;
+    final String? note = _note();
+
     return UpCard(
       onTap: onTap,
+      borderColor: joined ? p.cyan : null,
       padding: const EdgeInsets.symmetric(
         horizontal: Insets.lg,
         vertical: Insets.md,
       ),
       child: Row(
         children: <Widget>[
-          Icon(Icons.qr_code_rounded, size: 20, color: p.dim),
+          Icon(
+            Icons.qr_code_rounded,
+            size: 20,
+            color: joined ? p.cyan : p.dim,
+          ),
           const SizedBox(width: Insets.sm),
           Expanded(
             child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
           ),
-          Text(
-            code.isEmpty ? emptyLabel : code,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: code.isEmpty ? p.dim : p.foreground,
-                  letterSpacing: code.isEmpty ? 0 : 2,
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  _code.isEmpty ? strings.venueNoCodeShort : _code,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: _code.isEmpty
+                            ? p.dim
+                            : (joined ? p.cyan : p.foreground),
+                        letterSpacing: _code.isEmpty ? 0 : 2,
+                      ),
                 ),
+                if (note != null)
+                  Text(
+                    note,
+                    textAlign: TextAlign.end,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+              ],
+            ),
           ),
         ],
       ),
     );
+  }
+
+  String? _note() {
+    if (_code.isEmpty) {
+      return null;
+    }
+    if (!isLive) {
+      return strings.roomNotLive;
+    }
+    if (!room.isJoined) {
+      // Live, a code saved, and the server has no room for this session: the
+      // re-issue has not landed yet, or it failed. Say "not active" rather than
+      // pretending.
+      return strings.roomNotLive;
+    }
+    return room.peers == 0
+        ? strings.roomAlone
+        : strings.roomOthers(room.peers);
   }
 }
 

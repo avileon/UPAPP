@@ -48,11 +48,30 @@ class _VenueScreenState extends State<VenueScreen> {
   }
 
   Future<void> _save() async {
+    final AppStrings s = context.strings;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     await context.backend.setVenueCode(_code.text);
     if (!mounted) {
       return;
     }
-    setState(() => _code.text = context.backend.venueCode);
+    final String saved = context.backend.venueCode;
+    setState(() => _code.text = saved);
+    if (saved.isEmpty) {
+      return;
+    }
+    // Saying "saved" alone is what made this screen feel broken: the code was
+    // stored and nothing else happened, because joining a room is what Live
+    // does. Say which of the two just happened.
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          context.live.isLive
+              ? s.venueLiveJoined(saved)
+              : '${s.venueSavedIn(saved)} ${s.venueThenGoLive}',
+        ),
+        duration: const Duration(seconds: 5),
+      ),
+    );
   }
 
   @override
@@ -63,7 +82,9 @@ class _VenueScreenState extends State<VenueScreen> {
 
     return UpScaffold(
       child: ListenableBuilder(
-        listenable: config,
+        // The live controller too: the join state below is a fact about the
+        // session, and going Live from another screen must repaint it.
+        listenable: Listenable.merge(<Listenable>[config, context.live]),
         builder: (BuildContext context, Widget? _) {
           final String code = config.venueCode;
           final String? link = _joinLink(config);
@@ -121,6 +142,12 @@ class _VenueScreenState extends State<VenueScreen> {
                   ),
                 ),
                 const SizedBox(height: Insets.md),
+                // The standing answer to "am I in this room?", on the screen
+                // that hands the room out. A QR that someone is about to share
+                // while not Live themselves is the exact situation worth
+                // catching here.
+                _JoinState(code: code),
+                const SizedBox(height: Insets.md),
                 UpButton(
                   label: s.copyLink,
                   style: UpButtonStyle.quiet,
@@ -166,6 +193,7 @@ class _VenueScreenState extends State<VenueScreen> {
 
   /// The link a QR encodes, or null when there is nothing to share yet.
   ///
+  ///
   /// Both halves matter. The address means whoever scans it reaches *this*
   /// server without pasting anything; the venue means they land in this room.
   static String? _joinLink(BackendConfig config) {
@@ -173,5 +201,39 @@ class _VenueScreenState extends State<VenueScreen> {
       return null;
     }
     return '${config.baseUrl}/?venue=${config.venueCode}';
+  }
+}
+
+/// Whether this phone is actually in the room shown above.
+class _JoinState extends StatelessWidget {
+  const _JoinState({required this.code});
+
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final UpPalette p = context.palette;
+    final bool joined = context.live.isLive && context.live.room.code == code;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        Icon(
+          joined ? Icons.check_circle_outline_rounded : Icons.info_outline_rounded,
+          size: 18,
+          color: joined ? p.cyan : p.dim,
+        ),
+        const SizedBox(width: Insets.xs + 2),
+        Flexible(
+          child: Text(
+            joined ? s.venueLiveJoined(code) : s.venueThenGoLive,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: joined ? p.cyan : null,
+                ),
+          ),
+        ),
+      ],
+    );
   }
 }

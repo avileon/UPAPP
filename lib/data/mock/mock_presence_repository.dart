@@ -3,6 +3,7 @@ import 'dart:math';
 
 import '../../domain/entities/live_session.dart';
 import '../../domain/entities/nearby_person.dart';
+import '../../domain/entities/room_status.dart';
 import '../../domain/repositories/presence_repository.dart';
 import 'mock_data.dart';
 
@@ -68,6 +69,15 @@ class MockPresenceRepository implements PresenceRepository {
 
   @override
   Stream<List<NearbyPerson>> watchNearby() => _controller.stream;
+
+  /// The mock stack has no server and therefore no room: the fake radio finds
+  /// people directly. Emitting nothing is the honest answer — the UI treats an
+  /// absent room status as "not applicable" rather than as an empty room.
+  @override
+  Stream<RoomStatus> watchRoom() => const Stream<RoomStatus>.empty();
+
+  @override
+  Future<void> syncVenue() async {}
 
   @override
   void simulateDiscovery() {

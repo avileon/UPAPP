@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../domain/entities/live_session.dart';
 import '../../domain/entities/nearby_person.dart';
+import '../../domain/entities/room_status.dart';
 import '../../domain/repositories/presence_repository.dart';
 import 'api_client.dart';
 import 'api_mappers.dart';
@@ -34,6 +35,9 @@ class ApiPresenceRepository implements PresenceRepository {
   final StreamController<List<NearbyPerson>> _controller =
       StreamController<List<NearbyPerson>>.broadcast();
 
+  final StreamController<RoomStatus> _room =
+      StreamController<RoomStatus>.broadcast();
+
   /// Tokens heard off the air this session. Empty until Milestone 3.
   final Set<String> _observedTokens = <String>{};
 
@@ -41,6 +45,11 @@ class ApiPresenceRepository implements PresenceRepository {
   LiveSession? _session;
   bool _inFlight = false;
   bool _rearming = false;
+
+  /// The venue the *server* put this session in, normalised, as echoed by
+  /// `/live/start`. Compared against the chosen code to decide whether a
+  /// re-issue is needed; never assumed equal to what the user typed.
+  String _joinedVenue = '';
 
   /// Often enough that walking into a room feels immediate, rarely enough that
   /// an hour of Live is not thousands of requests. A socket replaces this.
@@ -68,8 +77,10 @@ class ApiPresenceRepository implements PresenceRepository {
         now.add(duration),
       ),
     );
+    _joinedVenue = ApiMappers.string(result['venue']);
     _observedTokens.clear();
     _controller.add(const <NearbyPerson>[]);
+    _emitRoom(_joinedVenue, 0);
 
     _poll?.cancel();
     _poll = Timer.periodic(_pollInterval, (_) => unawaited(_resolve()));
@@ -78,14 +89,60 @@ class ApiPresenceRepository implements PresenceRepository {
   }
 
   @override
+  Future<void> syncVenue() async {
+    final LiveSession? current = _session;
+    if (current == null) {
+      return;
+    }
+    // `_joinedVenue` is the server's normalised answer and `_venueCode()` is
+    // already normalised by BackendConfig with the same rule, so this compares
+    // like with like. Anything else would re-issue the session on every poll.
+    final String wanted = _venueCode();
+    if (wanted == _joinedVenue) {
+      return;
+    }
+    final Duration left = current.remainingAt(DateTime.now());
+    if (left.inSeconds < 60) {
+      return;
+    }
+    try {
+      final Map<String, dynamic> result = await _client.post(
+        '/live/start',
+        <String, dynamic>{
+          'durationSeconds': left.inSeconds,
+          if (wanted.isNotEmpty) 'venue': wanted,
+        },
+      );
+      _joinedVenue = ApiMappers.string(result['venue']);
+      final DateTime now = DateTime.now();
+      _session = LiveSession(
+        id: ApiMappers.string(result['sessionId']),
+        // The clock keeps running: a new room is not more time. Re-anchoring
+        // `startedAt` to now with the *remaining* duration keeps the countdown
+        // and the radar sweep exactly where they were.
+        startedAt: now,
+        expiresAt: ApiMappers.dateTime(result['expiresAt'], now.add(left)),
+      );
+      // The old session's tokens died with it.
+      _observedTokens.clear();
+      _emitRoom(_joinedVenue, 0);
+      await _resolve();
+    } on ApiException catch (error) {
+      _onError?.call(error);
+    }
+  }
+
+  @override
   Future<void> stopLive() async {
     _poll?.cancel();
     _poll = null;
     _session = null;
     _observedTokens.clear();
+    _joinedVenue = '';
     if (!_controller.isClosed) {
       _controller.add(const <NearbyPerson>[]);
     }
+    _emitRoom('', 0);
     try {
       await _client.post('/live/stop');
     } on ApiException catch (_) {
@@ -96,6 +153,15 @@ class ApiPresenceRepository implements PresenceRepository {
 
   @override
   Stream<List<NearbyPerson>> watchNearby() => _controller.stream;
+
+  @override
+  Stream<RoomStatus> watchRoom() => _room.stream;
+
+  void _emitRoom(String code, int peers) {
+    if (!_room.isClosed) {
+      _room.add(RoomStatus(code: code, peers: peers));
+    }
+  }
 
   @override
   void simulateDiscovery() => unawaited(_resolve());
@@ -117,6 +183,11 @@ class ApiPresenceRepository implements PresenceRepository {
       if (!_controller.isClosed) {
         _controller.add(people);
       }
+      // The server's own view of the room, not the phone's. If a restart lost
+      // the session and the re-arm below put it back without a code, this is
+      // what says so.
+      _joinedVenue = ApiMappers.string(result['room']);
+      _emitRoom(_joinedVenue, ApiMappers.integer(result['roomPeers']));
     } on ApiException catch (error) {
       if (error.code == 'not_live') {
         unawaited(_rearm());
@@ -168,5 +239,6 @@ class ApiPresenceRepository implements PresenceRepository {
     _poll?.cancel();
     _poll = null;
     _controller.close();
+    _room.close();
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../data/api/api_auth_repository.dart';
@@ -122,6 +124,10 @@ class _AppScopeHostState extends State<AppScopeHost> {
   bool _usingApi = false;
   bool _booting = true;
 
+  /// The venue code as of the last notification, so a change to it can be told
+  /// apart from a change to the tokens — which fire through the same listener.
+  String _venueCode = '';
+
   @override
   void initState() {
     super.initState();
@@ -149,6 +155,14 @@ class _AppScopeHostState extends State<AppScopeHost> {
   /// tearing down every controller because someone typed a venue code would
   /// sign them out mid-evening.
   void _onConfigChanged() {
+    if (_config.venueCode != _venueCode) {
+      _venueCode = _config.venueCode;
+      // A code chosen while already Live has to reach the server, or the phone
+      // shows a room it was never put in. Fire and forget: the repository is
+      // the thing that knows whether there is a session to move, and a failure
+      // here must not stop the rest of this method.
+      unawaited(_live.syncVenue());
+    }
     if (_config.isConfigured == _usingApi) {
       return;
     }

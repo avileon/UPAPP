@@ -167,6 +167,38 @@ test('venue presence', async (t) => {
     assert.equal(res.body.people.length, 1);
     assert.equal(res.body.liveNearbyCount, 1);
   });
+
+  await t.test('the room and its occupancy come back, so silence can be explained', async () => {
+    // The one thing a person staring at an empty list cannot work out for
+    // themselves: whether they are in the room at all, and whether anyone else
+    // is. Two people whose preferences rule each other out must still both see
+    // roomPeers: 1 — otherwise "nobody here" and "we cannot see each other"
+    // look identical on the phone.
+    const a = await s.signUp('+972520000025', { gender: 'male', interestedIn: 'women' });
+    const b = await s.signUp('+972520000026', { gender: 'male', interestedIn: 'women' });
+
+    await s.goLiveAt(a, 'ROOM13');
+    await s.goLiveAt(b, 'ROOM13');
+
+    const res = await s.nearby(a);
+    assert.equal(res.body.room, 'ROOM13');
+    assert.equal(res.body.roomPeers, 1);
+    assert.deepEqual(res.body.people, []);
+  });
+
+  await t.test('no room is null, and nobody else is zero', async () => {
+    const a = await s.signUp('+972520000027');
+    await s.call('POST', '/live/start', { token: a.token, body: { durationSeconds: 600 } });
+
+    const noRoom = await s.nearby(a);
+    assert.equal(noRoom.body.room, null);
+    assert.equal(noRoom.body.roomPeers, 0);
+
+    await s.goLiveAt(a, 'ROOM14');
+    const alone = await s.nearby(a);
+    assert.equal(alone.body.room, 'ROOM14');
+    assert.equal(alone.body.roomPeers, 0);
+  });
 });
 
 test('venue keys normalise the way two strangers would need them to', async (t) => {

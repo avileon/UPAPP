@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../data/api/api_client.dart';
 import '../domain/entities/live_session.dart';
 import '../domain/entities/nearby_person.dart';
+import '../domain/entities/room_status.dart';
 import '../domain/repositories/presence_repository.dart';
 
 /// Owns the Live session and the nearby list.
@@ -18,12 +19,14 @@ class LiveController extends ChangeNotifier {
   })  : _presence = presence,
         _now = now ?? DateTime.now {
     _nearbySubscription = _presence.watchNearby().listen(_onNearby);
+    _roomSubscription = _presence.watchRoom().listen(_onRoom);
   }
 
   final PresenceRepository _presence;
   final DateTime Function() _now;
 
   StreamSubscription<List<NearbyPerson>>? _nearbySubscription;
+  StreamSubscription<RoomStatus>? _roomSubscription;
   Timer? _ticker;
 
   LiveSession? _session;
@@ -39,6 +42,12 @@ class LiveController extends ChangeNotifier {
   String? _lastErrorCode;
   Duration get remaining => _remaining;
   List<NearbyPerson> get nearby => _nearby;
+
+  /// The room the server says this session is in. [RoomStatus.none] until the
+  /// first answer, and on the mock stack forever — which is correct, because
+  /// there is no room there to be in.
+  RoomStatus get room => _room;
+  RoomStatus _room = RoomStatus.none;
 
   /// Nearby minus everyone hidden for this session.
   List<NearbyPerson> visibleNearby({
@@ -74,12 +83,20 @@ class LiveController extends ChangeNotifier {
     _ticker = null;
     _session = null;
     _remaining = Duration.zero;
+    _room = RoomStatus.none;
     await _presence.stopLive();
     notifyListeners();
   }
 
   Future<void> toggle(Duration duration) =>
       isLive ? stop() : start(duration);
+
+  /// Moves a running session into the venue code chosen since it started.
+  ///
+  /// Called when the code changes rather than when Live starts, because those
+  /// are the two orders people actually do it in and only one of them used to
+  /// work.
+  Future<void> syncVenue() => _presence.syncVenue();
 
   void discoverOneMore() => _presence.simulateDiscovery();
 
@@ -106,11 +123,21 @@ class LiveController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _onRoom(RoomStatus room) {
+    if (room == _room) {
+      return;
+    }
+    _room = room;
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _ticker?.cancel();
     _nearbySubscription?.cancel();
     _nearbySubscription = null;
+    _roomSubscription?.cancel();
+    _roomSubscription = null;
     _presence.dispose();
     super.dispose();
   }

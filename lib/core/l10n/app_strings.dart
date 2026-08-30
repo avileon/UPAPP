@@ -132,6 +132,15 @@ class AppStrings {
     required this.venueNoServer,
     required this.venueRoom,
     required this.venueNoCodeShort,
+    required this.venueSavedIn,
+    required this.venueThenGoLive,
+    required this.venueLiveJoined,
+    required this.roomNotLive,
+    required this.roomAlone,
+    required this.roomOthers,
+    required this.quietNoRoomBody,
+    required this.quietEmptyRoomBody,
+    required this.quietFilteredBody,
     required this.copyLink,
     required this.linkCopied,
     required this.devCodeLabel,
@@ -317,6 +326,24 @@ class AppStrings {
   final String venueNoServer;
   final String venueRoom;
   final String venueNoCodeShort;
+
+  /// What the venue screen says the moment a code is saved, and what has to
+  /// happen next. Saving a code is not joining a room — Live is — and a screen
+  /// that does not say so leaves people staring at an empty list.
+  final String Function(String code) venueSavedIn;
+  final String venueThenGoLive;
+  final String Function(String code) venueLiveJoined;
+
+  /// The room row on the home screen, in its three honest states.
+  final String roomNotLive;
+  final String roomAlone;
+  final String Function(int others) roomOthers;
+
+  /// Why the nearby list is empty. Three different causes, three different
+  /// fixes, and no way for a person to tell them apart without being told.
+  final String quietNoRoomBody;
+  final String Function(String code) quietEmptyRoomBody;
+  final String Function(int others) quietFilteredBody;
   final String copyLink;
   final String linkCopied;
   final String devCodeLabel;
@@ -500,6 +527,18 @@ class AppStrings {
     venueNoServer: 'אין כתובת שרת, אז אין מה לשתף עדיין.',
     venueRoom: 'חדר',
     venueNoCodeShort: 'בחר קוד',
+    venueSavedIn: _heVenueSavedIn,
+    venueThenGoLive:
+        'זה עדיין לא מכניס אותך לחדר. חזור למסך הבית ולחץ GO LIVE.',
+    venueLiveJoined: _heVenueLiveJoined,
+    roomNotLive: 'לא פעיל',
+    roomAlone: 'אתה לבד כאן',
+    roomOthers: _heRoomOthers,
+    quietNoRoomBody:
+        'אין לך קוד מקום, אז אין חדר להיות בו. בחר קוד ושתף אותו — '
+        'שניכם צריכים את אותו הקוד.',
+    quietEmptyRoomBody: _heQuietEmptyRoom,
+    quietFilteredBody: _heQuietFiltered,
     copyLink: 'העתק קישור',
     linkCopied: 'הקישור הועתק',
     devCodeLabel: 'קוד לפיתוח',
@@ -684,6 +723,18 @@ class AppStrings {
     venueNoServer: 'No server address, so there is nothing to share yet.',
     venueRoom: 'Room',
     venueNoCodeShort: 'Pick a code',
+    venueSavedIn: _enVenueSavedIn,
+    venueThenGoLive:
+        'That does not put you in the room yet. Go back and press GO LIVE.',
+    venueLiveJoined: _enVenueLiveJoined,
+    roomNotLive: 'not active',
+    roomAlone: 'just you here',
+    roomOthers: _enRoomOthers,
+    quietNoRoomBody:
+        'You have no venue code, so there is no room to be in. Pick one and '
+        'share it — you both need the same code.',
+    quietEmptyRoomBody: _enQuietEmptyRoom,
+    quietFilteredBody: _enQuietFiltered,
     copyLink: 'Copy link',
     linkCopied: 'Link copied',
     devCodeLabel: 'Dev code',
@@ -784,3 +835,34 @@ String _enIncomingUps(int count) =>
 
 String _heAgeYears(int years) => 'גיל $years';
 String _enAgeYears(int years) => 'Age $years';
+
+String _heVenueSavedIn(String code) => 'נשמר. החדר שלך הוא $code.';
+String _enVenueSavedIn(String code) => 'Saved. Your room is $code.';
+
+String _heVenueLiveJoined(String code) => 'אתה Live בחדר $code כרגע.';
+String _enVenueLiveJoined(String code) => 'You are Live in $code right now.';
+
+String _heRoomOthers(int others) =>
+    others == 1 ? 'עוד אחד בחדר' : 'עוד $others בחדר';
+String _enRoomOthers(int others) =>
+    others == 1 ? '1 other here' : '$others others here';
+
+String _heQuietEmptyRoom(String code) =>
+    'אתה בחדר $code ואף אחד אחר לא בו. ודאו שכולם הזינו בדיוק את אותו הקוד '
+    'ושכל אחד לחץ GO LIVE אצלו.';
+String _enQuietEmptyRoom(String code) =>
+    'You are in $code and nobody else is. Check that everyone typed the exact '
+    'same code and pressed GO LIVE on their own phone.';
+
+/// The case that looks like a bug and is not: everyone is in the room, and the
+/// preference rules — which have to agree in both directions — rule them out.
+String _heQuietFiltered(int others) => others == 1
+    ? 'יש עוד אדם אחד בחדר, אבל ההעדפות שלכם לא מסתדרות בשני הכיוונים. '
+        'לבדיקה מהירה: בחרו "מעניין אותי כולם" אצל שניכם.'
+    : 'יש עוד $others בחדר, אבל ההעדפות לא מסתדרות בשני הכיוונים. '
+        'לבדיקה מהירה: בחרו "מעניין אותי כולם" אצל כולם.';
+String _enQuietFiltered(int others) => others == 1
+    ? 'There is 1 other person in the room, but your preferences do not agree '
+        'in both directions. Quick check: set “interested in everyone” on both.'
+    : 'There are $others others in the room, but the preferences do not agree '
+        'in both directions. Quick check: set “interested in everyone” on all.';
