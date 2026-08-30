@@ -254,6 +254,24 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The credentials are gone and the server will not take this device back.
+  ///
+  /// Not a user action: the tokens were dropped underneath the app — a refresh
+  /// the server refused, a session revoked. Without this the app keeps the
+  /// profile it loaded at boot, still believes it is signed in, and answers
+  /// every tap with "something went wrong" forever, because nothing that needs
+  /// the server can ever succeed again. Showing the sign-in screen is the only
+  /// honest state, and it is one SMS away from being fixed.
+  void sessionLost() {
+    if (_profile == null) {
+      return;
+    }
+    _onSignedOut?.call();
+    _profile = null;
+    _lastErrorCode = null;
+    notifyListeners();
+  }
+
   void resetForDemo() {
     _profile = null;
     _acceptedTerms = false;

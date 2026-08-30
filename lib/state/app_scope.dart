@@ -128,6 +128,10 @@ class _AppScopeHostState extends State<AppScopeHost> {
   /// apart from a change to the tokens — which fire through the same listener.
   String _venueCode = '';
 
+  /// Whether there were tokens at the last notification, so their disappearance
+  /// can be told from their arrival.
+  bool _signedIn = false;
+
   @override
   void initState() {
     super.initState();
@@ -155,6 +159,15 @@ class _AppScopeHostState extends State<AppScopeHost> {
   /// tearing down every controller because someone typed a venue code would
   /// sign them out mid-evening.
   void _onConfigChanged() {
+    // The tokens can vanish without anybody asking: a refresh the server
+    // refused clears them from inside the HTTP client. If the app keeps acting
+    // signed in after that, every screen answers with a generic error and there
+    // is no way back to the sign-in that would fix it.
+    if (_usingApi && _signedIn && !_config.isSignedIn) {
+      _session.sessionLost();
+    }
+    _signedIn = _config.isSignedIn;
+
     if (_config.venueCode != _venueCode) {
       _venueCode = _config.venueCode;
       // A code chosen while already Live has to reach the server, or the phone
