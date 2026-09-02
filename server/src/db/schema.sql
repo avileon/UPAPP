@@ -109,3 +109,18 @@ CREATE TABLE IF NOT EXISTS reports (
   notes        TEXT NOT NULL DEFAULT '',
   created_at   TEXT NOT NULL
 );
+
+-- One row per browser or device that agreed to be interrupted.
+--
+-- The endpoint is the identity: the same person on a phone and a laptop is two
+-- rows, and re-subscribing on the same browser replaces its row rather than
+-- adding a second. The two keys are the browser's half of the end-to-end
+-- encryption — the push service relays bytes it cannot read.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  endpoint    TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  p256dh      TEXT NOT NULL,
+  auth        TEXT NOT NULL,
+  created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id);

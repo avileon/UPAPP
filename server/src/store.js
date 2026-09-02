@@ -66,6 +66,8 @@ export class Store {
         )
         .run(nowIso(), userId);
       this.db.prepare(`DELETE FROM refresh_tokens WHERE user_id = ?`).run(userId);
+      // A deleted account must stop being able to interrupt anyone's phone.
+      this.db.prepare(`DELETE FROM push_subscriptions WHERE user_id = ?`).run(userId);
       this.db
         .prepare(`UPDATE matches SET status = 'unmatched' WHERE user_a = ? OR user_b = ?`)
         .run(userId, userId);
@@ -408,6 +410,43 @@ export class Store {
    * said yes" turns photo honesty into a score, which is the one thing this
    * feature is designed not to be.
    */
+  /**
+   * Records a browser's willingness to be interrupted.
+   *
+   * Keyed on the endpoint rather than the user, so the same browser
+   * re-subscribing (which happens whenever the push service rotates it)
+   * replaces its own row instead of accumulating dead ones. Re-pointing an
+   * endpoint at a different user is the case that matters on a shared laptop:
+   * the second person's notifications must not go to the first.
+   */
+  savePushSubscription(userId, { endpoint, p256dh, auth }) {
+    this.db
+      .prepare(
+        `INSERT INTO push_subscriptions (endpoint, user_id, p256dh, auth, created_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(endpoint) DO UPDATE SET
+           user_id = excluded.user_id,
+           p256dh = excluded.p256dh,
+           auth = excluded.auth,
+           created_at = excluded.created_at`,
+      )
+      .run(endpoint, userId, p256dh, auth, nowIso());
+    return true;
+  }
+
+  listPushSubscriptions(userId) {
+    return this.db
+      .prepare(
+        `SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?`,
+      )
+      .all(userId);
+  }
+
+  deletePushSubscription(endpoint) {
+    this.db.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`).run(endpoint);
+    return true;
+  }
+
   realityBadge(userId) {
     const row = this.db
       .prepare(

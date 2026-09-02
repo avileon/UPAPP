@@ -87,6 +87,28 @@ else
   echo "kept the existing one"
 fi
 
+say "Notification keys"
+# The VAPID pair, generated once for the same reason as the signing key above:
+# it is baked into every push subscription a browser has already made, so
+# changing it does not re-key anything — it silently stops every existing
+# subscription from ever receiving another notification.
+if [ ! -f "$DATA_DIR/.vapid.json" ]; then
+  node --input-type=module -e "
+    import { generateVapidKeys } from 'file://$APP_DIR/server/src/lib/webpush.js';
+    process.stdout.write(JSON.stringify(generateVapidKeys()));
+  " > "$DATA_DIR/.vapid.json"
+  chown up:up "$DATA_DIR/.vapid.json"
+  chmod 600 "$DATA_DIR/.vapid.json"
+  echo "created"
+else
+  echo "kept the existing pair"
+fi
+read_vapid() {
+  node -p "JSON.parse(require('fs').readFileSync('$DATA_DIR/.vapid.json','utf8')).$1"
+}
+VAPID_PUBLIC=$(read_vapid publicKey)
+VAPID_PRIVATE=$(read_vapid privateKey)
+
 say "Environment"
 cat > "$ENV_FILE" <<ENV
 # The app listens on loopback only. Caddy in front of it is the sole way in,
@@ -99,6 +121,11 @@ MEDIA_DIR=$DATA_DIR/uploads
 SITE_DIR=$DATA_DIR/public
 
 JWT_SECRET=$(cat "$DATA_DIR/.jwt-secret")
+
+# Web Push. Absent keys mean the app simply does not offer notifications.
+VAPID_PUBLIC_KEY=$VAPID_PUBLIC
+VAPID_PRIVATE_KEY=$VAPID_PRIVATE
+VAPID_SUBJECT=mailto:avi@vibit.co.il
 
 # Still the mock SMS provider: the one-time code comes back in the response.
 # That is why NODE_ENV is not "production" — the server refuses to start in

@@ -69,6 +69,22 @@ export const config = {
     maxBytes: int('MEDIA_MAX_BYTES', 6 * 1024 * 1024),
   },
 
+  /**
+   * Web Push signing identity.
+   *
+   * Absent means notifications are off, and everything else still works — the
+   * app polls. Generated once by the provisioning script into a file, for the
+   * same reason the JWT secret is: rotating it silently invalidates every
+   * subscription every browser has already made, and the only symptom is
+   * notifications that quietly stop.
+   */
+  vapid: {
+    publicKey: process.env.VAPID_PUBLIC_KEY ?? '',
+    privateKey: process.env.VAPID_PRIVATE_KEY ?? '',
+    /** Where a push service should complain. Must be a mailto: or https: URL. */
+    subject: process.env.VAPID_SUBJECT ?? 'mailto:admin@up.atar.co',
+  },
+
   minimumAge: 18,
   maxPhotos: 6,
   maxMessageLength: 1000,

@@ -93,6 +93,8 @@ class AppStrings {
     required this.noMatchesTitle,
     required this.noMatchesBody,
     required this.newTag,
+    required this.settingNotifications,
+    required this.notificationsBlocked,
     required this.newMessageLabel,
     required this.openAction,
     required this.unreadDivider,
@@ -291,6 +293,12 @@ class AppStrings {
   final String noMatchesTitle;
   final String noMatchesBody;
   final String newTag;
+
+  /// The settings row that turns notifications on for this browser.
+  final String settingNotifications;
+
+  /// Shown when the browser itself has been told no and will not ask again.
+  final String notificationsBlocked;
 
   /// The banner that appears when a message lands while you are elsewhere.
   final String newMessageLabel;
@@ -506,6 +514,8 @@ class AppStrings {
     noMatchesTitle: 'עוד אין Match',
     noMatchesBody: 'Match נוצר רק כששניכם שלחתם UP.',
     newTag: 'חדש',
+    settingNotifications: 'התראות',
+    notificationsBlocked: 'חסום בדפדפן',
     newMessageLabel: 'הודעה חדשה',
     openAction: 'פתח',
     unreadDivider: 'הודעות חדשות',
@@ -707,6 +717,8 @@ class AppStrings {
     noMatchesTitle: 'No matches yet',
     noMatchesBody: 'A match only happens when you both sent an UP.',
     newTag: 'New',
+    settingNotifications: 'Notifications',
+    notificationsBlocked: 'Blocked in browser',
     newMessageLabel: 'New message',
     openAction: 'Open',
     unreadDivider: 'New messages',

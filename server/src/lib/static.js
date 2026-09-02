@@ -111,6 +111,11 @@ const APP_CODE = new Set([
   'flutter.js',
   'flutter_service_worker.js',
   'version.json',
+  // The push worker. A stale service worker is the worst kind of stale file:
+  // it keeps running the old code after every visible part of the app has
+  // been updated, and the only symptom is notifications that render wrong or
+  // stop arriving.
+  'push/sw.js',
 ]);
 
 /**

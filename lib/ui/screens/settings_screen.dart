@@ -9,6 +9,7 @@ import '../../data/api/backend_config.dart';
 import '../../state/app_scope.dart';
 import '../../state/interaction_controller.dart';
 import '../../state/live_controller.dart';
+import '../../state/push_controller.dart';
 import '../../state/session_controller.dart';
 import '../components/common.dart';
 import '../components/up_buttons.dart';
@@ -72,6 +73,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               '${session.liveDuration.inMinutes} ${s.minutesShort}',
                           onTap: session.cycleLiveDuration,
                         ),
+                        // Only where it can actually do something. A row that
+                        // is permanently greyed out on a platform without Web
+                        // Push teaches people the app is broken.
+                        if (context.push != null) const _NotificationsRow(),
                       ],
                     ),
                     _Section(
@@ -171,6 +176,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
 /// This lives in settings rather than in a hidden developer menu because in
 /// Milestone 2 it is the whole difference between a demo and two phones talking
 /// to each other. It disappears the day the app ships against a fixed address.
+/// The switch that asks the browser for permission.
+///
+/// Deliberately here and nowhere else. A permission prompt on first launch is
+/// the fastest way to get a permanent no — browsers never ask twice — so the
+/// app earns the right to ask by being useful first, and the person comes
+/// looking for this when they want it.
+class _NotificationsRow extends StatelessWidget {
+  const _NotificationsRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final PushController push = context.push!;
+
+    return ListenableBuilder(
+      listenable: push,
+      builder: (BuildContext context, Widget? _) {
+        if (!push.available) {
+          return const SizedBox.shrink();
+        }
+        if (push.blocked) {
+          // Nothing this app can do now: the decision moved into the browser's
+          // own site settings the moment it was refused. Saying so is more
+          // use than a switch that silently refuses to move.
+          return _Row(
+            label: s.settingNotifications,
+            value: s.notificationsBlocked,
+            onTap: () {},
+          );
+        }
+        return _Row(
+          label: s.settingNotifications,
+          value: push.busy
+              ? '…'
+              : push.enabled
+                  ? s.on
+                  : s.off,
+          onTap: push.busy
+              ? () {}
+              : () => push.enabled ? push.disable() : push.enable(),
+        );
+      },
+    );
+  }
+}
+
 class _ServerSection extends StatefulWidget {
   const _ServerSection();
 

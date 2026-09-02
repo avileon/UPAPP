@@ -115,6 +115,10 @@ export async function startTestServer() {
 
   return {
     app,
+    // The store itself, for the handful of assertions that are about a row
+    // existing rather than about a response. Reaching for it is a smell
+    // everywhere the HTTP surface can answer the question instead.
+    store: app.store,
     call,
     signUp,
     goLiveTogether,

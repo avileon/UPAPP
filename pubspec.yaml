@@ -21,6 +21,11 @@ environment:
 #                         Gallery only, no camera, which is why the app asks for
 #                         no permissions on Android 13 and later.
 #   qr_flutter          — draws the venue QR. Pure Dart, no platform code.
+#   web                 — typed bindings for the browser APIs the SDK does not
+#                         wrap: service workers and the Push API. Maintained by
+#                         the Dart team, no transitive dependencies, and
+#                         imported from exactly one file that never reaches an
+#                         Android build.
 #
 # Everything else still ships inside the SDK. That was never a purity rule; it
 # is why `flutter pub get` resolves in seconds and why there is almost no
@@ -34,6 +39,7 @@ dependencies:
   shared_preferences: ^2.3.2
   image_picker: ^1.1.2
   qr_flutter: ^4.1.0
+  web: ^1.0.0
 
 dev_dependencies:
   flutter_test:

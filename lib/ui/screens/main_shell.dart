@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../domain/entities/match_thread.dart';
 import '../../state/app_scope.dart';
 import '../../state/interaction_controller.dart';
 import '../components/up_nav_bar.dart';
 import '../components/up_scaffold.dart';
+import '../navigation/routes.dart';
 import 'tabs/chats_tab.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/me_tab.dart';
@@ -27,6 +31,52 @@ class MainShell extends StatefulWidget {
 class MainShellState extends State<MainShell> {
   UpTab _tab = UpTab.home;
 
+  /// A conversation named by the URL, from a tapped notification.
+  ///
+  /// The worker opens `/?chat=<id>` when no tab is already open. The thread is
+  /// usually not loaded yet at that moment — the app has to sign in and poll
+  /// first — so this waits for it to appear rather than giving up on the first
+  /// frame, and gives up for good after a few seconds so a stale link cannot
+  /// hijack a later session.
+  String? _pendingChat;
+  Timer? _pendingTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    final String? requested = Uri.base.queryParameters['chat'];
+    if (requested == null || requested.isEmpty) {
+      return;
+    }
+    _pendingChat = requested;
+    _pendingTimer = Timer(const Duration(seconds: 20), () {
+      _pendingChat = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openPendingChat());
+  }
+
+  void _openPendingChat() {
+    final String? matchId = _pendingChat;
+    if (matchId == null || !mounted) {
+      return;
+    }
+    final InteractionController interactions = context.interactions;
+    final MatchThread? match = interactions.matchById(matchId);
+    if (match == null) {
+      return;
+    }
+    _pendingChat = null;
+    _pendingTimer?.cancel();
+    interactions.markRead(matchId);
+    Navigator.of(context).pushNamed(Routes.chat, arguments: matchId);
+  }
+
+  @override
+  void dispose() {
+    _pendingTimer?.cancel();
+    super.dispose();
+  }
+
   void select(UpTab tab) {
     if (_tab == tab) {
       return;
@@ -42,6 +92,12 @@ class MainShellState extends State<MainShell> {
     return ListenableBuilder(
       listenable: interactions,
       builder: (BuildContext context, Widget? _) {
+        if (_pendingChat != null) {
+          // Every rebuild is a fresh chance that the poll has now delivered
+          // the thread the notification pointed at.
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => _openPendingChat());
+        }
         return UpScaffold(
           padded: false,
           bottomBar: UpNavBar(

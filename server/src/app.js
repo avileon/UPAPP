@@ -27,6 +27,7 @@ import {
 } from './lib/http.js';
 import { PhotoStore, readBinaryBody } from './lib/media.js';
 import { StaticSite } from './lib/static.js';
+import { notifyMatch, notifyNewMessage, pushConfigured } from './push.js';
 import { Store } from './store.js';
 
 const GENDERS = ['male', 'female', 'other'];
@@ -430,6 +431,15 @@ export function createApp({ database = ':memory:', presence, photos, site } = {}
     }
 
     const result = store.sendLike(user.id, targetId);
+    if (result.match) {
+      // Only the other person is told. The sender is looking at the match
+      // screen this call just produced.
+      notifyMatch(store, {
+        recipientId: targetId,
+        otherName: store.findProfile(user.id)?.first_name ?? '',
+        matchId: result.match.id,
+      });
+    }
     return {
       status: 200,
       body: {
@@ -509,6 +519,18 @@ export function createApp({ database = ':memory:', presence, photos, site } = {}
     const text = str(body.body, config.maxMessageLength);
     if (!text) throw badRequest('empty_message');
     const message = store.addMessage(match.id, user.id, text);
+
+    // Not awaited, deliberately: the message is saved, the app polls, and a
+    // push service having a bad minute must never turn a successful send into
+    // an error on the sender's screen.
+    const recipientId = otherSide(match, user);
+    notifyNewMessage(store, {
+      recipientId,
+      senderName: store.findProfile(user.id)?.first_name ?? '',
+      body: message.body,
+      matchId: match.id,
+    });
+
     return {
       status: 201,
       body: { id: message.id, body: message.body, mine: true, sentAt: message.created_at },
@@ -554,6 +576,59 @@ export function createApp({ database = ':memory:', presence, photos, site } = {}
     // that people actually file one.
     store.report(user.id, params.id, str(body.category, 40) || 'other', str(body.notes, 500));
     return { status: 200, body: { reported: true } };
+  });
+
+  // -- notifications -------------------------------------------------------
+
+  /**
+   * The public half of the signing key, so a browser can subscribe.
+   *
+   * Unauthenticated on purpose: it is public by definition — it ends up baked
+   * into every subscription — and the app needs it before it has decided
+   * whether to ask for permission at all. An empty key means the deployment
+   * has no notifications configured, which the app reads as "do not offer it"
+   * rather than as an error.
+   */
+  router.get('/push/key', async () => ({
+    status: 200,
+    body: { publicKey: pushConfigured() ? config.vapid.publicKey : '' },
+  }));
+
+  router.post('/push/subscribe', async (req) => {
+    const user = requireUser(req);
+    if (!pushConfigured()) throw badRequest('push_unavailable');
+    const body = await readJsonBody(req);
+    const endpoint = str(body.endpoint, 1000);
+    const p256dh = str(body.p256dh, 200);
+    const auth = str(body.auth, 100);
+    if (!endpoint || !p256dh || !auth) throw badRequest('invalid_subscription');
+    // The endpoint is a URL this server will later POST to. Refusing anything
+    // that is not an https push endpoint keeps it from being pointed at an
+    // internal address.
+    let parsed;
+    try {
+      parsed = new URL(endpoint);
+    } catch {
+      throw badRequest('invalid_subscription');
+    }
+    if (parsed.protocol !== 'https:') throw badRequest('invalid_subscription');
+
+    store.savePushSubscription(user.id, { endpoint, p256dh, auth });
+    return { status: 200, body: { subscribed: true } };
+  });
+
+  router.post('/push/unsubscribe', async (req) => {
+    const user = requireUser(req);
+    const body = await readJsonBody(req);
+    const endpoint = str(body.endpoint, 1000);
+    if (!endpoint) throw badRequest('invalid_subscription');
+    // Scoped to this user's own rows: an endpoint is a bearer-ish string, and
+    // knowing one must not let anyone silence somebody else's phone.
+    const mine = store
+      .listPushSubscriptions(user.id)
+      .some((row) => row.endpoint === endpoint);
+    if (mine) store.deletePushSubscription(endpoint);
+    return { status: 200, body: { unsubscribed: true } };
   });
 
   router.get('/health', async () => ({
