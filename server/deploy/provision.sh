@@ -61,6 +61,10 @@ mkdir -p /opt/up "$DATA_DIR/uploads" "$DATA_DIR/public" /var/log/caddy
 chown -R up:up /opt/up "$DATA_DIR"
 
 say "Code"
+# The checkout is owned by `up` and these commands run as root, which git
+# refuses to touch by default ("dubious ownership") — and refuses *before*
+# doing anything, so an update would silently stop here.
+git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
 if [ -d "$APP_DIR/.git" ]; then
   git -C "$APP_DIR" fetch --quiet origin main
   git -C "$APP_DIR" reset --hard --quiet origin/main
