@@ -21,5 +21,14 @@ pubspec.lock
 /ios/
 /linux/
 /macos/
-/web/
 /windows/
+
+# The web folder is generated too, with one exception: the push service
+# worker is ours, and `flutter build web` copies whatever is in here into the
+# build. Ignoring the folder wholesale meant the worker was never committed
+# and the deployed site had no `push/sw.js` — notifications subscribed
+# against a file that did not exist. The directory itself has to be listed as
+# `/web/*` rather than `/web/`, because git will not look inside an ignored
+# directory to find a negated path.
+/web/*
+!/web/push/
