@@ -26,6 +26,16 @@ class MatchThread {
 
   Message? get lastMessage => messages.isEmpty ? null : messages.last;
 
+  /// When this thread last did anything — the ordering key for the chat list.
+  ///
+  /// A thread with no messages is still an event: the match itself. Falling
+  /// back to [matchedAt] is what keeps a brand-new match at the top of the
+  /// list instead of at the bottom, where it reads as the oldest thing there.
+  DateTime get lastActivityAt => lastMessage?.sentAt ?? matchedAt;
+
+  /// True when the other person spoke last — the thread is waiting on you.
+  bool get awaitingReply => lastMessage != null && !lastMessage!.isMine;
+
   /// Reality Check is offered only once a match has actually turned into a
   /// conversation — a mutual UP alone is not evidence anyone met in person.
   static const int messagesBeforeRealityCheck = 4;

@@ -206,6 +206,17 @@ class MockInteractionRepository implements InteractionRepository {
     _incomingUpIds.add(personId);
   }
 
+  /// The mock threads live in this list, so "read" is just a flag on one.
+  @override
+  void markRead(String matchId) {
+    final int index = _matches.indexWhere((MatchThread m) => m.id == matchId);
+    if (index == -1 || !_matches[index].isUnread) {
+      return;
+    }
+    _matches[index] = _matches[index].copyWith(isUnread: false);
+    _emitMatches();
+  }
+
   @override
   void reset() {
     _sentUpIds.clear();

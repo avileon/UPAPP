@@ -5,6 +5,7 @@ import 'core/l10n/app_localizations.dart';
 import 'core/theme/app_theme.dart';
 import 'state/app_scope.dart';
 import 'state/session_controller.dart';
+import 'ui/components/arrival_alerts.dart';
 import 'ui/navigation/routes.dart';
 
 class UpApp extends StatelessWidget {
@@ -101,6 +102,16 @@ class _UpMaterialAppState extends State<_UpMaterialApp> {
           ],
           initialRoute: Routes.splash,
           onGenerateRoute: Routes.onGenerateRoute,
+          // Above every route, so a message that lands while you are on the
+          // radar, in settings, or in a *different* conversation still says
+          // who wrote. Inside the navigator it would be covered by the first
+          // screen pushed on top of the shell.
+          builder: (BuildContext context, Widget? child) {
+            return ArrivalAlerts(
+              navigator: _navigator,
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
         );
       },
     );

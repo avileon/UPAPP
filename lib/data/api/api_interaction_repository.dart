@@ -5,6 +5,7 @@ import '../../domain/entities/message.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../domain/entities/reality_answer.dart';
 import '../../domain/repositories/interaction_repository.dart';
+import '../local/read_state_store.dart';
 import 'api_client.dart';
 import 'api_mappers.dart';
 
@@ -19,8 +20,10 @@ class ApiInteractionRepository implements InteractionRepository {
   ApiInteractionRepository({
     required ApiClient client,
     void Function(Iterable<NearbyPerson> people)? onPeople,
+    ReadStateStore? readState,
   })  : _client = client,
-        _onPeople = onPeople;
+        _onPeople = onPeople,
+        _readUpTo = readState ?? ReadStateStore();
 
   final ApiClient _client;
   final void Function(Iterable<NearbyPerson> people)? _onPeople;
@@ -30,9 +33,11 @@ class ApiInteractionRepository implements InteractionRepository {
 
   final Set<String> _passedIds = <String>{};
   final Set<String> _blockedIds = <String>{};
+
   /// How many messages this device had seen the last time each thread was
-  /// opened. Absent means never opened.
-  final Map<String, int> _readUpTo = <String, int>{};
+  /// opened. Absent means never opened. Survives a reload — see
+  /// [ReadStateStore] for why that matters more than it sounds.
+  final ReadStateStore _readUpTo;
 
   List<MatchThread> _matches = const <MatchThread>[];
   Timer? _poll;
@@ -41,12 +46,16 @@ class ApiInteractionRepository implements InteractionRepository {
   static const Duration _pollInterval = Duration(seconds: 5);
 
   /// Starts the poll. Called once the app has a signed-in session.
+  ///
+  /// The stored read state is loaded *before* the first refresh, or the first
+  /// list to reach the screen would be computed against an empty map and every
+  /// thread would flash unread before correcting itself a tick later.
   void startPolling() {
     if (_poll != null) {
       return;
     }
     _poll = Timer.periodic(_pollInterval, (_) => unawaited(refresh()));
-    unawaited(refresh());
+    unawaited(_readUpTo.load().whenComplete(refresh));
   }
 
   void stopPolling() {
@@ -180,8 +189,25 @@ class ApiInteractionRepository implements InteractionRepository {
   }
 
   /// Records that this device has now seen everything in [matchId].
+  @override
   void markRead(String matchId) {
-    _readUpTo[matchId] = _matchById(matchId)?.messages.length ?? 0;
+    final MatchThread? thread = _matchById(matchId);
+    if (thread == null) {
+      return;
+    }
+    _readUpTo.mark(matchId, thread.messages.length);
+    // Reflect it immediately rather than waiting for the next poll: opening a
+    // conversation should clear its badge on the frame you open it, not five
+    // seconds later.
+    if (!thread.isUnread) {
+      return;
+    }
+    _matches = List<MatchThread>.unmodifiable(
+      _matches.map(
+        (MatchThread m) => m.id == matchId ? m.copyWith(isUnread: false) : m,
+      ),
+    );
+    _emit();
   }
 
   /// One pass over `GET /matches`, plus the messages of each thread.
@@ -223,8 +249,17 @@ class ApiInteractionRepository implements InteractionRepository {
         );
       }
 
+      // Newest activity first. The server returns them in match order, which
+      // buries a live conversation under matches that have never said a word —
+      // the list ends up ordered by the one thing nobody is looking for.
+      threads.sort(
+        (MatchThread a, MatchThread b) =>
+            b.lastActivityAt.compareTo(a.lastActivityAt),
+      );
+
       _onPeople?.call(people);
       _matches = List<MatchThread>.unmodifiable(threads);
+      _readUpTo.retainOnly(threads.map((MatchThread t) => t.id));
       _emit();
     } on ApiException catch (_) {
       // A dropped tunnel must not empty the list that is already on screen.
@@ -253,7 +288,7 @@ class ApiInteractionRepository implements InteractionRepository {
   bool _isUnread(String matchId, List<Message> messages) {
     if (messages.isEmpty) {
       // A brand-new match with nothing said yet is itself the thing to look at.
-      return !_readUpTo.containsKey(matchId);
+      return !_readUpTo.contains(matchId);
     }
     // Your own message never makes a thread unread. Stating it this way also
     // removes a race: sending a message and re-reading the thread no longer

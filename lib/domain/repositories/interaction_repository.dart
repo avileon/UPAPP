@@ -65,6 +65,14 @@ abstract interface class InteractionRepository {
   /// docs in NEXT_MILESTONE.md for why.
   Set<String> get incomingUpIds;
 
+  /// Records that this device has seen everything in [matchId].
+  ///
+  /// Unread is the client's own bookkeeping — the server has no read receipts
+  /// and should not grow any. Without this on the interface every caller has
+  /// to know which implementation it is holding, which is exactly the thing
+  /// the interface exists to prevent.
+  void markRead(String matchId);
+
   /// Test and demo hook.
   void simulateIncomingUp(String personId);
 

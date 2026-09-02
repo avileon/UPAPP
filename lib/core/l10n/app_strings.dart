@@ -93,6 +93,13 @@ class AppStrings {
     required this.noMatchesTitle,
     required this.noMatchesBody,
     required this.newTag,
+    required this.newMessageLabel,
+    required this.openAction,
+    required this.unreadDivider,
+    required this.justNow,
+    required this.unitMinuteShort,
+    required this.unitHourShort,
+    required this.unitDayShort,
     required this.messageHint,
     required this.chatOpener,
     required this.realityTitle,
@@ -284,6 +291,19 @@ class AppStrings {
   final String noMatchesTitle;
   final String noMatchesBody;
   final String newTag;
+
+  /// The banner that appears when a message lands while you are elsewhere.
+  final String newMessageLabel;
+  final String openAction;
+
+  /// Marks where the messages you have not read begin, inside a thread.
+  final String unreadDivider;
+
+  /// Relative time on a chat row. Short by design — it sits beside a name.
+  final String justNow;
+  final String unitMinuteShort;
+  final String unitHourShort;
+  final String unitDayShort;
   final String messageHint;
   final String chatOpener;
 
@@ -486,6 +506,13 @@ class AppStrings {
     noMatchesTitle: 'עוד אין Match',
     noMatchesBody: 'Match נוצר רק כששניכם שלחתם UP.',
     newTag: 'חדש',
+    newMessageLabel: 'הודעה חדשה',
+    openAction: 'פתח',
+    unreadDivider: 'הודעות חדשות',
+    justNow: 'עכשיו',
+    unitMinuteShort: 'דק׳',
+    unitHourShort: 'שע׳',
+    unitDayShort: 'ימ׳',
     messageHint: 'כתוב הודעה…',
     chatOpener: 'שניכם שלחתם UP. מישהו צריך להתחיל.',
     realityTitle: 'התמונות תאמו?',
@@ -680,6 +707,13 @@ class AppStrings {
     noMatchesTitle: 'No matches yet',
     noMatchesBody: 'A match only happens when you both sent an UP.',
     newTag: 'New',
+    newMessageLabel: 'New message',
+    openAction: 'Open',
+    unreadDivider: 'New messages',
+    justNow: 'now',
+    unitMinuteShort: 'm',
+    unitHourShort: 'h',
+    unitDayShort: 'd',
     messageHint: 'Message…',
     chatOpener: 'You both sent an UP. Someone has to start.',
     realityTitle: 'Did the photos match?',
