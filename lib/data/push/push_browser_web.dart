@@ -65,7 +65,10 @@ class BrowserPush implements PushBrowser {
 
       final web.ServiceWorkerRegistration registration = await web
           .window.navigator.serviceWorker
-          .register(_workerPath)
+          // `register` takes a TrustedScriptURL-or-string union, which
+          // arrives in Dart as JSAny; `getRegistration` next door takes a
+          // plain String. The asymmetry is the browser spec's, not ours.
+          .register(_workerPath.toJS)
           .toDart;
 
       final web.PushSubscription subscription = await registration.pushManager
