@@ -1,0 +1,20 @@
+# HTTPS for up.atar.co, obtained and renewed without anyone thinking about it.
+#
+# Caddy talks to Let's Encrypt on first start and again before expiry. That is
+# the reason the DNS record for this name must be a plain A record pointing
+# here rather than a proxied one: the certificate is issued to this machine,
+# and this machine is what serves it.
+up.atar.co {
+	encode zstd gzip
+
+	# The app binds to localhost only — this is the only way in, which means
+	# the port cannot be reached directly and TLS is never optional.
+	reverse_proxy 127.0.0.1:3000
+
+	log {
+		output file /var/log/caddy/up.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

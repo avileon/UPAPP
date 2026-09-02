@@ -1,0 +1,39 @@
+# The UP server, as a service the machine owns rather than a window somebody
+# has to remember to open.
+#
+# This unit is the whole point of moving off the laptop: it starts at boot,
+# restarts if the process dies, and does not care whether anyone is logged in.
+[Unit]
+Description=UP server
+Documentation=https://github.com/avileon/UPAPP
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=up
+Group=up
+WorkingDirectory=/opt/up/app/server
+EnvironmentFile=/etc/up.env
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=3
+
+# The app needs exactly one writable directory, so say so. Everything else on
+# the filesystem is read-only to it: a bug in file handling cannot reach the
+# system, and an upload path that escapes its directory has nowhere to land.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/up
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=up
+
+[Install]
+WantedBy=multi-user.target
