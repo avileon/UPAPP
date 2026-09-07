@@ -36,6 +36,7 @@ test('privacy and safety', async (t) => {
         'bio',
         'firstName',
         'id',
+        'note',
         'photoVerified',
         'photos',
         'sentYouUp',
@@ -87,10 +88,15 @@ test('privacy and safety', async (t) => {
     assert.equal(res.body.error, 'not_live');
   });
 
-  await t.test('preferences must agree in both directions', async () => {
+  await t.test('preferences must agree in both directions — when dating',
+    async () => {
+    // Only then. The same two people, both Live to meet people rather than to
+    // date, see each other perfectly well; that case is pinned in
+    // `intent.test.js`, and it is the difference between an app for meeting
+    // people and a dating app.
     const a = await s.signUp('+972510000008', { gender: 'male', interestedIn: 'women' });
     const b = await s.signUp('+972510000009', { gender: 'male', interestedIn: 'women' });
-    const { aSeesB } = await s.goLiveTogether(a, b);
+    const { aSeesB } = await s.goLiveTogether(a, b, 'date');
 
     const res = await s.call('POST', '/nearby/resolve', {
       token: a.token,

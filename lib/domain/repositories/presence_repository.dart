@@ -1,3 +1,4 @@
+import '../entities/live_intent.dart';
 import '../entities/live_session.dart';
 import '../entities/nearby_person.dart';
 import '../entities/room_status.dart';
@@ -10,7 +11,22 @@ import '../entities/room_status.dart';
 /// enforceable in one place.
 abstract interface class PresenceRepository {
   /// Maps to `POST /live/start`. The server mints the rotating BLE tokens.
-  Future<LiveSession> startLive(Duration duration);
+  ///
+  /// The intent travels with the session rather than the account, and it is
+  /// what decides who you are shown — including whether gender preference
+  /// filters anything at all.
+  Future<LiveSession> startLive(
+    Duration duration, {
+    LiveIntent intent,
+    String note,
+  });
+
+  /// Maps to `GET /rooms`. Rooms that already have people in them, for one
+  /// intent.
+  ///
+  /// The other half of joining a room: typing a code works when somebody told
+  /// you the code, and a person standing in a bar has nothing to type.
+  Future<List<RoomSummary>> rooms(LiveIntent intent);
 
   /// Maps to `POST /live/stop`.
   Future<void> stopLive();
@@ -40,4 +56,16 @@ abstract interface class PresenceRepository {
   void simulateDiscovery();
 
   void dispose();
+}
+
+/// A room somebody could walk into, and how busy it is.
+///
+/// Counts only. A room key is a label people agreed on rather than a secret,
+/// but a name attached to one would turn "who is in this bar" into a question
+/// the app answers, which it must never be.
+class RoomSummary {
+  const RoomSummary({required this.code, required this.people});
+
+  final String code;
+  final int people;
 }

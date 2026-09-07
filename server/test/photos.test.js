@@ -182,6 +182,7 @@ test('photos', async (t) => {
         'bio',
         'firstName',
         'id',
+        'note',
         'photoVerified',
         'photos',
         'sentYouUp',

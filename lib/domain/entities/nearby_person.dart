@@ -19,6 +19,7 @@ class NearbyPerson {
     this.photoKeys = const <String>[],
     this.sentYouUp = false,
     this.youSentUp = false,
+    this.note = '',
   });
 
   final String id;
@@ -50,6 +51,13 @@ class NearbyPerson {
   /// Also from the server, which is what makes the "UP sent" state survive a
   /// reload — on the web that is every refresh.
   final bool youSentUp;
+
+  /// What this person said they are doing, right now, in their own words.
+  ///
+  /// Not a bio: it belongs to their live session and disappears with it, which
+  /// is exactly why it can be specific enough to be useful — "בפינה עם ספר",
+  /// "מחפש רביעי למשחק". A permanent profile line can never say that.
+  final String note;
 
   String nameFor(String localeCode) =>
       localeCode == 'he' ? firstNameHe : firstNameEn;

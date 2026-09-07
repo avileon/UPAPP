@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { intentsMeet, normaliseIntent, normaliseNote } from './intent.js';
 import { hashSecret, newId, randomToken } from '../lib/crypto.js';
 
 /**
@@ -44,7 +45,7 @@ export class PresenceStore {
   }
 
   /** Starts (or replaces) a user's live session and mints a first token batch. */
-  startLive(userId, durationSeconds, venue = null) {
+  startLive(userId, durationSeconds, venue = null, intent = null, note = '') {
     const capped = Math.min(
       Math.max(Number(durationSeconds) || 0, 60),
       config.live.maxDurationSeconds,
@@ -58,6 +59,11 @@ export class PresenceStore {
       startedAt,
       expiresAt: startedAt + capped * 1000,
       venue: normaliseVenue(venue),
+      // Why they are here, and what they are doing. Both belong to the session
+      // rather than the account: they are true for the next hour and then they
+      // are not, which is exactly what makes them worth showing to a stranger.
+      intent: normaliseIntent(intent),
+      note: normaliseNote(note),
     };
     this._sessionsByUser.set(userId, session);
     return { session, tokens: this.mintTokens(userId) };
@@ -80,9 +86,42 @@ export class PresenceStore {
       if (otherId === userId) continue;
       if (other.venue !== session.venue) continue;
       if (other.expiresAt <= this._now()) continue;
+      // Same room *and* same reason. A room is a place; an intent is why you
+      // walked into it, and mixing the two is what produced the awkwardness
+      // this app is supposed to remove.
+      if (!intentsMeet(other.intent, session.intent)) continue;
       peers.push(otherId);
     }
     return peers;
+  }
+
+  /**
+   * Rooms with people in them right now, for one intent.
+   *
+   * Typing a code is a fine way to join a room you were told about and a
+   * terrible way to find one at all — a person standing in a bar has nothing
+   * to type. This is the answer: the rooms that already exist, with a count.
+   *
+   * Two deliberate limits. Only rooms holding at least two people are listed,
+   * because a room of one is a person, and publishing "AVI42: 1 person" turns
+   * a private label into a way to find somebody. And only counts are returned:
+   * no names, no ids, nothing that survives the session.
+   */
+  rooms(intent, { minimum = 2, limit = 20 } = {}) {
+    const wanted = normaliseIntent(intent);
+    const counts = new Map();
+    const now = this._now();
+    for (const session of this._sessionsByUser.values()) {
+      if (!session.venue) continue;
+      if (session.expiresAt <= now) continue;
+      if (!intentsMeet(session.intent, wanted)) continue;
+      counts.set(session.venue, (counts.get(session.venue) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .filter(([, people]) => people >= minimum)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, limit)
+      .map(([code, people]) => ({ code, people }));
   }
 
   stopLive(userId) {

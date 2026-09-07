@@ -66,14 +66,14 @@ export async function startTestServer() {
   };
 
   /** Puts two users in range of each other and returns their swapped tokens. */
-  const goLiveTogether = async (a, b) => {
+  const goLiveTogether = async (a, b, intent) => {
     const liveA = await call('POST', '/live/start', {
       token: a.token,
-      body: { durationSeconds: 3600 },
+      body: { durationSeconds: 3600, intent },
     });
     const liveB = await call('POST', '/live/start', {
       token: b.token,
-      body: { durationSeconds: 3600 },
+      body: { durationSeconds: 3600, intent },
     });
     return {
       aSeesB: liveB.body.tokens.map((t) => t.token),
@@ -82,10 +82,10 @@ export async function startTestServer() {
   };
 
   /** Goes live under a venue key, the way the app does when a code is set. */
-  const goLiveAt = async (user, venue) =>
+  const goLiveAt = async (user, venue, intent) =>
     call('POST', '/live/start', {
       token: user.token,
-      body: { durationSeconds: 3600, venue },
+      body: { durationSeconds: 3600, venue, intent },
     });
 
   /** Who this user can see right now with no BLE tokens at all. */

@@ -93,6 +93,27 @@ class AppStrings {
     required this.noMatchesTitle,
     required this.noMatchesBody,
     required this.newTag,
+    required this.intentQuestion,
+    required this.intentMeet,
+    required this.intentDate,
+    required this.intentWork,
+    required this.intentDoing,
+    required this.intentMeetHint,
+    required this.intentDateHint,
+    required this.intentWorkHint,
+    required this.intentDoingHint,
+    required this.intentLockedWhileLive,
+    required this.noteLabel,
+    required this.noteHint,
+    required this.noteEmpty,
+    required this.roomsTitle,
+    required this.roomsEmpty,
+    required this.roomsBusy,
+    required this.openersTitle,
+    required this.openersMeet,
+    required this.openersDate,
+    required this.openersWork,
+    required this.openersDoing,
     required this.settingNotifications,
     required this.notificationsBlocked,
     required this.newMessageLabel,
@@ -150,6 +171,7 @@ class AppStrings {
     required this.quietNoRoomBody,
     required this.quietEmptyRoomBody,
     required this.quietFilteredBody,
+    required this.quietSkippedBody,
     required this.copyLink,
     required this.linkCopied,
     required this.devCodeLabel,
@@ -294,6 +316,42 @@ class AppStrings {
   final String noMatchesBody;
   final String newTag;
 
+  /// Why you are Live — the question the app never used to ask, and the one
+  /// that decides who you are shown.
+  final String intentQuestion;
+  final String intentMeet;
+  final String intentDate;
+  final String intentWork;
+  final String intentDoing;
+
+  /// One line under each choice saying what it changes. The dating one is the
+  /// only place the preference filter is ever explained, and it is the only
+  /// place a person can act on knowing about it.
+  final String intentMeetHint;
+  final String intentDateHint;
+  final String intentWorkHint;
+  final String intentDoingHint;
+
+  /// Why the picker is read-only during a session.
+  final String intentLockedWhileLive;
+
+  /// The line under your name while you are Live.
+  final String noteLabel;
+  final String noteHint;
+  final String noteEmpty;
+
+  /// Rooms that already have people in them.
+  final String roomsTitle;
+  final String roomsEmpty;
+  final String roomsBusy;
+
+  /// Three ways to start a conversation, so the first message is not a wall.
+  final String openersTitle;
+  final List<String> openersMeet;
+  final List<String> openersDate;
+  final List<String> openersWork;
+  final List<String> openersDoing;
+
   /// The settings row that turns notifications on for this browser.
   final String settingNotifications;
 
@@ -372,6 +430,10 @@ class AppStrings {
   final String quietNoRoomBody;
   final String Function(String code) quietEmptyRoomBody;
   final String Function(int others) quietFilteredBody;
+
+  /// The same silence, outside dating, where preferences filter nothing. The
+  /// remaining cause is this device's own doing.
+  final String Function(int others) quietSkippedBody;
   final String copyLink;
   final String linkCopied;
   final String devCodeLabel;
@@ -514,6 +576,43 @@ class AppStrings {
     noMatchesTitle: 'עוד אין Match',
     noMatchesBody: 'Match נוצר רק כששניכם שלחתם UP.',
     newTag: 'חדש',
+    intentQuestion: 'למה אתה כאן עכשיו?',
+    intentMeet: 'להכיר אנשים',
+    intentDate: 'דייט',
+    intentWork: 'מקצועי',
+    intentDoing: 'לעשות משהו',
+    intentMeetHint: 'כל מי שבחדר רואה אותך — בלי סינון לפי מגדר',
+    intentDateHint: 'רק מי שמתאים להעדפות של שניכם',
+    intentWorkHint: 'נטוורקינג, עבודה משותפת, שיתופי פעולה',
+    intentDoingHint: 'ריצה, קפה, משחק — עכשיו',
+    intentLockedWhileLive: 'אפשר לשנות אחרי שתסיים את ה-Live',
+    noteLabel: 'מה עכשיו?',
+    noteHint: 'יושב בפינה עם ספר',
+    noteEmpty: 'לא כתבת כלום',
+    roomsTitle: 'חדרים עם אנשים',
+    roomsEmpty: 'אף חדר לא פעיל כרגע',
+    roomsBusy: 'בחדר',
+    openersTitle: 'פתיחה מהירה',
+    openersMeet: <String>[
+      'היי, אני כאן בסביבה — מה קורה?',
+      'ראיתי שאתה בחדר. מה מביא אותך לכאן?',
+      'אפשר להצטרף?',
+    ],
+    openersDate: <String>[
+      'היי, נראה לי שאנחנו באותו מקום',
+      'מה שתית עד עכשיו, וכדאי?',
+      'רוצה להחליף שתי מילים במקום להתכתב?',
+    ],
+    openersWork: <String>[
+      'היי, על מה אתה עובד?',
+      'מחפש מישהו לדבר איתו על הפרויקט שלי — מתעניין?',
+      'קפה של עשר דקות?',
+    ],
+    openersDoing: <String>[
+      'אני יוצא עוד רבע שעה — בא לך?',
+      'חסר לנו אחד. מצטרף?',
+      'איפה בדיוק אתה?',
+    ],
     settingNotifications: 'התראות',
     notificationsBlocked: 'חסום בדפדפן',
     newMessageLabel: 'הודעה חדשה',
@@ -574,6 +673,7 @@ class AppStrings {
     quietNoRoomBody: 'אין קוד מקום, אז אין חדר. בחרו קוד אחד ושתפו אותו.',
     quietEmptyRoomBody: _heQuietEmptyRoom,
     quietFilteredBody: _heQuietFiltered,
+    quietSkippedBody: _heQuietSkipped,
     copyLink: 'העתק קישור',
     linkCopied: 'הקישור הועתק',
     devCodeLabel: 'קוד לפיתוח',
@@ -717,6 +817,43 @@ class AppStrings {
     noMatchesTitle: 'No matches yet',
     noMatchesBody: 'A match only happens when you both sent an UP.',
     newTag: 'New',
+    intentQuestion: 'Why are you out right now?',
+    intentMeet: 'Meet people',
+    intentDate: 'Dating',
+    intentWork: 'Professional',
+    intentDoing: 'Do something',
+    intentMeetHint: 'Everyone in the room sees you — no gender filter',
+    intentDateHint: 'Only people who match both your preferences',
+    intentWorkHint: 'Networking, co-working, collaborations',
+    intentDoingHint: 'A run, a coffee, a game — now',
+    intentLockedWhileLive: 'You can change it after this session ends',
+    noteLabel: 'What are you up to?',
+    noteHint: 'In the corner with a book',
+    noteEmpty: 'Nothing written',
+    roomsTitle: 'Rooms with people',
+    roomsEmpty: 'No room is busy right now',
+    roomsBusy: 'in the room',
+    openersTitle: 'Quick opener',
+    openersMeet: <String>[
+      'Hey — I am around here too. What is going on?',
+      'Saw you in the room. What brings you here?',
+      'Mind if I join?',
+    ],
+    openersDate: <String>[
+      'Hey, I think we are in the same place',
+      'What have you had so far, and is it any good?',
+      'Two words in person instead of typing?',
+    ],
+    openersWork: <String>[
+      'Hey — what are you working on?',
+      'Looking for someone to think out loud with. Interested?',
+      'Ten-minute coffee?',
+    ],
+    openersDoing: <String>[
+      'Heading out in fifteen minutes — coming?',
+      'We are one short. Want in?',
+      'Whereabouts are you exactly?',
+    ],
     settingNotifications: 'Notifications',
     notificationsBlocked: 'Blocked in browser',
     newMessageLabel: 'New message',
@@ -777,6 +914,7 @@ class AppStrings {
     quietNoRoomBody: 'No venue code, so there is no room. Pick one and share it.',
     quietEmptyRoomBody: _enQuietEmptyRoom,
     quietFilteredBody: _enQuietFiltered,
+    quietSkippedBody: _enQuietSkipped,
     copyLink: 'Copy link',
     linkCopied: 'Link copied',
     devCodeLabel: 'Dev code',
@@ -900,6 +1038,16 @@ String _heQuietFiltered(int others) {
   final String who = others == 1 ? 'עוד אחד' : 'עוד $others';
   return '$who בחדר, אבל ההעדפות לא מסתדרות בשני הכיוונים. '
       'נסו "מעניין אותי: כולם".';
+}
+
+String _heQuietSkipped(int others) {
+  final String who = others == 1 ? 'עוד אחד' : 'עוד $others';
+  return '$who בחדר, אבל דילגת עליהם ב-Live הזה או שחסמת אותם.';
+}
+
+String _enQuietSkipped(int others) {
+  final String who = others == 1 ? '1 other' : '$others others';
+  return '$who in the room, but you passed on them this session, or blocked them.';
 }
 
 String _enQuietFiltered(int others) {

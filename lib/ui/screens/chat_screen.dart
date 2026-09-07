@@ -8,7 +8,9 @@ import '../../domain/entities/match_thread.dart';
 import '../../domain/entities/message.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../state/app_scope.dart';
+import '../../domain/entities/live_intent.dart';
 import '../../state/interaction_controller.dart';
+import '../components/intent_picker.dart';
 import '../components/common.dart';
 import '../components/up_scaffold.dart';
 import '../navigation/routes.dart';
@@ -199,16 +201,20 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               Expanded(
                 child: match.messages.isEmpty
-                    ? Center(
-                        child: ConstrainedBox(
-                          constraints:
-                              const BoxConstraints(maxWidth: 240),
-                          child: Text(
-                            s.chatOpener,
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
+                    ? _Openers(
+                        strings: s,
+                        intent: context.live.intent,
+                        onPick: (String line) {
+                          _input.text = line;
+                          // Placed in the box, not sent. The whole value of an
+                          // opener is that it survives being edited — a button
+                          // that fires a canned line at a stranger is a worse
+                          // first message than a blank field, not a better one.
+                          _input.selection = TextSelection.collapsed(
+                            offset: line.length,
+                          );
+                          setState(() {});
+                        },
                       )
                     : ListView.builder(
                         controller: _scroll,
@@ -389,6 +395,85 @@ class _UnreadMarker extends StatelessWidget {
           ),
           Expanded(child: Divider(color: p.amber.withValues(alpha: 0.4))),
         ],
+      ),
+    );
+  }
+}
+
+
+/// Three ways to say the first thing.
+///
+/// The blank field after a match is where most of them die: both people can
+/// see that the other is right there, and neither wants to be the one who
+/// wrote something forgettable. These are deliberately ordinary lines, and
+/// they land in the input box rather than being sent — the point is to get
+/// past the empty screen, not to outsource the message.
+class _Openers extends StatelessWidget {
+  const _Openers({
+    required this.strings,
+    required this.intent,
+    required this.onPick,
+  });
+
+  final AppStrings strings;
+  final LiveIntent intent;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final UpPalette p = context.palette;
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: Insets.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260),
+              child: Text(
+                strings.chatOpener,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            const SizedBox(height: Insets.xl),
+            Text(
+              strings.openersTitle,
+              style: Theme.of(context)
+                  .textTheme
+                  .labelSmall
+                  ?.copyWith(color: p.dim, letterSpacing: 0.4),
+            ),
+            const SizedBox(height: Insets.sm),
+            for (final String line in intent.openers(strings))
+              Padding(
+                padding: const EdgeInsets.only(bottom: Insets.sm),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 320),
+                  child: Material(
+                    color: p.surfaceHigh,
+                    borderRadius: BorderRadius.circular(Radii.lg),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(Radii.lg),
+                      onTap: () => onPick(line),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Insets.lg,
+                          vertical: Insets.md,
+                        ),
+                        child: Text(
+                          line,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

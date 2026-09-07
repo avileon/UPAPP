@@ -130,12 +130,16 @@ test('venue presence', async (t) => {
     assert.deepEqual((await s.nearby(b)).body.people, []);
   });
 
-  await t.test('preferences must still agree in both directions', async () => {
+  await t.test('preferences still agree in both directions — when dating',
+    async () => {
+    // The venue does not weaken the rule where the rule applies. Where it does
+    // not apply — anything but dating — these two see each other, which is the
+    // point of `intent.test.js`.
     const a = await s.signUp('+972520000019', { gender: 'male', interestedIn: 'women' });
     const b = await s.signUp('+972520000020', { gender: 'male', interestedIn: 'women' });
 
-    await s.goLiveAt(a, 'ROOM10');
-    await s.goLiveAt(b, 'ROOM10');
+    await s.goLiveAt(a, 'ROOM10', 'date');
+    await s.goLiveAt(b, 'ROOM10', 'date');
 
     assert.deepEqual((await s.nearby(a)).body.people, []);
   });
@@ -158,6 +162,7 @@ test('venue presence', async (t) => {
         'bio',
         'firstName',
         'id',
+        'note',
         'photoVerified',
         'photos',
         'sentYouUp',
@@ -187,8 +192,8 @@ test('venue presence', async (t) => {
     const a = await s.signUp('+972520000025', { gender: 'male', interestedIn: 'women' });
     const b = await s.signUp('+972520000026', { gender: 'male', interestedIn: 'women' });
 
-    await s.goLiveAt(a, 'ROOM13');
-    await s.goLiveAt(b, 'ROOM13');
+    await s.goLiveAt(a, 'ROOM13', 'date');
+    await s.goLiveAt(b, 'ROOM13', 'date');
 
     const res = await s.nearby(a);
     assert.equal(res.body.room, 'ROOM13');

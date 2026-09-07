@@ -9,6 +9,7 @@ import '../data/api/api_auth_repository.dart';
 import '../data/api/api_client.dart';
 import '../data/mock/mock_auth_repository.dart';
 import '../data/mock/mock_profile_repository.dart';
+import '../domain/entities/live_intent.dart';
 import '../domain/entities/live_session.dart';
 import '../domain/entities/user_profile.dart';
 import '../domain/repositories/auth_repository.dart';
@@ -42,6 +43,8 @@ class SessionController extends ChangeNotifier {
   bool _isBusy = false;
   UserProfile? _profile;
   Duration _liveDuration = const Duration(minutes: 60);
+  LiveIntent _liveIntent = LiveIntent.meet;
+  String _liveNote = '';
   bool _hideFromContacts = true;
 
   Locale get locale => _locale;
@@ -51,6 +54,12 @@ class SessionController extends ChangeNotifier {
   bool get isBusy => _isBusy;
   UserProfile? get profile => _profile;
   Duration get liveDuration => _liveDuration;
+
+  /// What the next Live session will be for, and the line that goes under the
+  /// name while it runs. Both are chosen on the home screen, in the moment,
+  /// because both are true for an hour and then are not.
+  LiveIntent get liveIntent => _liveIntent;
+  String get liveNote => _liveNote;
   bool get hideFromContacts => _hideFromContacts;
 
   /// The last thing that went wrong, as the server's error code. Cleared by the
@@ -118,6 +127,23 @@ class SessionController extends ChangeNotifier {
 
   void setLiveDuration(Duration duration) {
     _liveDuration = duration;
+    notifyListeners();
+  }
+
+  void setLiveIntent(LiveIntent intent) {
+    if (intent == _liveIntent) {
+      return;
+    }
+    _liveIntent = intent;
+    notifyListeners();
+  }
+
+  void setLiveNote(String note) {
+    final String trimmed = note.trim();
+    if (trimmed == _liveNote) {
+      return;
+    }
+    _liveNote = trimmed;
     notifyListeners();
   }
 
@@ -277,6 +303,8 @@ class SessionController extends ChangeNotifier {
     _acceptedTerms = false;
     _phoneNumber = '';
     _liveDuration = const Duration(minutes: 60);
+    _liveIntent = LiveIntent.meet;
+    _liveNote = '';
     if (_profiles is MockProfileRepository) {
       _profiles.clear();
     }

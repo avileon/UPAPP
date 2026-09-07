@@ -16,6 +16,9 @@ abstract final class MockData {
       bioEn: 'Came for the music, stayed for the talking',
       isPhotoVerified: true,
       auraSeed: 0,
+      // The line that turns a face into somebody you have a
+      // reason to walk over to.
+      note: 'ליד הבר, החולצה הירוקה',
     ),
     NearbyPerson(
       id: 'p2',
@@ -26,6 +29,7 @@ abstract final class MockData {
       bioEn: 'Drummer. Yes, that is my whole personality',
       isPhotoVerified: false,
       auraSeed: 1,
+      note: 'בפינה עם הגיטרה',
     ),
     NearbyPerson(
       id: 'p3',
@@ -36,6 +40,7 @@ abstract final class MockData {
       bioEn: 'Asks too many questions',
       isPhotoVerified: true,
       auraSeed: 2,
+      note: 'מחפש רביעי למשחק',
     ),
     NearbyPerson(
       id: 'p4',
@@ -46,6 +51,7 @@ abstract final class MockData {
       bioEn: 'Chef by day, useless by night',
       isPhotoVerified: false,
       auraSeed: 3,
+      note: 'שולחן ליד החלון',
     ),
     NearbyPerson(
       id: 'p5',
@@ -56,6 +62,7 @@ abstract final class MockData {
       bioEn: 'If there is a dog at the party, I am with the dog',
       isPhotoVerified: true,
       auraSeed: 4,
+      note: 'יוצא לריצה בעוד רבע שעה',
     ),
     NearbyPerson(
       id: 'p6',
@@ -66,6 +73,7 @@ abstract final class MockData {
       bioEn: 'Great at awkward silences',
       isPhotoVerified: false,
       auraSeed: 5,
+      note: 'קפה ולפטופ, קומה 2',
     ),
     NearbyPerson(
       id: 'p7',

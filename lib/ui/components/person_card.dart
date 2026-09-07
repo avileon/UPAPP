@@ -151,31 +151,58 @@ class PersonCard extends StatelessWidget {
                 start: Insets.md,
                 end: Insets.md,
                 bottom: Insets.md,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    Flexible(
-                      child: Text(
-                        name,
-                        maxLines: 1,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: <Widget>[
+                        Flexible(
+                          child: Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: Insets.xs + 2),
+                        Text(
+                          '${person.age}',
+                          style: const TextStyle(
+                            color: Color(0xD9FFFFFF),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // What they said they are doing, right now. This is the
+                    // line that turns a face into somebody you have a reason
+                    // to walk over to, and it is worth more space on this card
+                    // than anything else that could go here.
+                    if (person.note.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 2),
+                      Text(
+                        person.note,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                          color: Color(0xF2FFFFFF),
+                          fontSize: 12,
+                          height: 1.25,
+                          fontWeight: FontWeight.w500,
+                          shadows: <Shadow>[
+                            Shadow(blurRadius: 6, color: Color(0x99000000)),
+                          ],
                         ),
                       ),
-                    ),
-                    const SizedBox(width: Insets.xs + 2),
-                    Text(
-                      '${person.age}',
-                      style: const TextStyle(
-                        color: Color(0xD9FFFFFF),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    ],
                   ],
                 ),
               ),

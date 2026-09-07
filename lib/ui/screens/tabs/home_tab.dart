@@ -14,7 +14,10 @@ import '../../../state/app_scope.dart';
 import '../../../state/interaction_controller.dart';
 import '../../../state/live_controller.dart';
 import '../../../state/session_controller.dart';
+import '../../../domain/entities/live_intent.dart';
 import '../../components/common.dart';
+import '../../components/intent_picker.dart';
+import '../../components/note_field.dart';
 import '../../components/radar_view.dart';
 import '../../components/up_buttons.dart';
 import '../../components/up_chip.dart';
@@ -61,96 +64,131 @@ class HomeTab extends StatelessWidget {
             if (person.sentYouUp) person.id,
         }.length;
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Insets.screen),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              _StatusRow(isLive: live.isLive),
-              if (incoming > 0) ...<Widget>[
-                const SizedBox(height: Insets.md),
-                _IncomingBanner(
-                  label: s.incomingUps(incoming),
-                  onTap: () => MainShell.of(context)?.select(UpTab.nearby),
-                ),
-              ],
-              const SizedBox(height: Insets.lg),
-              RadarView(
-                isLive: live.isLive,
-                blipCount: visible.length,
-                child: _GoLiveButton(
-                  isLive: live.isLive,
-                  label: live.isLive ? s.stopLive : s.goLive,
-                  onPressed: () => _toggleLive(context, live, session),
-                ),
-              ),
-              const SizedBox(height: Insets.xl),
-              Text(
-                live.isLive ? s.visibleTitle : s.invisibleTitle,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: Insets.sm),
-              Text(
-                live.isLive ? s.visibleBody : s.invisibleBody,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              if (live.isLive) ...<Widget>[
-                const SizedBox(height: Insets.md),
-                Text(
-                  '${s.visibleFor} ${_formatRemaining(live.remaining)}',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: context.palette.cyan,
-                        fontFeatures: const <FontFeature>[
-                          FontFeature.tabularFigures(),
-                        ],
+        // Scrollable, but only when it has to be. The screen is designed to
+        // fit — the radar in the middle and the button at the bottom of the
+        // thumb's reach — and on a tall phone it still does. On a short one,
+        // or with the keyboard up over the note field, this is what keeps the
+        // Go Live button reachable instead of clipped off the bottom edge.
+        return LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: Insets.screen),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      _StatusRow(isLive: live.isLive),
+                      const SizedBox(height: Insets.md),
+                      // Above the button, because it changes what the button means.
+                      // Asking afterwards would be asking about a decision already
+                      // made — and the reason the app read as a dating app is that it
+                      // never asked at all.
+                      IntentPicker(
+                        selected: live.isLive ? live.intent : session.liveIntent,
+                        onSelect: session.setLiveIntent,
+                        strings: s,
+                        enabled: !live.isLive,
                       ),
-                ),
-              ],
-              const Spacer(),
-              if (live.isLive)
-                _NearbySummary(
-                  people: visible,
-                  localeCode: session.localeCode,
-                  label: '${s.peopleNearby(visible.length)} · ${s.seeNearby}',
-                  // The home screen is where someone stands waiting for a name
-                  // to appear. If none is coming, the reason belongs here and
-                  // not one tab away.
-                  hint: quietReason(
-                    strings: s,
-                    live: live,
-                    hasServer: context.backend.isConfigured,
-                    anyoneVisible: visible.isNotEmpty,
+                      if (incoming > 0) ...<Widget>[
+                        const SizedBox(height: Insets.md),
+                        _IncomingBanner(
+                          label: s.incomingUps(incoming),
+                          onTap: () => MainShell.of(context)?.select(UpTab.nearby),
+                        ),
+                      ],
+                      const SizedBox(height: Insets.lg),
+                      RadarView(
+                        isLive: live.isLive,
+                        blipCount: visible.length,
+                        child: _GoLiveButton(
+                          isLive: live.isLive,
+                          label: live.isLive ? s.stopLive : s.goLive,
+                          onPressed: () => _toggleLive(context, live, session),
+                        ),
+                      ),
+                      const SizedBox(height: Insets.xl),
+                      Text(
+                        live.isLive ? s.visibleTitle : s.invisibleTitle,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: Insets.sm),
+                      Text(
+                        live.isLive ? s.visibleBody : s.invisibleBody,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      if (live.isLive) ...<Widget>[
+                        const SizedBox(height: Insets.md),
+                        Text(
+                          '${s.visibleFor} ${_formatRemaining(live.remaining)}',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: context.palette.cyan,
+                                fontFeatures: const <FontFeature>[
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                        ),
+                      ],
+                      const SizedBox(height: Insets.md),
+                      // The line other people read under your name. Offered before
+                      // going Live and left visible during it, because it is the one
+                      // thing on this screen that changes what a stranger does next.
+                      NoteField(
+                        value: live.isLive ? live.session?.note ?? '' : session.liveNote,
+                        onChanged: session.setLiveNote,
+                        strings: s,
+                        enabled: !live.isLive,
+                      ),
+                      const Spacer(),
+                      if (live.isLive)
+                        _NearbySummary(
+                          people: visible,
+                          localeCode: session.localeCode,
+                          label: '${s.peopleNearby(visible.length)} · ${s.seeNearby}',
+                          // The home screen is where someone stands waiting for a name
+                          // to appear. If none is coming, the reason belongs here and
+                          // not one tab away.
+                          hint: quietReason(
+                            strings: s,
+                            live: live,
+                            hasServer: context.backend.isConfigured,
+                            anyoneVisible: visible.isNotEmpty,
+                          ),
+                          onTap: () => MainShell.of(context)?.select(UpTab.nearby),
+                        )
+                      else
+                        _DurationPicker(
+                          selected: session.liveDuration,
+                          minutesShort: s.minutesShort,
+                          caption: s.durationLabel,
+                          onSelect: session.setLiveDuration,
+                        ),
+                      const SizedBox(height: Insets.md),
+                      // The room is the only thing that decides who is "here", so it
+                      // belongs on the screen where you go Live — not buried in
+                      // settings.
+                      _RoomRow(
+                        label: s.venueRoom,
+                        // The saved code is what you chose; the room is what the server
+                        // put you in. They differ exactly when it matters — a code
+                        // picked before going Live — so both are on screen.
+                        savedCode: context.backend.venueCode,
+                        room: live.room,
+                        isLive: live.isLive,
+                        strings: s,
+                        onTap: () => Navigator.of(context).pushNamed(Routes.venue),
+                      ),
+                      const SizedBox(height: Insets.lg),
+                    ],
                   ),
-                  onTap: () => MainShell.of(context)?.select(UpTab.nearby),
-                )
-              else
-                _DurationPicker(
-                  selected: session.liveDuration,
-                  minutesShort: s.minutesShort,
-                  caption: s.durationLabel,
-                  onSelect: session.setLiveDuration,
                 ),
-              const SizedBox(height: Insets.md),
-              // The room is the only thing that decides who is "here", so it
-              // belongs on the screen where you go Live — not buried in
-              // settings.
-              _RoomRow(
-                label: s.venueRoom,
-                // The saved code is what you chose; the room is what the server
-                // put you in. They differ exactly when it matters — a code
-                // picked before going Live — so both are on screen.
-                savedCode: context.backend.venueCode,
-                room: live.room,
-                isLive: live.isLive,
-                strings: s,
-                onTap: () => Navigator.of(context).pushNamed(Routes.venue),
               ),
-              const SizedBox(height: Insets.lg),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -270,7 +308,11 @@ Future<void> _toggleLive(
 ) async {
   final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
   final AppStrings s = context.strings;
-  await live.toggle(session.liveDuration);
+  await live.toggle(
+    session.liveDuration,
+    intent: session.liveIntent,
+    note: session.liveNote,
+  );
   final String? code = live.lastErrorCode;
   if (code != null) {
     messenger.showSnackBar(SnackBar(content: Text(errorText(s, code))));

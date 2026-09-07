@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:up/domain/entities/live_intent.dart';
 import 'package:up/domain/entities/live_session.dart';
 import 'package:up/domain/entities/nearby_person.dart';
 import 'package:up/domain/entities/room_status.dart';
@@ -27,14 +28,24 @@ class _FakePresence implements PresenceRepository {
   void emitRoom(RoomStatus status) => _room.add(status);
 
   @override
-  Future<LiveSession> startLive(Duration duration) async {
+  Future<LiveSession> startLive(
+    Duration duration, {
+    LiveIntent intent = LiveIntent.meet,
+    String note = '',
+  }) async {
     final DateTime now = DateTime.now();
     return LiveSession(
       id: 'fake',
       startedAt: now,
       expiresAt: now.add(duration),
+      intent: intent,
+      note: note,
     );
   }
+
+  @override
+  Future<List<RoomSummary>> rooms(LiveIntent intent) async =>
+      const <RoomSummary>[];
 
   @override
   Future<void> stopLive() async {

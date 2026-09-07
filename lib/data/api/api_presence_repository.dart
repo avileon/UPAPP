@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../domain/entities/live_intent.dart';
 import '../../domain/entities/live_session.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../domain/entities/room_status.dart';
@@ -51,6 +52,17 @@ class ApiPresenceRepository implements PresenceRepository {
   /// re-issue is needed; never assumed equal to what the user typed.
   String _joinedVenue = '';
 
+  /// Why this session exists, and the line under the name, held so that every
+  /// *re-issue* of the session carries them too.
+  ///
+  /// The session is re-issued in three places — a venue change, a re-arm after
+  /// the server restarted, and going Live again — and each one is a fresh
+  /// `/live/start`. Without these two fields those paths would quietly drop
+  /// somebody from "a game of five-a-side" into the default intent, and the
+  /// only symptom would be a room that emptied for no reason.
+  LiveIntent _intent = LiveIntent.meet;
+  String _note = '';
+
   /// Often enough that walking into a room feels immediate, rarely enough that
   /// an hour of Live is not thousands of requests. A socket replaces this.
   static const Duration _pollInterval = Duration(seconds: 5);
@@ -58,14 +70,17 @@ class ApiPresenceRepository implements PresenceRepository {
   LiveSession? get session => _session;
 
   @override
-  Future<LiveSession> startLive(Duration duration) async {
+  Future<LiveSession> startLive(
+    Duration duration, {
+    LiveIntent intent = LiveIntent.meet,
+    String note = '',
+  }) async {
+    _intent = intent;
+    _note = note;
     final String venue = _venueCode();
     final Map<String, dynamic> result = await _client.post(
       '/live/start',
-      <String, dynamic>{
-        'durationSeconds': duration.inSeconds,
-        if (venue.isNotEmpty) 'venue': venue,
-      },
+      _startBody(duration.inSeconds, venue),
     );
 
     final DateTime now = DateTime.now();
@@ -76,7 +91,12 @@ class ApiPresenceRepository implements PresenceRepository {
         result['expiresAt'],
         now.add(duration),
       ),
+      // What the server recorded, not what we asked for. An intent it does not
+      // recognise comes back as the default one.
+      intent: LiveIntent.fromWire(ApiMappers.string(result['intent'])),
+      note: ApiMappers.string(result['note']),
     );
+    _intent = _session!.intent;
     _joinedVenue = ApiMappers.string(result['venue']);
     _observedTokens.clear();
     _controller.add(const <NearbyPerson>[]);
@@ -108,10 +128,7 @@ class ApiPresenceRepository implements PresenceRepository {
     try {
       final Map<String, dynamic> result = await _client.post(
         '/live/start',
-        <String, dynamic>{
-          'durationSeconds': left.inSeconds,
-          if (wanted.isNotEmpty) 'venue': wanted,
-        },
+        _startBody(left.inSeconds, wanted),
       );
       _joinedVenue = ApiMappers.string(result['venue']);
       final DateTime now = DateTime.now();
@@ -122,6 +139,8 @@ class ApiPresenceRepository implements PresenceRepository {
         // and the radar sweep exactly where they were.
         startedAt: now,
         expiresAt: ApiMappers.dateTime(result['expiresAt'], now.add(left)),
+        intent: LiveIntent.fromWire(ApiMappers.string(result['intent'])),
+        note: ApiMappers.string(result['note']),
       );
       // The old session's tokens died with it.
       _observedTokens.clear();
@@ -129,6 +148,35 @@ class ApiPresenceRepository implements PresenceRepository {
       await _resolve();
     } on ApiException catch (error) {
       _onError?.call(error);
+    }
+  }
+
+  /// One shape for every `/live/start`, so no path can forget a field.
+  Map<String, dynamic> _startBody(int seconds, String venue) =>
+      <String, dynamic>{
+        'durationSeconds': seconds,
+        if (venue.isNotEmpty) 'venue': venue,
+        'intent': _intent.wire,
+        if (_note.isNotEmpty) 'note': _note,
+      };
+
+  @override
+  Future<List<RoomSummary>> rooms(LiveIntent intent) async {
+    try {
+      final Map<String, dynamic> result =
+          await _client.get('/rooms?intent=${intent.wire}');
+      return ApiMappers.list(result['rooms'])
+          .map(
+            (Map<String, dynamic> json) => RoomSummary(
+              code: ApiMappers.string(json['code']),
+              people: ApiMappers.integer(json['people']),
+            ),
+          )
+          .toList(growable: false);
+    } on ApiException catch (_) {
+      // Nothing to show is the honest answer; an error banner over a list of
+      // rooms teaches nobody anything.
+      return const <RoomSummary>[];
     }
   }
 
@@ -187,6 +235,7 @@ class ApiPresenceRepository implements PresenceRepository {
       // the session and the re-arm below put it back without a code, this is
       // what says so.
       _joinedVenue = ApiMappers.string(result['room']);
+      _intent = LiveIntent.fromWire(ApiMappers.string(result['intent']));
       _emitRoom(_joinedVenue, ApiMappers.integer(result['roomPeers']));
     } on ApiException catch (error) {
       if (error.code == 'not_live') {
@@ -218,13 +267,9 @@ class ApiPresenceRepository implements PresenceRepository {
         _poll = null;
         return;
       }
-      final String venue = _venueCode();
       await _client.post(
         '/live/start',
-        <String, dynamic>{
-          'durationSeconds': left.inSeconds,
-          if (venue.isNotEmpty) 'venue': venue,
-        },
+        _startBody(left.inSeconds, _venueCode()),
       );
     } on ApiException catch (_) {
       _poll?.cancel();

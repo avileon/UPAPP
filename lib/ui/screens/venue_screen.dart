@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -7,6 +9,8 @@ import '../../core/l10n/app_strings.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/api/backend_config.dart';
+import '../../domain/entities/live_intent.dart';
+import '../../domain/repositories/presence_repository.dart';
 import '../../state/app_scope.dart';
 import '../components/common.dart';
 import '../components/up_buttons.dart';
@@ -183,6 +187,21 @@ class _VenueScreenState extends State<VenueScreen> {
               ),
               const SizedBox(height: Insets.md),
               UpButton(label: s.serverSave, onPressed: _save),
+
+              const SizedBox(height: Insets.xl),
+              // The other half of joining a room. Typing a code works when
+              // somebody told you the code; a person standing in a bar has
+              // nothing to type, and until this existed the answer to "where
+              // is everyone" was "you had to already know".
+              _RoomsNearby(
+                intent: context.live.isLive
+                    ? context.live.intent
+                    : context.session.liveIntent,
+                onPick: (String picked) {
+                  setState(() => _code.text = picked);
+                  unawaited(_save());
+                },
+              ),
               const SizedBox(height: Insets.xl),
             ],
           );
@@ -233,6 +252,131 @@ class _JoinState extends StatelessWidget {
                 ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+
+/// Rooms that already have people in them, for the intent you are about to use.
+///
+/// Loaded once when the screen opens rather than polled: this is a list you
+/// glance at and tap, and a list that reshuffles under a finger is worse than
+/// one that is a minute stale. Counts only — a room key is a label people
+/// agreed on, and a name attached to one would turn "who is in this bar" into
+/// a question this app answers, which it must never be.
+class _RoomsNearby extends StatefulWidget {
+  const _RoomsNearby({required this.intent, required this.onPick});
+
+  final LiveIntent intent;
+  final ValueChanged<String> onPick;
+
+  @override
+  State<_RoomsNearby> createState() => _RoomsNearbyState();
+}
+
+class _RoomsNearbyState extends State<_RoomsNearby> {
+  List<RoomSummary>? _rooms;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  @override
+  void didUpdateWidget(_RoomsNearby old) {
+    super.didUpdateWidget(old);
+    if (widget.intent != old.intent) {
+      unawaited(_load());
+    }
+  }
+
+  Future<void> _load() async {
+    final List<RoomSummary> rooms = await context.live.rooms(widget.intent);
+    if (mounted) {
+      setState(() => _rooms = rooms);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final UpPalette p = context.palette;
+    final List<RoomSummary>? rooms = _rooms;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(child: SectionLabel(s.roomsTitle)),
+            IconButton(
+              onPressed: _load,
+              icon: Icon(Icons.refresh_rounded, size: 18, color: p.dim),
+              tooltip: s.roomsTitle,
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
+        const SizedBox(height: Insets.xs),
+        if (rooms == null)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: Insets.md),
+            child: Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        else if (rooms.isEmpty)
+          UpCard(
+            child: Text(
+              s.roomsEmpty,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          )
+        else
+          for (final RoomSummary room in rooms)
+            Padding(
+              padding: const EdgeInsets.only(bottom: Insets.sm),
+              child: UpCard(
+                onTap: () => widget.onPick(room.code),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Insets.lg,
+                  vertical: Insets.md,
+                ),
+                child: Row(
+                  children: <Widget>[
+                    Icon(Icons.meeting_room_rounded, size: 18, color: p.cyan),
+                    const SizedBox(width: Insets.md),
+                    Expanded(
+                      child: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Text(
+                          room.code,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(letterSpacing: 2),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${room.people} ${s.roomsBusy}',
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: p.muted),
+                    ),
+                    const SizedBox(width: Insets.xs),
+                    Icon(Icons.chevron_right_rounded, size: 18, color: p.dim),
+                  ],
+                ),
+              ),
+            ),
       ],
     );
   }

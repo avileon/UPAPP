@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../data/api/api_client.dart';
+import '../domain/entities/live_intent.dart';
 import '../domain/entities/live_session.dart';
 import '../domain/entities/nearby_person.dart';
 import '../domain/entities/room_status.dart';
@@ -60,10 +61,15 @@ class LiveController extends ChangeNotifier {
         .toList(growable: false);
   }
 
-  Future<void> start(Duration duration) async {
+  Future<void> start(
+    Duration duration, {
+    LiveIntent intent = LiveIntent.meet,
+    String note = '',
+  }) async {
     _lastErrorCode = null;
     try {
-      final LiveSession session = await _presence.startLive(duration);
+      final LiveSession session =
+          await _presence.startLive(duration, intent: intent, note: note);
       _session = session;
       _remaining = session.remainingAt(_now());
       _startTicker();
@@ -88,8 +94,18 @@ class LiveController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> toggle(Duration duration) =>
-      isLive ? stop() : start(duration);
+  Future<void> toggle(
+    Duration duration, {
+    LiveIntent intent = LiveIntent.meet,
+    String note = '',
+  }) =>
+      isLive ? stop() : start(duration, intent: intent, note: note);
+
+  /// The intent of the running session, or the default when not Live.
+  LiveIntent get intent => _session?.intent ?? LiveIntent.meet;
+
+  /// Rooms already holding people, for the intent about to be used.
+  Future<List<RoomSummary>> rooms(LiveIntent intent) => _presence.rooms(intent);
 
   /// Moves a running session into the venue code chosen since it started.
   ///

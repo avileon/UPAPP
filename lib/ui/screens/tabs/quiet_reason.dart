@@ -33,5 +33,10 @@ String? quietReason({
   if (live.room.peers == 0) {
     return strings.quietEmptyRoomBody(live.room.code);
   }
-  return strings.quietFilteredBody(live.room.peers);
+  // The preference rule is the answer only where the preference rule runs.
+  // Outside dating it filters nothing, so blaming it there would send someone
+  // to change a setting that would not have changed anything.
+  return live.intent.preferencesApply
+      ? strings.quietFilteredBody(live.room.peers)
+      : strings.quietSkippedBody(live.room.peers);
 }

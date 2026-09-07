@@ -130,6 +130,7 @@ abstract final class ApiMappers {
       photoKeys: photoKeys(json['photos']),
       sentYouUp: json['sentYouUp'] == true,
       youSentUp: json['youSentUp'] == true,
+      note: string(json['note']),
     );
   }
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import '../../domain/entities/live_intent.dart';
 import '../../domain/entities/live_session.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../domain/entities/room_status.dart';
@@ -34,12 +35,18 @@ class MockPresenceRepository implements PresenceRepository {
   LiveSession? get session => _session;
 
   @override
-  Future<LiveSession> startLive(Duration duration) async {
+  Future<LiveSession> startLive(
+    Duration duration, {
+    LiveIntent intent = LiveIntent.meet,
+    String note = '',
+  }) async {
     final DateTime start = _now();
     _session = LiveSession(
       id: 'live-${start.microsecondsSinceEpoch}',
       startedAt: start,
       expiresAt: start.add(duration),
+      intent: intent,
+      note: note,
     );
     _discovered.clear();
     _emit();
@@ -55,6 +62,11 @@ class MockPresenceRepository implements PresenceRepository {
     });
     return _session!;
   }
+
+  /// No server, so no rooms anybody else could be standing in.
+  @override
+  Future<List<RoomSummary>> rooms(LiveIntent intent) async =>
+      const <RoomSummary>[];
 
   @override
   Future<void> stopLive() async {

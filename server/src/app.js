@@ -1,5 +1,10 @@
 import { config, revealsOtp } from './config.js';
 import { openDatabase } from './db/db.js';
+import {
+  intentsMeet,
+  normaliseIntent,
+  preferencesGateDiscovery,
+} from './domain/intent.js';
 import { PresenceStore } from './domain/presence.js';
 import {
   isOfAge,
@@ -296,15 +301,25 @@ export function createApp({ database = ':memory:', presence, photos, site } = {}
     if (!isOfAge(user.birth_date)) throw forbidden('profile_incomplete');
     const body = await readJsonBody(req);
     const seconds = Number(body.durationSeconds) || 3600;
-    const { session, tokens } = live.startLive(user.id, seconds, body.venue);
+    const { session, tokens } = live.startLive(
+      user.id,
+      seconds,
+      body.venue,
+      body.intent,
+      body.note,
+    );
     return {
       status: 200,
       body: {
         sessionId: session.id,
         expiresAt: new Date(session.expiresAt).toISOString(),
         // Echoed back normalised so the client can show the key it actually
-        // joined rather than the characters the user typed.
+        // joined rather than the characters the user typed. The same goes for
+        // the intent and the note: an unknown intent silently becomes "meet",
+        // and the phone has to be told which one it got.
         venue: session.venue,
+        intent: session.intent,
+        note: session.note,
         tokens,
       },
     };
@@ -350,7 +365,8 @@ export function createApp({ database = ':memory:', presence, photos, site } = {}
     const body = await readJsonBody(req);
     const tokens = Array.isArray(body.tokens) ? body.tokens.slice(0, 100) : [];
 
-    if (!live.isLive(user.id)) throw forbidden('not_live');
+    const session = live.activeSession(user.id);
+    if (!session) throw forbidden('not_live');
 
     const profile = store.findProfile(user.id);
     const seen = new Set([user.id]);
@@ -364,10 +380,25 @@ export function createApp({ database = ':memory:', presence, photos, site } = {}
       const other = store.findUser(otherId);
       if (!other) return;
       if (store.isBlockedEitherWay(user.id, otherId)) return;
-      if (!mutuallyCompatible(user, other)) return;
+
+      const otherSession = live.activeSession(otherId);
+      if (!otherSession) return;
+      // Same reason for being here, or you do not see each other at all.
+      if (!intentsMeet(otherSession.intent, session.intent)) return;
+      // Gender preference gates dating and nothing else. Applying it to a
+      // five-a-side game or a professional meetup made half of every room
+      // invisible for a reason nobody could have explained to the people in
+      // it — which is why this app read as a dating app even when it was not
+      // being used as one.
+      if (preferencesGateDiscovery(session.intent) && !mutuallyCompatible(user, other)) {
+        return;
+      }
 
       people.push({
         ...publicProfile(store, other, store.findProfile(otherId)),
+        // What they are doing right now, in their words. Dies with their
+        // session, which is the only reason it can be this specific.
+        note: otherSession.note,
         // Two facts about *this pair*, and the only two the caller is party to.
         //
         // `sentYouUp` is the whole point of an UP: without it the person who
@@ -408,11 +439,34 @@ export function createApp({ database = ':memory:', presence, photos, site } = {}
         // holding a phone cannot tell those apart by staring at an empty list.
         // A count carries no identity — a venue key is a label two people
         // already agreed on, and everyone counted here typed it themselves.
-        room: live.activeSession(user.id)?.venue ?? null,
+        room: session.venue,
         roomPeers: peers.length,
+        // Echoed so a phone that reconnected mid-session knows which room it
+        // is actually in — the answer to "why is this list empty" is usually
+        // one of these two fields.
+        intent: session.intent,
         self: { firstName: profile?.first_name ?? '' },
       },
     };
+  });
+
+  /**
+   * Rooms that already have people in them.
+   *
+   * Typing a code is a fine way to join a room somebody told you about and a
+   * useless way to find one: a person standing in a bar has nothing to type.
+   * This is the other half — the rooms that exist right now, for the intent
+   * you are about to go Live with.
+   *
+   * Signing in is required, and the response holds counts only. A room key is
+   * a label people agreed on rather than a secret, but listing one that holds
+   * a single person would turn that label into a way to locate them, so those
+   * are not listed at all.
+   */
+  router.get('/rooms', async (req, _params, url) => {
+    requireUser(req);
+    const intent = normaliseIntent(url.searchParams.get('intent'));
+    return { status: 200, body: { intent, rooms: live.rooms(intent) } };
   });
 
   // -- likes and matches ---------------------------------------------------
