@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { dirname, join } from 'node:path';
 
 /**
  * Everything tunable, in one place, read from the environment once.
@@ -77,8 +78,17 @@ export const config = {
      * public `GET /media/:key` route can reach anything in that one. A photo
      * somebody took of their face on demand, and never chose to publish, must
      * not be one URL guess away from being served.
+     *
+     * Defaulted *beside* the media directory rather than to a bare relative
+     * path. A bare one resolves next to the code, which on a real deployment
+     * is mounted read-only — so a server whose operator set `MEDIA_DIR` and
+     * not this one refused to start at all, with a stack trace about `mkdir`.
+     * Deriving it means there is one directory to configure and the two are
+     * siblings by construction.
      */
-    directory: process.env.VERIFICATION_DIR ?? 'verification',
+    directory:
+      process.env.VERIFICATION_DIR ??
+      join(dirname(process.env.MEDIA_DIR ?? 'uploads'), 'verification'),
     /** How long a pose challenge stays answerable. */
     challengeTtlSeconds: int('VERIFICATION_CHALLENGE_TTL', 5 * 60),
   },
