@@ -80,6 +80,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                     _Section(
+                      title: s.sectionSafety,
+                      rows: <Widget>[
+                        // Sits under safety rather than under the profile
+                        // because that is what it is for: the badge is a thing
+                        // other people rely on when deciding to meet you.
+                        _Row(
+                          label: s.settingVerify,
+                          onTap: () => Navigator.of(context)
+                              .pushNamed(Routes.verify),
+                        ),
+                      ],
+                    ),
+                    _Section(
                       title: s.sectionPrivacy,
                       rows: <Widget>[
                         _Row(

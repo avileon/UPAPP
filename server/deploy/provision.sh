@@ -57,7 +57,7 @@ echo "caddy $(caddy version | head -1)"
 
 say "User and directories"
 id -u up >/dev/null 2>&1 || useradd --system --home /opt/up --shell /usr/sbin/nologin up
-mkdir -p /opt/up "$DATA_DIR/uploads" "$DATA_DIR/public" /var/log/caddy
+mkdir -p /opt/up "$DATA_DIR/uploads" "$DATA_DIR/public" "$DATA_DIR/verification" /var/log/caddy
 chown -R up:up /opt/up "$DATA_DIR"
 
 say "Code"
@@ -82,6 +82,18 @@ if [ ! -f "$DATA_DIR/.jwt-secret" ]; then
   openssl rand -hex 32 > "$DATA_DIR/.jwt-secret"
   chown up:up "$DATA_DIR/.jwt-secret"
   chmod 600 "$DATA_DIR/.jwt-secret"
+  echo "created"
+else
+  echo "kept the existing one"
+fi
+
+say "Operator key"
+# The key for the photo-review queue. Generated once and printed at the end,
+# because it is the one secret here that a person has to type into a browser.
+if [ ! -f "$DATA_DIR/.admin-token" ]; then
+  openssl rand -hex 24 > "$DATA_DIR/.admin-token"
+  chown up:up "$DATA_DIR/.admin-token"
+  chmod 600 "$DATA_DIR/.admin-token"
   echo "created"
 else
   echo "kept the existing one"
@@ -120,7 +132,14 @@ DATABASE_FILE=$DATA_DIR/up.db
 MEDIA_DIR=$DATA_DIR/uploads
 SITE_DIR=$DATA_DIR/public
 
+# Verification selfies, deliberately not under MEDIA_DIR: the public media
+# route can serve anything in that directory, and these are photographs people
+# took of their face on demand and never chose to publish. They are deleted as
+# soon as somebody reviews them, so this stays close to empty.
+VERIFICATION_DIR=$DATA_DIR/verification
+
 JWT_SECRET=$(cat "$DATA_DIR/.jwt-secret")
+ADMIN_TOKEN=$(cat "$DATA_DIR/.admin-token")
 
 # Web Push. Absent keys mean the app simply does not offer notifications.
 VAPID_PUBLIC_KEY=$VAPID_PUBLIC
@@ -170,3 +189,5 @@ systemctl is-active up.service caddy || true
 curl -fsS http://127.0.0.1:3000/health && echo
 echo
 echo "Done. $DOMAIN needs a plain A record pointing at this machine."
+echo
+echo "Review queue key (x-admin-token): $(cat "$DATA_DIR/.admin-token")"

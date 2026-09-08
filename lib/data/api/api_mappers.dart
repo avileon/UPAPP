@@ -131,6 +131,7 @@ abstract final class ApiMappers {
       sentYouUp: json['sentYouUp'] == true,
       youSentUp: json['youSentUp'] == true,
       note: string(json['note']),
+      isSelfieVerified: json['selfieVerified'] == true,
     );
   }
 

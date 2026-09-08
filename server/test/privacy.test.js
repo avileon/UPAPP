@@ -39,6 +39,7 @@ test('privacy and safety', async (t) => {
         'note',
         'photoVerified',
         'photos',
+        'selfieVerified',
         'sentYouUp',
         'youSentUp',
       ].sort(),

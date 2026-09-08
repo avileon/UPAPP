@@ -19,9 +19,13 @@ export async function startTestServer() {
   // that outlives the in-memory database, so without this the tests would be
   // writing real files into the repository.
   const photoDir = mkdtempSync(join(tmpdir(), 'up-photos-'));
+  // Verification selfies live somewhere else entirely — that separation is a
+  // property the tests check, so the fixture has to honour it too.
+  const selfieDir = mkdtempSync(join(tmpdir(), 'up-selfies-'));
   const app = createApp({
     database: ':memory:',
     photos: new PhotoStore(photoDir),
+    selfies: new PhotoStore(selfieDir),
   });
   const server = createServer(app.handle);
   server.listen(0, '127.0.0.1');
@@ -29,12 +33,13 @@ export async function startTestServer() {
   const { port } = server.address();
   const base = `http://127.0.0.1:${port}`;
 
-  const call = async (method, path, { token, body } = {}) => {
+  const call = async (method, path, { token, body, headers } = {}) => {
     const response = await fetch(`${base}${path}`, {
       method,
       headers: {
         'content-type': 'application/json',
         ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...headers,
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
@@ -106,11 +111,26 @@ export async function startTestServer() {
     return { status: response.status, body: text ? JSON.parse(text) : {} };
   };
 
+  /** Posts raw bytes to any endpoint that takes an image body. */
+  const uploadRaw = async (user, path, bytes, contentType = 'image/png') => {
+    const response = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: {
+        'content-type': contentType,
+        authorization: `Bearer ${user.token}`,
+      },
+      body: bytes,
+    });
+    const text = await response.text();
+    return { status: response.status, body: text ? JSON.parse(text) : {} };
+  };
+
   const close = async () => {
     server.close();
     await once(server, 'close');
     app.db.close();
     rmSync(photoDir, { recursive: true, force: true });
+    rmSync(selfieDir, { recursive: true, force: true });
   };
 
   return {
@@ -125,8 +145,10 @@ export async function startTestServer() {
     goLiveAt,
     nearby,
     uploadPhoto,
+    uploadRaw,
     close,
     base,
     photoDir,
+    selfieDir,
   };
 }

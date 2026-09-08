@@ -114,6 +114,22 @@ class AppStrings {
     required this.openersDate,
     required this.openersWork,
     required this.openersDoing,
+    required this.verifyTitle,
+    required this.verifyHeadline,
+    required this.verifyBody,
+    required this.verifyHonesty,
+    required this.verifyStart,
+    required this.verifyPoseLabel,
+    required this.verifyTakePhoto,
+    required this.verifyExpired,
+    required this.verifyPendingTitle,
+    required this.verifyPendingBody,
+    required this.verifyApprovedTitle,
+    required this.verifyApprovedBody,
+    required this.verifyRejectedBody,
+    required this.verifyNoServer,
+    required this.verifiedSelfieBadge,
+    required this.settingVerify,
     required this.settingNotifications,
     required this.notificationsBlocked,
     required this.newMessageLabel,
@@ -351,6 +367,28 @@ class AppStrings {
   final List<String> openersDate;
   final List<String> openersWork;
   final List<String> openersDoing;
+
+  /// Photo verification. The copy is careful on purpose: a badge people
+  /// over-trust is a way to get somebody hurt, so the screen says plainly what
+  /// this proves and what it does not.
+  final String verifyTitle;
+  final String verifyHeadline;
+  final String verifyBody;
+  final String verifyHonesty;
+  final String verifyStart;
+  final String verifyPoseLabel;
+  final String verifyTakePhoto;
+  final String verifyExpired;
+  final String verifyPendingTitle;
+  final String verifyPendingBody;
+  final String verifyApprovedTitle;
+  final String verifyApprovedBody;
+  final String verifyRejectedBody;
+  final String verifyNoServer;
+
+  /// The badge on a card for somebody whose selfie was checked.
+  final String verifiedSelfieBadge;
+  final String settingVerify;
 
   /// The settings row that turns notifications on for this browser.
   final String settingNotifications;
@@ -613,6 +651,30 @@ class AppStrings {
       'חסר לנו אחד. מצטרף?',
       'איפה בדיוק אתה?',
     ],
+    verifyTitle: 'אימות תמונה',
+    verifyHeadline: 'תוכיח שהתמונות זה אתה',
+    verifyBody:
+        'נבקש ממך תנוחה אקראית, תצלם את עצמך במצלמה, ואדם אמיתי יסתכל ויאשר. '
+        'התמונה נמחקת ברגע שמישהו הסתכל — נשאר רק הסימן.',
+    verifyHonesty:
+        'זה לא הוכחה מוחלטת: דפדפן לא יכול להוכיח לשרת שתמונה צולמה עכשיו. '
+        'התנוחה נבחרת על ידי השרת שניות לפני הצילום, וזה מייקר מאוד שימוש '
+        'בתמונה של מישהו אחר.',
+    verifyStart: 'קבל תנוחה',
+    verifyPoseLabel: 'התנוחה שלך',
+    verifyTakePhoto: 'פתח מצלמה וצלם',
+    verifyExpired: 'התנוחה פגה. בקש אחת חדשה.',
+    verifyPendingTitle: 'ממתין לבדיקה',
+    verifyPendingBody: 'שלחנו את התמונה. אדם יסתכל עליה ותקבל תשובה.',
+    verifyApprovedTitle: 'מאומת',
+    verifyApprovedBody:
+        'התמונה נבדקה ואושרה. הסימן מופיע לאנשים שרואים אותך.',
+    verifyRejectedBody:
+        'הבקשה הקודמת לא אושרה. אפשר לנסות שוב — הפעם עם תאורה טובה, פנים '
+        'מלאות בפריים, והתנוחה בדיוק כמו שכתוב.',
+    verifyNoServer: 'אימות תמונה דורש חיבור לשרת.',
+    verifiedSelfieBadge: 'מאומת',
+    settingVerify: 'אימות תמונה',
     settingNotifications: 'התראות',
     notificationsBlocked: 'חסום בדפדפן',
     newMessageLabel: 'הודעה חדשה',
@@ -854,6 +916,34 @@ class AppStrings {
       'We are one short. Want in?',
       'Whereabouts are you exactly?',
     ],
+    verifyTitle: 'Photo verification',
+    verifyHeadline: 'Show the photos are you',
+    verifyBody:
+        'We name a random pose, you take a photo of yourself with the camera, '
+        'and a real person looks at it. The photo is deleted the moment '
+        'somebody has looked — only the badge remains.',
+    verifyHonesty:
+        'This is not absolute proof: a browser cannot prove to a server that a '
+        'photo was taken just now. The pose is chosen by the server seconds '
+        'beforehand, which makes using somebody else’s photo a great deal of '
+        'work.',
+    verifyStart: 'Get a pose',
+    verifyPoseLabel: 'Your pose',
+    verifyTakePhoto: 'Open the camera',
+    verifyExpired: 'That pose expired. Ask for a new one.',
+    verifyPendingTitle: 'Waiting for review',
+    verifyPendingBody:
+        'Your photo is in. A person will look at it and you will hear back.',
+    verifyApprovedTitle: 'Verified',
+    verifyApprovedBody:
+        'Your photo was checked and approved. The badge shows to people who '
+        'see you.',
+    verifyRejectedBody:
+        'The last attempt was not approved. Try again — good light, your whole '
+        'face in the frame, and the pose exactly as written.',
+    verifyNoServer: 'Photo verification needs a server connection.',
+    verifiedSelfieBadge: 'Verified',
+    settingVerify: 'Photo verification',
     settingNotifications: 'Notifications',
     notificationsBlocked: 'Blocked in browser',
     newMessageLabel: 'New message',

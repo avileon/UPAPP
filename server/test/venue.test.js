@@ -165,6 +165,7 @@ test('venue presence', async (t) => {
         'note',
         'photoVerified',
         'photos',
+        'selfieVerified',
         'sentYouUp',
         'youSentUp',
       ].sort(),

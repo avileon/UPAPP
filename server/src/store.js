@@ -447,6 +447,101 @@ export class Store {
     return true;
   }
 
+  /**
+   * Records a submitted selfie, replacing any earlier undecided one.
+   *
+   * Replacing rather than queueing: a person who submits twice has decided the
+   * first attempt was bad, and a reviewer should never be asked to judge a
+   * photo its own subject has already given up on. Returns the storage key of
+   * the replaced attempt so the caller can delete the file.
+   */
+  submitVerification(userId, { pose, storageKey }) {
+    return transaction(this.db, () => {
+      const previous = this.db
+        .prepare(
+          `SELECT id, storage_key FROM verifications
+            WHERE user_id = ? AND status = 'pending'`,
+        )
+        .get(userId);
+      if (previous) {
+        this.db.prepare(`DELETE FROM verifications WHERE id = ?`).run(previous.id);
+      }
+      const id = newId();
+      this.db
+        .prepare(
+          `INSERT INTO verifications (id, user_id, status, pose, storage_key, created_at)
+           VALUES (?, ?, 'pending', ?, ?, ?)`,
+        )
+        .run(id, userId, pose, storageKey, nowIso());
+      return { id, replacedKey: previous?.storage_key ?? null };
+    });
+  }
+
+  /** The most recent attempt, whatever became of it. */
+  latestVerification(userId) {
+    return (
+      this.db
+        .prepare(
+          `SELECT * FROM verifications WHERE user_id = ?
+            ORDER BY created_at DESC LIMIT 1`,
+        )
+        .get(userId) ?? null
+    );
+  }
+
+  /** Has this person ever been approved? An approval does not expire. */
+  isSelfieVerified(userId) {
+    const row = this.db
+      .prepare(
+        `SELECT 1 FROM verifications WHERE user_id = ? AND status = 'approved' LIMIT 1`,
+      )
+      .get(userId);
+    return Boolean(row);
+  }
+
+  /** The review queue, oldest first: whoever waited longest is looked at first. */
+  pendingVerifications(limit = 50) {
+    return this.db
+      .prepare(
+        `SELECT v.id, v.user_id, v.pose, v.storage_key, v.created_at,
+                p.first_name, p.photos
+           FROM verifications v
+           LEFT JOIN profiles p ON p.user_id = v.user_id
+          WHERE v.status = 'pending'
+          ORDER BY v.created_at ASC
+          LIMIT ?`,
+      )
+      .all(limit);
+  }
+
+  findVerification(id) {
+    return this.db.prepare(`SELECT * FROM verifications WHERE id = ?`).get(id) ?? null;
+  }
+
+  /**
+   * Records the verdict and forgets the photograph.
+   *
+   * Clearing `storage_key` in the same transaction as the decision is what
+   * makes "the selfie is deleted when it is decided" a property of the data
+   * rather than a promise in a comment — the row can never again point at a
+   * file. Returns the key so the caller can remove it from disk.
+   */
+  decideVerification(id, status) {
+    return transaction(this.db, () => {
+      const row = this.db
+        .prepare(`SELECT * FROM verifications WHERE id = ?`)
+        .get(id);
+      if (!row || row.status !== 'pending') return null;
+      this.db
+        .prepare(
+          `UPDATE verifications SET status = ?, decided_at = ?, storage_key = NULL
+            WHERE id = ?`,
+        )
+        .run(status, nowIso(), id);
+      return { key: row.storage_key, userId: row.user_id };
+    });
+  }
+
   realityBadge(userId) {
     const row = this.db
       .prepare(

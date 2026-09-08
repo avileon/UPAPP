@@ -70,22 +70,58 @@ class PersonCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (person.isPhotoVerified)
+              // Two different claims, and a card can carry both. The checked
+              // selfie is the stronger one — somebody looked — so it sits
+              // first and gets the filled badge; the peer one keeps the quiet
+              // ring it always had.
+              if (person.isSelfieVerified || person.isPhotoVerified)
                 PositionedDirectional(
                   top: Insets.sm,
                   start: Insets.sm,
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: p.cyan,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.check_rounded,
-                      size: 13,
-                      color: p.onCyan,
-                    ),
+                  child: Row(
+                    children: <Widget>[
+                      if (person.isSelfieVerified)
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: p.cyan,
+                            shape: BoxShape.circle,
+                            boxShadow: <BoxShadow>[
+                              BoxShadow(
+                                color: p.cyan.withValues(alpha: 0.45),
+                                blurRadius: 6,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.verified_rounded,
+                            size: 13,
+                            color: p.onCyan,
+                          ),
+                        ),
+                      if (person.isSelfieVerified && person.isPhotoVerified)
+                        const SizedBox(width: 3),
+                      if (person.isPhotoVerified)
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: person.isSelfieVerified
+                                ? Colors.transparent
+                                : p.cyan,
+                            shape: BoxShape.circle,
+                            border: person.isSelfieVerified
+                                ? Border.all(color: p.cyan, width: 1.4)
+                                : null,
+                          ),
+                          child: Icon(
+                            Icons.check_rounded,
+                            size: 13,
+                            color: person.isSelfieVerified ? p.cyan : p.onCyan,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               if (!hasSentYouAnUp && youSentAnUp && sentLabel.isNotEmpty)

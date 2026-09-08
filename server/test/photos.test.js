@@ -185,6 +185,7 @@ test('photos', async (t) => {
         'note',
         'photoVerified',
         'photos',
+        'selfieVerified',
         'sentYouUp',
         'youSentUp',
       ].sort(),

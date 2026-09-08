@@ -20,6 +20,7 @@ class NearbyPerson {
     this.sentYouUp = false,
     this.youSentUp = false,
     this.note = '',
+    this.isSelfieVerified = false,
   });
 
   final String id;
@@ -58,6 +59,14 @@ class NearbyPerson {
   /// is exactly why it can be specific enough to be useful — "בפינה עם ספר",
   /// "מחפש רביעי למשחק". A permanent profile line can never say that.
   final String note;
+
+  /// Somebody looked at a selfie of this person in a pose the server named,
+  /// and agreed it is them.
+  ///
+  /// A different claim from [isPhotoVerified], which is other people's opinion
+  /// after actually meeting them. Neither substitutes for the other, and a
+  /// card can carry both.
+  final bool isSelfieVerified;
 
   String nameFor(String localeCode) =>
       localeCode == 'he' ? firstNameHe : firstNameEn;

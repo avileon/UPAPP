@@ -23,6 +23,7 @@ import 'people_directory.dart';
 import 'photo_cache.dart';
 import 'push_controller.dart';
 import 'session_controller.dart';
+import 'verification_controller.dart';
 
 /// Dependency injection.
 ///
@@ -41,6 +42,7 @@ class AppScope extends InheritedWidget {
     required this.booting,
     required super.child,
     this.push,
+    this.verification,
     super.key,
   });
 
@@ -54,6 +56,9 @@ class AppScope extends InheritedWidget {
   /// Null on the mock stack, which has no server to subscribe to. Every screen
   /// that offers notifications has to handle that rather than assume one.
   final PushController? push;
+
+  /// Null on the mock stack, which has nobody to review a photograph.
+  final VerificationController? verification;
 
   /// True until the app knows whether this device is already signed in.
   ///
@@ -80,6 +85,7 @@ class AppScope extends InheritedWidget {
       photos != oldWidget.photos ||
       config != oldWidget.config ||
       push != oldWidget.push ||
+      verification != oldWidget.verification ||
       booting != oldWidget.booting;
 }
 
@@ -90,6 +96,7 @@ extension AppScopeAccess on BuildContext {
   PeopleDirectory get people => AppScope.of(this).people;
   PhotoCache get photos => AppScope.of(this).photos;
   PushController? get push => AppScope.of(this).push;
+  VerificationController? get verification => AppScope.of(this).verification;
   bool get booting => AppScope.of(this).booting;
   BackendConfig get backend => AppScope.of(this).config;
 }
@@ -129,6 +136,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
   late LiveController _live;
   late InteractionController _interactionController;
   PushController? _push;
+  VerificationController? _verification;
 
   bool _usingApi = false;
   bool _booting = true;
@@ -193,6 +201,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
       _interactionController,
       _session,
       if (_push != null) _push!,
+      if (_verification != null) _verification!,
       if (_client != null) _client!,
     ];
     final PhotoCache retiredPhotos = _photoCache;
@@ -212,6 +221,8 @@ class _AppScopeHostState extends State<AppScopeHost> {
         } else if (old is SessionController) {
           old.dispose();
         } else if (old is PushController) {
+          old.dispose();
+        } else if (old is VerificationController) {
           old.dispose();
         } else if (old is ApiClient) {
           old.dispose();
@@ -235,6 +246,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
   void _buildMockStack() {
     _client = null;
     _push = null;
+    _verification = null;
     // No fetcher: every key resolves to nothing and the aura placeholder
     // stands in, which is exactly what the mock stack is for.
     _photoCache = PhotoCache();
@@ -277,6 +289,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
     _interactions = interactions;
     final PushController push = PushController(client: client);
     _push = push;
+    _verification = VerificationController(client: client);
     _session = SessionController(
       auth: _auth,
       profiles: _profiles,
@@ -305,6 +318,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
     _interactionController.dispose();
     _session.dispose();
     _push?.dispose();
+    _verification?.dispose();
     _client?.dispose();
     _photoCache.dispose();
     _people.dispose();
@@ -322,6 +336,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
       photos: _photoCache,
       config: _config,
       push: _push,
+      verification: _verification,
       booting: _booting,
       child: Builder(builder: widget.builder),
     );

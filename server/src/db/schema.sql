@@ -124,3 +124,21 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   created_at  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id);
+
+-- Photo verification: a selfie in a pose the server named, and a human's verdict.
+--
+-- The selfie itself is deleted the moment somebody decides. Only the verdict
+-- survives, because a stored library of face photographs taken on demand is a
+-- liability that grows every day and protects nobody — and the badge is the
+-- only part anyone ever needed.
+CREATE TABLE IF NOT EXISTS verifications (
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status       TEXT NOT NULL,            -- pending | approved | rejected
+  pose         TEXT NOT NULL,
+  storage_key  TEXT,                     -- NULL once decided and the file is gone
+  created_at   TEXT NOT NULL,
+  decided_at   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_verifications_user ON verifications(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_verifications_status ON verifications(status, created_at);

@@ -7,6 +7,11 @@ import {
 } from './domain/intent.js';
 import { PresenceStore } from './domain/presence.js';
 import {
+  ChallengeStore,
+  findPose,
+  POSES,
+} from './domain/verification.js';
+import {
   isOfAge,
   mutuallyCompatible,
   REALITY_ANSWERS,
@@ -77,6 +82,11 @@ function publicProfile(store, user, profile) {
     bio: profile?.bio_short ?? '',
     photos: JSON.parse(profile?.photos ?? '[]'),
     photoVerified: store.realityBadge(user.id),
+    // A different claim from `photoVerified`, and worth its own field. That
+    // one is other people's opinion after meeting you; this one is somebody
+    // having looked at a selfie in a pose this person could not have known in
+    // advance. Neither substitutes for the other.
+    selfieVerified: store.isSelfieVerified(user.id),
   };
 }
 
@@ -91,11 +101,23 @@ function privateProfile(store, user, profile) {
   };
 }
 
-export function createApp({ database = ':memory:', presence, photos, site } = {}) {
+export function createApp({
+  database = ':memory:',
+  presence,
+  photos,
+  selfies,
+  site,
+} = {}) {
   const db = openDatabase(database);
   const store = new Store(db);
   const live = presence ?? new PresenceStore();
   const media = photos ?? new PhotoStore();
+  // A store of its own, unreachable from `GET /media/:key`. See
+  // `config.verification.directory` for why that separation is the point.
+  const selfieStore = selfies ?? new PhotoStore(config.verification.directory);
+  const challenges = new ChallengeStore({
+    ttlSeconds: config.verification.challengeTtlSeconds,
+  });
   const web = site ?? new StaticSite(config.siteDirectory);
   const router = createRouter();
 
@@ -630,6 +652,138 @@ export function createApp({ database = ':memory:', presence, photos, site } = {}
     // that people actually file one.
     store.report(user.id, params.id, str(body.category, 40) || 'other', str(body.notes, 500));
     return { status: 200, body: { reported: true } };
+  });
+
+  // -- photo verification ---------------------------------------------------
+
+  /**
+   * Asks for a pose.
+   *
+   * The pose comes from here and nowhere else, seconds before the photo, which
+   * is the entire security property: a person cannot prepare a picture for a
+   * pose they have not been told yet. Everything downstream — the camera, the
+   * review — is about raising cost, not about proof.
+   */
+  router.post('/me/verification/challenge', async (req) => {
+    const user = requireUser(req);
+    const challenge = challenges.issue(user.id);
+    const pose = findPose(challenge.pose);
+    return {
+      status: 200,
+      body: {
+        challengeId: challenge.id,
+        pose: challenge.pose,
+        // Both languages: the app decides which to show, and a pose nobody can
+        // read is a pose nobody can strike.
+        instructionHe: pose?.he ?? '',
+        instructionEn: pose?.en ?? '',
+        expiresAt: new Date(challenge.expiresAt).toISOString(),
+      },
+    };
+  });
+
+  /**
+   * The selfie itself. Raw bytes, exactly like a profile photo.
+   *
+   * Stored in a directory the public media route cannot reach, and deleted the
+   * moment somebody decides — see `Store.decideVerification`.
+   */
+  router.post('/me/verification/selfie', async (req, _params, url) => {
+    const user = requireUser(req);
+    const challengeId = url.searchParams.get('challenge') ?? '';
+    const challenge = challenges.take(user.id, challengeId);
+    // Expired, already used, or for a different pose than the one asked for.
+    // One error for all three: telling them apart helps nobody but an attacker.
+    if (!challenge) throw badRequest('challenge_expired');
+
+    const body = await readBinaryBody(req);
+    if (body.length === 0) throw badRequest('empty_body');
+
+    const saved = selfieStore.save(body);
+    const result = store.submitVerification(user.id, {
+      pose: challenge.pose,
+      storageKey: saved.key,
+    });
+    // An attempt this person has already replaced should not sit on disk
+    // waiting for a review that will never come.
+    if (result.replacedKey) selfieStore.remove(result.replacedKey);
+
+    return { status: 201, body: { status: 'pending' } };
+  });
+
+  router.get('/me/verification', async (req) => {
+    const user = requireUser(req);
+    const latest = store.latestVerification(user.id);
+    const approved = store.isSelfieVerified(user.id);
+    return {
+      status: 200,
+      body: {
+        // "approved" wins over a later rejected attempt: the badge is a fact
+        // about the person, and it does not come and go with a bad photograph.
+        status: approved ? 'approved' : latest?.status ?? 'none',
+        submittedAt: latest?.created_at ?? null,
+        poses: POSES.map((pose) => pose.key),
+      },
+    };
+  });
+
+  // -- review (operator only) ------------------------------------------------
+
+  /**
+   * A shared key rather than an account role.
+   *
+   * There is exactly one operator and no admin UI to speak of, so a role
+   * column, a permissions table and an audit trail would all be scaffolding
+   * around a person checking photographs on a laptop. An unset key disables
+   * these routes entirely — a deployment that forgot to configure one has no
+   * review queue rather than an open one.
+   */
+  const requireOperator = (req) => {
+    if (!config.adminToken) throw notFound('no_such_route');
+    const offered = req.headers['x-admin-token'];
+    if (typeof offered !== 'string' || !safeEqual(offered, config.adminToken)) {
+      throw unauthorized();
+    }
+  };
+
+  router.get('/admin/verifications', async (req) => {
+    requireOperator(req);
+    return {
+      status: 200,
+      body: {
+        pending: store.pendingVerifications().map((row) => ({
+          id: row.id,
+          pose: row.pose,
+          instruction: findPose(row.pose)?.he ?? row.pose,
+          firstName: row.first_name ?? '',
+          // The profile photos, to compare the face against. This is the whole
+          // job: is the person in the selfie the person in the profile.
+          photos: JSON.parse(row.photos ?? '[]'),
+          selfie: row.storage_key,
+          createdAt: row.created_at,
+        })),
+      },
+    };
+  });
+
+  /** The selfie, for the review screen only. Never reachable via `/media`. */
+  router.get('/admin/verifications/:key/photo', async (req, params) => {
+    requireOperator(req);
+    const file = selfieStore.open(params.key);
+    if (!file) throw notFound('photo_not_found');
+    return { binary: { status: 200, ...file } };
+  });
+
+  router.post('/admin/verifications/:id/decide', async (req, params) => {
+    requireOperator(req);
+    const body = await readJsonBody(req);
+    const status = body.approve === true ? 'approved' : 'rejected';
+    const decided = store.decideVerification(params.id, status);
+    if (!decided) throw notFound('verification_not_found');
+    // The photograph has done its job. Keeping a library of face photographs
+    // taken on demand is a liability that grows every day and protects nobody.
+    if (decided.key) selfieStore.remove(decided.key);
+    return { status: 200, body: { status } };
   });
 
   // -- notifications -------------------------------------------------------

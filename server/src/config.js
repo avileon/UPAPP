@@ -69,6 +69,28 @@ export const config = {
     maxBytes: int('MEDIA_MAX_BYTES', 6 * 1024 * 1024),
   },
 
+  verification: {
+    /**
+     * Where verification selfies live while they wait to be looked at.
+     *
+     * A directory of its own, separate from `media.directory`, because the
+     * public `GET /media/:key` route can reach anything in that one. A photo
+     * somebody took of their face on demand, and never chose to publish, must
+     * not be one URL guess away from being served.
+     */
+    directory: process.env.VERIFICATION_DIR ?? 'verification',
+    /** How long a pose challenge stays answerable. */
+    challengeTtlSeconds: int('VERIFICATION_CHALLENGE_TTL', 5 * 60),
+  },
+
+  /**
+   * The key for the review screen.
+   *
+   * Empty disables the admin routes entirely rather than leaving them open —
+   * a deployment that forgot to set this has no review queue, not a public one.
+   */
+  adminToken: process.env.ADMIN_TOKEN ?? '',
+
   /**
    * Web Push signing identity.
    *
