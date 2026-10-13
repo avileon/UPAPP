@@ -1,6 +1,6 @@
 # UP — אימות פנים חי + התאמת תמונות פרופיל
 
-> סטטוס: **מפרט, לא ממומש** · נכתב: 13.10.2026 · בסיס קוד: `61d781f`
+> סטטוס: **שלב 1 הושלם** (face-svc) · שלבים 2–4 טרם מומשו · נכתב: 13.10.2026 · בסיס קוד: `61d781f`
 > מחליף/מרחיב את אימות התמונה הקיים (`domain/verification.js`, 9.9.26)
 
 ## החלטות (13.10.2026)
@@ -278,9 +278,11 @@ CREATE TABLE IF NOT EXISTS face_templates (
 ## 11. שלבים
 
 ### שלב 1 — שירות פנים
-- [ ] `face-svc/` (Python) + `/analyze` + `/health`
-- [ ] `provision.sh` / `update.sh`: venv, הורדת מודלים עם sha256, `up-face.service`
-- [ ] בדיקות pytest
+- [x] `face-svc/` (Python) + `/analyze` + `/health`
+- [x] `provision.sh` / `update.sh`: venv, הורדת מודלים עם sha256, `up-face.service` (דרך `server/deploy/face-setup.sh`)
+- [x] בדיקות pytest — 32 עוברות + CI ב-`.github/workflows/face-svc.yml`
+
+**מדידות (13.10.2026):** תמונה 640px ≈ 85ms, 1280px ≈ 260ms (ליבה אחת). אותו אדם בשתי תמונות שונות: cosine ≈ 0.62; אנשים שונים: ≤ 0.20 — הספים 0.40/0.30 מחזיקים עם מרווח.
 
 ### שלב 2 — אימות חי
 - [ ] טבלאות + הסכמה + `DELETE /me/biometric`

@@ -1,0 +1,47 @@
+# The face-analysis sidecar. Loopback only; the Node server is its sole client.
+#
+# It writes nothing, so the filesystem is read-only to it in full — no
+# ReadWritePaths at all. Images arrive in a request body and leave as numbers
+# in the response; nothing about a face ever touches the disk.
+[Unit]
+Description=UP face analysis (YuNet + SFace)
+Documentation=https://github.com/avileon/UPAPP/blob/main/docs/FACE_VERIFICATION_SPEC.md
+After=network.target
+Before=up.service
+
+[Service]
+Type=simple
+User=up
+Group=up
+WorkingDirectory=/opt/up/app/face-svc
+Environment=FACE_SVC_HOST=127.0.0.1
+Environment=FACE_SVC_PORT=8091
+Environment=FACE_SVC_MODELS=/opt/up/face-models
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+# Two cores on the box; let OpenCV use one so the Node server keeps the other.
+Environment=OMP_NUM_THREADS=1
+Environment=OPENCV_FOR_THREADS_NUM=1
+ExecStart=/opt/up/face-venv/bin/python -m face_svc.server
+Restart=always
+RestartSec=3
+MemoryMax=700M
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=up-face
+
+[Install]
+WantedBy=multi-user.target

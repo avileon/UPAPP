@@ -1,0 +1,5 @@
+# Pinned. A different OpenCV can produce different embeddings from the same
+# model file, and stored templates are only comparable to embeddings from the
+# exact stack that made them.
+opencv-python-headless==4.10.0.84
+numpy>=1.26,<3

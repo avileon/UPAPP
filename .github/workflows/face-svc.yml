@@ -1,0 +1,30 @@
+name: face-svc
+
+# The face sidecar's tests, against the real models. Separate from the APK
+# build so a Flutter failure never hides a face-matching regression, and the
+# other way round.
+on:
+  push:
+    paths:
+      - 'face-svc/**'
+      - '.github/workflows/face-svc.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: face-svc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: face-svc/models
+          key: face-models-${{ hashFiles('face-svc/models.lock') }}
+      - run: ./fetch-models.sh
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q

@@ -138,6 +138,9 @@ SITE_DIR=$DATA_DIR/public
 # soon as somebody reviews them, so this stays close to empty.
 VERIFICATION_DIR=$DATA_DIR/verification
 
+# The face-analysis sidecar (face-svc/), loopback only.
+FACE_SVC_URL=http://127.0.0.1:8091
+
 JWT_SECRET=$(cat "$DATA_DIR/.jwt-secret")
 ADMIN_TOKEN=$(cat "$DATA_DIR/.admin-token")
 
@@ -157,6 +160,9 @@ SMS_PROVIDER=mock
 ENV
 chmod 640 "$ENV_FILE"
 chown root:up "$ENV_FILE"
+
+say "Face service"
+"$APP_DIR/server/deploy/face-setup.sh"
 
 say "Web build"
 "$APP_DIR/server/deploy/fetch-web.sh"
@@ -185,7 +191,7 @@ fi
 
 say "Status"
 sleep 2
-systemctl is-active up.service caddy || true
+systemctl is-active up.service up-face.service caddy || true
 curl -fsS http://127.0.0.1:3000/health && echo
 echo
 echo "Done. $DOMAIN needs a plain A record pointing at this machine."

@@ -10,6 +10,7 @@ git -C "$APP_DIR" fetch --quiet origin main
 git -C "$APP_DIR" reset --hard --quiet origin/main
 chown -R up:up "$APP_DIR"
 "$APP_DIR/server/deploy/fetch-web.sh"
+"$APP_DIR/server/deploy/face-setup.sh"
 systemctl restart up.service
 sleep 2
 systemctl is-active up.service
