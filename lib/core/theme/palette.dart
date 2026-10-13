@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 
-/// The UP palette.
+/// The UP palette — "Night Glow".
 ///
 /// Two meanings, two hues, and they never swap roles:
-///   * [cyan]  — the machine signal. Live, Bluetooth, radar, verification.
+///   * [cyan]  — the machine signal. Live, room, radar, verification. Drawn
+///               as a mint glow.
 ///   * [amber] — the human moment. UP, match, warmth, the primary action.
+///               Drawn as a hot pink. (The field names predate the colours;
+///               they name the role, not the hue.)
 ///
-/// Neutrals carry a slight plum bias so the dark theme reads as a room at
-/// night rather than as flat grey.
+/// Neutrals sit on a near-black with a violet bias so the dark theme reads as
+/// a room at night, lit by the two accents.
 @immutable
 class UpPalette extends ThemeExtension<UpPalette> {
   const UpPalette({
@@ -43,37 +46,37 @@ class UpPalette extends ThemeExtension<UpPalette> {
   final Color glow;
 
   static const UpPalette dark = UpPalette(
-    background: Color(0xFF0C0A0D),
-    surface: Color(0xFF161219),
-    surfaceHigh: Color(0xFF1F1922),
-    line: Color(0xFF2C2430),
-    foreground: Color(0xFFF6F0F3),
-    muted: Color(0xFFA2929C),
-    dim: Color(0xFF6C5C66),
-    amber: Color(0xFFFFA24B),
-    onAmber: Color(0xFF20130A),
-    cyan: Color(0xFF4FD6E0),
-    onCyan: Color(0xFF04191C),
+    background: Color(0xFF09080F),
+    surface: Color(0xFF14121D),
+    surfaceHigh: Color(0xFF1C1A28),
+    line: Color(0xFF2A2738),
+    foreground: Color(0xFFF5F3FA),
+    muted: Color(0xFFA7A3B8),
+    dim: Color(0xFF7D7891),
+    amber: Color(0xFFFF4F7B),
+    onAmber: Color(0xFF1A0710),
+    cyan: Color(0xFF4DF2B0),
+    onCyan: Color(0xFF062419),
     danger: Color(0xFFFF6B6B),
-    ok: Color(0xFF8BD98B),
-    glow: Color(0x29FFA24B),
+    ok: Color(0xFF4DF2B0),
+    glow: Color(0x47FF4F7B),
   );
 
   static const UpPalette light = UpPalette(
-    background: Color(0xFFFBF6F2),
+    background: Color(0xFFF7F5FB),
     surface: Color(0xFFFFFFFF),
-    surfaceHigh: Color(0xFFF2EAE4),
-    line: Color(0xFFE3D7CE),
-    foreground: Color(0xFF1B1216),
-    muted: Color(0xFF6B5A62),
-    dim: Color(0xFF9A8891),
-    amber: Color(0xFFC96A11),
-    onAmber: Color(0xFFFFF6EC),
-    cyan: Color(0xFF12808C),
-    onCyan: Color(0xFFEAFBFC),
+    surfaceHigh: Color(0xFFEEEBF5),
+    line: Color(0xFFDCD8E6),
+    foreground: Color(0xFF14121D),
+    muted: Color(0xFF5E5A70),
+    dim: Color(0xFF8A86A0),
+    amber: Color(0xFFD6245A),
+    onAmber: Color(0xFFFFF2F6),
+    cyan: Color(0xFF0B8A62),
+    onCyan: Color(0xFFE8FBF3),
     danger: Color(0xFFC43B3B),
-    ok: Color(0xFF3F8A46),
-    glow: Color(0x1FC96A11),
+    ok: Color(0xFF0B8A62),
+    glow: Color(0x29D6245A),
   );
 
   @override

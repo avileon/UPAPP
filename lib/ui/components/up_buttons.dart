@@ -68,9 +68,25 @@ class UpButton extends StatelessWidget {
       ],
     );
 
+    // The primary action glows in its own colour — the one place a shadow is
+    // used, so it stays a signal.
+    final bool glow = enabled && style == UpButtonStyle.primary;
     return Opacity(
       opacity: enabled ? 1.0 : 0.4,
-      child: Material(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(Radii.md),
+          boxShadow: glow
+              ? <BoxShadow>[
+                  BoxShadow(
+                    color: p.amber.withValues(alpha: 0.38),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : null,
+        ),
+        child: Material(
         color: background,
         borderRadius: BorderRadius.circular(Radii.md),
         child: InkWell(
@@ -92,6 +108,7 @@ class UpButton extends StatelessWidget {
             child: child,
           ),
         ),
+      ),
       ),
     );
   }
@@ -124,7 +141,19 @@ class CircleAction extends StatelessWidget {
       label: semanticLabel,
       child: Opacity(
         opacity: onPressed == null ? 0.45 : 1.0,
-        child: Material(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: emphasized && onPressed != null
+                ? <BoxShadow>[
+                    BoxShadow(
+                      color: p.amber.withValues(alpha: 0.55),
+                      blurRadius: 28,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Material(
           color: emphasized ? p.amber : Colors.transparent,
           shape: CircleBorder(
             side: emphasized
@@ -144,6 +173,7 @@ class CircleAction extends StatelessWidget {
               ),
             ),
           ),
+        ),
         ),
       ),
     );

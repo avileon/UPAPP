@@ -275,10 +275,10 @@ class _Bubble extends StatelessWidget {
         decoration: BoxDecoration(
           color: mine ? p.amber : p.surfaceHigh,
           borderRadius: BorderRadiusDirectional.only(
-            topStart: const Radius.circular(18),
-            topEnd: const Radius.circular(18),
-            bottomStart: Radius.circular(mine ? 18.0 : 6.0),
-            bottomEnd: Radius.circular(mine ? 6.0 : 18.0),
+            topStart: const Radius.circular(20),
+            topEnd: const Radius.circular(20),
+            bottomStart: Radius.circular(mine ? 20.0 : 6.0),
+            bottomEnd: Radius.circular(mine ? 6.0 : 20.0),
           ),
         ),
         child: Text(

@@ -357,7 +357,10 @@ class _StatusRow extends StatelessWidget {
   }
 }
 
-class _GoLiveButton extends StatelessWidget {
+/// The orb. Off: a lit pink sphere that breathes, asking to be pressed. On: it
+/// turns to a mint ring — the signal colour — so "I am visible" is never
+/// confused with "press me".
+class _GoLiveButton extends StatefulWidget {
   const _GoLiveButton({
     required this.isLive,
     required this.label,
@@ -369,36 +372,97 @@ class _GoLiveButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
+  State<_GoLiveButton> createState() => _GoLiveButtonState();
+}
+
+class _GoLiveButtonState extends State<_GoLiveButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _breath = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 3200),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _breath.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final UpPalette p = context.palette;
-    return Semantics(
+    final bool isLive = widget.isLive;
+    final Color glow = isLive ? p.cyan : p.amber;
+    final bool reduceMotion = MediaQuery.of(context).disableAnimations;
+
+    final Widget orb = Semantics(
       button: true,
-      label: label.replaceAll('\n', ' '),
-      child: Material(
-        color: isLive ? Colors.transparent : p.amber,
-        shape: CircleBorder(
-          side: BorderSide(color: isLive ? p.cyan : p.amber, width: 1.5),
+      label: widget.label.replaceAll('\n', ' '),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: glow.withValues(alpha: isLive ? 0.35 : 0.55),
+              blurRadius: 60,
+            ),
+          ],
         ),
-        child: InkWell(
-          onTap: onPressed,
-          customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: Sizes.goLiveDiameter,
-            height: Sizes.goLiveDiameter,
-            child: Center(
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: isLive ? p.cyan : p.onAmber,
-                      height: 1.1,
-                      fontSize: 20,
+        child: Material(
+          type: MaterialType.circle,
+          color: Colors.transparent,
+          clipBehavior: Clip.antiAlias,
+          child: Ink(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isLive ? p.background : null,
+              border: isLive ? Border.all(color: p.cyan, width: 2) : null,
+              gradient: isLive
+                  ? null
+                  : RadialGradient(
+                      center: const Alignment(-0.3, -0.4),
+                      radius: 0.95,
+                      colors: <Color>[
+                        Color.lerp(p.amber, Colors.white, 0.4)!,
+                        p.amber,
+                        Color.lerp(p.amber, Colors.black, 0.18)!,
+                      ],
+                      stops: const <double>[0, 0.55, 1],
                     ),
+            ),
+            child: InkWell(
+              onTap: widget.onPressed,
+              customBorder: const CircleBorder(),
+              child: SizedBox(
+                width: Sizes.goLiveDiameter,
+                height: Sizes.goLiveDiameter,
+                child: Center(
+                  child: Text(
+                    widget.label,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: isLive ? p.cyan : p.onAmber,
+                          height: 1.1,
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
               ),
             ),
           ),
         ),
       ),
+    );
+
+    if (isLive || reduceMotion) {
+      return orb;
+    }
+    return ScaleTransition(
+      scale: Tween<double>(begin: 1, end: 1.045).animate(
+        CurvedAnimation(parent: _breath, curve: Curves.easeInOut),
+      ),
+      child: orb,
     );
   }
 }

@@ -38,15 +38,16 @@ class AuraPhoto extends StatelessWidget {
   final BorderRadius? borderRadius;
   final BoxShape shape;
 
+  // Night Glow duotones: a lit top colour falling into a deep night shade.
   static const List<List<Color>> _auras = <List<Color>>[
-    <Color>[Color(0xFFFF9A5B), Color(0xFFC2477A), Color(0xFF3A1F35)],
-    <Color>[Color(0xFF4FD6E0), Color(0xFF2F6F8F), Color(0xFF141E2C)],
-    <Color>[Color(0xFFF5C86B), Color(0xFFD9724A), Color(0xFF3A2118)],
-    <Color>[Color(0xFF8BD98B), Color(0xFF3E8E7E), Color(0xFF16261F)],
-    <Color>[Color(0xFFC99BFF), Color(0xFF6C4BB8), Color(0xFF211436)],
-    <Color>[Color(0xFFFF8A80), Color(0xFFA63D5B), Color(0xFF2E1520)],
-    <Color>[Color(0xFF7BE0C0), Color(0xFF2D8C87), Color(0xFF122824)],
-    <Color>[Color(0xFFFFB35B), Color(0xFFB75A2E), Color(0xFF2C1810)],
+    <Color>[Color(0xFFFF8FAB), Color(0xFFB4307A), Color(0xFF2A1240)],
+    <Color>[Color(0xFF9AA8FF), Color(0xFF3B2E8A), Color(0xFF160F33)],
+    <Color>[Color(0xFFFFB547), Color(0xFFA8432A), Color(0xFF2C1416)],
+    <Color>[Color(0xFF4DF2B0), Color(0xFF1E7A6A), Color(0xFF0D2622)],
+    <Color>[Color(0xFFC38BFF), Color(0xFF6C3BB8), Color(0xFF1E1236)],
+    <Color>[Color(0xFFFF6FA0), Color(0xFF8E2257), Color(0xFF2A0F24)],
+    <Color>[Color(0xFF3FD3C4), Color(0xFF1F5E7A), Color(0xFF0F1E2C)],
+    <Color>[Color(0xFF7C6CFF), Color(0xFF3A2C99), Color(0xFF130E30)],
   ];
 
   List<Color> get _colors => _auras[seed.abs() % _auras.length];

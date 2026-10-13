@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/palette.dart';
@@ -122,16 +124,23 @@ class UpNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final UpPalette p = context.palette;
-    return Container(
-      decoration: BoxDecoration(
-        color: p.surface,
-        border: Border(top: BorderSide(color: p.line)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
+    // A floating glass pill rather than a slab across the bottom edge: the
+    // screen's light shows through it, and it reads as part of the room.
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+          decoration: BoxDecoration(
+            color: p.surfaceHigh.withValues(alpha: 0.82),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: p.foreground.withValues(alpha: 0.08)),
+          ),
           padding: const EdgeInsets.symmetric(
-            horizontal: Insets.md,
+            horizontal: Insets.sm,
             vertical: Insets.sm,
           ),
           child: Row(
@@ -181,7 +190,7 @@ class UpNavBar extends StatelessWidget {
                                     count: unreadCount,
                                     fill: p.amber,
                                     text: p.onAmber,
-                                    ring: p.surface,
+                                    ring: p.surfaceHigh,
                                   ),
                                 ),
                             ],
@@ -202,6 +211,7 @@ class UpNavBar extends StatelessWidget {
                 ),
               );
             }).toList(growable: false),
+          ),
           ),
         ),
       ),

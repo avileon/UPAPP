@@ -150,7 +150,7 @@ class _IntentTile extends StatelessWidget {
       child: Opacity(
         opacity: opacity,
         child: Material(
-          color: selected ? p.amber.withValues(alpha: 0.14) : p.surface,
+          color: selected ? p.amber : p.surface.withValues(alpha: 0.7),
           borderRadius: BorderRadius.circular(Radii.md),
           child: InkWell(
             onTap: enabled ? onTap : null,
@@ -174,7 +174,7 @@ class _IntentTile extends StatelessWidget {
                   Icon(
                     intent.icon,
                     size: 20,
-                    color: selected ? p.amber : p.muted,
+                    color: selected ? p.onAmber : p.muted,
                   ),
                   const SizedBox(height: Insets.xs),
                   Text(
@@ -185,7 +185,7 @@ class _IntentTile extends StatelessWidget {
                       fontSize: 11,
                       height: 1.2,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      color: selected ? p.amber : p.muted,
+                      color: selected ? p.onAmber : p.foreground,
                     ),
                   ),
                 ],

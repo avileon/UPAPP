@@ -51,6 +51,9 @@ class _MatchScreenState extends State<MatchScreen>
       return const UpScaffold(child: SizedBox.shrink());
     }
 
+    final double overlap =
+        Directionality.of(context) == TextDirection.rtl ? 22 : -22;
+
     final String myInitial = () {
       final String name = context.session.draftProfile.firstName;
       return name.isEmpty ? 'A' : name.substring(0, 1);
@@ -62,7 +65,7 @@ class _MatchScreenState extends State<MatchScreen>
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             SizedBox(
-              height: 190,
+              height: 210,
               child: Stack(
                 alignment: Alignment.center,
                 children: <Widget>[
@@ -71,8 +74,8 @@ class _MatchScreenState extends State<MatchScreen>
                     child: ScaleTransition(
                       scale: _bloom,
                       child: Container(
-                        width: 300,
-                        height: 300,
+                        width: 380,
+                        height: 380,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: RadialGradient(
@@ -91,8 +94,10 @@ class _MatchScreenState extends State<MatchScreen>
                         initial: myInitial,
                         borderColor: p.background,
                       ),
+                      // Toward the first portrait in either direction — a
+                      // fixed -22 pushed them apart in Hebrew.
                       Transform.translate(
-                        offset: const Offset(-22, 0),
+                        offset: Offset(overlap, 0),
                         child: _Portrait(
                           photoKey: person.mainPhotoKey,
                           seed: person.auraSeed,
@@ -101,6 +106,38 @@ class _MatchScreenState extends State<MatchScreen>
                         ),
                       ),
                     ],
+                  ),
+                  // The mutual UP, sealed between the two faces.
+                  Transform.translate(
+                    offset: Offset(overlap / 2, 0),
+                    child: ScaleTransition(
+                      scale: _bloom,
+                      child: Container(
+                        width: 54,
+                        height: 54,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: p.amber,
+                          border: Border.all(color: p.background, width: 3),
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: p.amber.withValues(alpha: 0.7),
+                              blurRadius: 30,
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          'UP',
+                          textDirection: TextDirection.ltr,
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: p.onAmber,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 17,
+                              ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -171,7 +208,7 @@ class _Portrait extends StatelessWidget {
         photoKey: photoKey,
         seed: seed,
         initial: initial,
-        diameter: 96,
+        diameter: 104,
       ),
     );
   }

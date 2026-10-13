@@ -15,9 +15,9 @@ abstract final class Insets {
 }
 
 abstract final class Radii {
-  static const double sm = 10;
-  static const double md = 16;
-  static const double lg = 22;
+  static const double sm = 12;
+  static const double md = 18;
+  static const double lg = 28;
   static const double pill = 999;
 }
 
@@ -32,7 +32,7 @@ abstract final class Motion {
 
 abstract final class Sizes {
   static const double touchTarget = 48;
-  static const double goLiveDiameter = 132;
+  static const double goLiveDiameter = 150;
   static const double radarDiameter = 250;
   static const double avatarSm = 52;
   static const double upButton = 80;

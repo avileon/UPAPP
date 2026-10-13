@@ -47,3 +47,28 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Night Glow type. Static instances (Rubik is cut from its variable font at
+  # 500/700/800/900) so every platform picks the exact weight. Licences: OFL,
+  # beside the files.
+  fonts:
+    - family: Rubik
+      fonts:
+        - asset: assets/fonts/Rubik-500.ttf
+          weight: 500
+        - asset: assets/fonts/Rubik-700.ttf
+          weight: 700
+        - asset: assets/fonts/Rubik-800.ttf
+          weight: 800
+        - asset: assets/fonts/Rubik-900.ttf
+          weight: 900
+    - family: IBMPlexSansHebrew
+      fonts:
+        - asset: assets/fonts/IBMPlexSansHebrew-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexSansHebrew-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/IBMPlexSansHebrew-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/IBMPlexSansHebrew-Bold.ttf
+          weight: 700

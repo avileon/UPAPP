@@ -36,7 +36,18 @@ abstract final class AppTheme {
         onSurface: p.foreground,
         outline: p.line,
       ),
-      textTheme: text,
+      // Material's full scale in the body face, then the app's own styles on
+      // top — so a stray `titleMedium` in a dialog does not fall back to
+      // Roboto. (ThemeData.fontFamily would also override the display face.)
+      textTheme: (brightness == Brightness.dark
+              ? Typography.material2021().white
+              : Typography.material2021().black)
+          .apply(
+            fontFamily: AppTypography.bodyFamily,
+            bodyColor: p.foreground,
+            displayColor: p.foreground,
+          )
+          .merge(text),
       extensions: <ThemeExtension<dynamic>>[p],
       dividerTheme: DividerThemeData(
         color: p.line,
