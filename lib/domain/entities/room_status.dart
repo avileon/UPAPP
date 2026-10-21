@@ -13,7 +13,10 @@ import 'package:flutter/foundation.dart';
 /// purpose, and a number carries nothing that could name them.
 @immutable
 class RoomStatus {
-  const RoomStatus({required this.code, required this.peers});
+  const RoomStatus({required this.code, required this.peers, this.name = ''});
+
+  /// The place's display name, e.g. "פאב הנמל". Empty outside a venue.
+  final String name;
 
   /// The normalised key the server put this session in. Empty means the live
   /// session has no room at all.
@@ -29,10 +32,13 @@ class RoomStatus {
 
   @override
   bool operator ==(Object other) =>
-      other is RoomStatus && other.code == code && other.peers == peers;
+      other is RoomStatus &&
+      other.code == code &&
+      other.peers == peers &&
+      other.name == name;
 
   @override
-  int get hashCode => Object.hash(code, peers);
+  int get hashCode => Object.hash(code, peers, name);
 
   @override
   String toString() => 'RoomStatus($code, peers: $peers)';

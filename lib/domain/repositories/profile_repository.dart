@@ -12,6 +12,9 @@ abstract interface class ProfileRepository {
   /// Maps to `POST /media/photo`. The body is the image itself.
   Future<UserProfile> addPhoto(Uint8List bytes);
 
+  /// Maps to `PUT /me/photos/primary`. Moves [key] to the front.
+  Future<UserProfile> setPrimaryPhoto(String key);
+
   /// Maps to `DELETE /media/:key`.
   Future<UserProfile> removePhoto(String key);
 

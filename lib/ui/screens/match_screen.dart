@@ -7,6 +7,7 @@ import '../../core/theme/tokens.dart';
 import '../../domain/entities/match_thread.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../state/app_scope.dart';
+import '../components/confetti.dart';
 import '../components/up_photo.dart';
 import '../components/up_buttons.dart';
 import '../components/up_scaffold.dart';
@@ -60,7 +61,10 @@ class _MatchScreenState extends State<MatchScreen>
     }();
 
     return UpScaffold(
-      child: Center(
+      child: Stack(
+        children: <Widget>[
+          const Positioned.fill(child: ConfettiBurst(particles: 180)),
+          Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -168,6 +172,8 @@ class _MatchScreenState extends State<MatchScreen>
             ),
           ],
         ),
+      ),
+        ],
       ),
     );
   }

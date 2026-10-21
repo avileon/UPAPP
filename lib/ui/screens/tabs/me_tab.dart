@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/l10n/dating_strings.dart';
 import '../../../core/theme/palette.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../domain/entities/user_profile.dart';
@@ -96,6 +97,13 @@ class MeTab extends StatelessWidget {
                 style: UpButtonStyle.ghost,
                 onPressed: () =>
                     Navigator.of(context).pushNamed(Routes.photosSetup),
+              ),
+              const SizedBox(height: Insets.sm),
+              UpButton(
+                label: s.verifyToGoLive,
+                icon: Icons.face_rounded,
+                style: UpButtonStyle.ghost,
+                onPressed: () => Navigator.of(context).pushNamed(Routes.verify),
               ),
               const SizedBox(height: Insets.sm),
               UpButton(

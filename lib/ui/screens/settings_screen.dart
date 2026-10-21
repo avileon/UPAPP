@@ -112,8 +112,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       rows: <Widget>[
                         _Row(
                           label: s.blockedList,
-                          value: '${interactions.blockedIds.length}',
-                          onTap: () {},
+                          onTap: () => Navigator.of(context)
+                              .pushNamed(Routes.blocked),
                         ),
                         _Row(label: s.reportAndHelp, onTap: () {}),
                       ],

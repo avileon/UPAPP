@@ -14,7 +14,20 @@ class LiveSession {
     required this.expiresAt,
     this.intent = LiveIntent.meet,
     this.note = '',
+    this.venueCode = '',
+    this.venueName = '',
+    this.isArea = false,
   });
+
+  /// The registered place this session is in, if any. A venue session lasts
+  /// one hour from the scan; then the QR has to be scanned again.
+  final String venueCode;
+  final String venueName;
+
+  /// "Who is around me": everyone in area mode within a radius, by location.
+  final bool isArea;
+
+  bool get isVenue => venueCode.isNotEmpty;
 
   final String id;
   final DateTime startedAt;

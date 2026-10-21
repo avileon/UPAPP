@@ -46,6 +46,19 @@ class SessionController extends ChangeNotifier {
   LiveIntent _liveIntent = LiveIntent.meet;
   String _liveNote = '';
   bool _hideFromContacts = true;
+  bool _venueMode = false;
+
+  /// Where the next Live happens: at a registered place (scan its QR) or
+  /// around me (by location). Chosen on the home screen.
+  bool get venueMode => _venueMode;
+
+  void setVenueMode(bool value) {
+    if (_venueMode == value) {
+      return;
+    }
+    _venueMode = value;
+    notifyListeners();
+  }
 
   Locale get locale => _locale;
   ThemeMode get themeMode => _themeMode;
@@ -260,6 +273,34 @@ class SessionController extends ChangeNotifier {
       _lastErrorCode = error.code;
     }
     notifyListeners();
+  }
+
+  /// Makes [key] the main photo — the one shown first, everywhere.
+  Future<bool> setPrimaryPhoto(String key) async {
+    _lastErrorCode = null;
+    try {
+      _profile = await _profiles.setPrimaryPhoto(key);
+      notifyListeners();
+      return true;
+    } on ApiException catch (error) {
+      _lastErrorCode = error.code;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Re-reads the profile from the server — after a face check, the photo
+  /// statuses can have changed without this device doing anything.
+  Future<void> reloadProfile() async {
+    try {
+      final UserProfile? fresh = await _profiles.load();
+      if (fresh != null) {
+        _profile = fresh;
+        notifyListeners();
+      }
+    } on ApiException {
+      // Keep what is on screen.
+    }
   }
 
   Future<Uint8List?> photoBytes(String key) => _profiles.photoBytes(key);

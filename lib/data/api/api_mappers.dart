@@ -103,7 +103,22 @@ abstract final class ApiMappers {
       bio: string(json['bio']),
       photoKeys: photoKeys(json['photos']),
       isPhotoVerified: json['photoVerified'] == true,
+      photoChecks: photoChecks(json['photoChecks']),
     );
+  }
+
+  /// `{ key: 'ok' | 'review' | 'rejected' }` from the owner's own profile.
+  static Map<String, String> photoChecks(Object? value) {
+    if (value is! Map) {
+      return const <String, String>{};
+    }
+    final Map<String, String> out = <String, String>{};
+    value.forEach((Object? k, Object? v) {
+      if (k is String && v is String) {
+        out[k] = v;
+      }
+    });
+    return out;
   }
 
   // -- nearby --------------------------------------------------------------

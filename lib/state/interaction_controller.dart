@@ -52,7 +52,31 @@ class InteractionController extends ChangeNotifier {
   List<MatchThread> _matches = const <MatchThread>[];
 
   List<MatchThread> get matches => _matches;
-  Set<String> get passedIds => _interactions.passedIds;
+
+  /// People hidden for this visit. Kept here rather than in the repository so
+  /// that a new visit can start clean: hiding someone is "not tonight", not
+  /// "never" — that is what blocking is for.
+  Set<String> get passedIds =>
+      <String>{..._interactions.passedIds, ..._hiddenThisVisit}
+        ..removeAll(_unhidden);
+  final Set<String> _hiddenThisVisit = <String>{};
+  final Set<String> _unhidden = <String>{};
+
+  /// A new visit: everyone hidden last time is visible again.
+  void forgetHidden() {
+    _unhidden.addAll(_interactions.passedIds);
+    _unhidden.addAll(_hiddenThisVisit);
+    _hiddenThisVisit.clear();
+    notifyListeners();
+  }
+
+  /// A match that appeared without this device asking for it — the other
+  /// person UP'd back. The app celebrates it wherever the person is.
+  Stream<MatchThread> get newMatches => _newMatches.stream;
+  final StreamController<MatchThread> _newMatches =
+      StreamController<MatchThread>.broadcast();
+  final Set<String> _knownMatchIds = <String>{};
+  bool _seenFirstMatchList = false;
   Set<String> get blockedIds =>
       <String>{..._interactions.blockedIds, ..._blockedIdsPending};
 
@@ -90,8 +114,16 @@ class InteractionController extends ChangeNotifier {
 
   final Set<String> _sentUpIds = <String>{};
 
+  /// UPs on their way to the server. A match those produce is shown by the
+  /// screen that sent them, so the poll must not announce it again.
+  final Set<String> _upInFlight = <String>{};
+
   Future<UpResult> sendUp(String personId) async {
     _lastErrorCode = null;
+    _upInFlight.add(personId);
+    Future<void>.delayed(const Duration(seconds: 8), () {
+      _upInFlight.remove(personId);
+    });
     UpResult result;
     try {
       result = await _interactions.sendUp(personId);
@@ -103,11 +135,20 @@ class InteractionController extends ChangeNotifier {
         result.outcome != UpOutcome.failed) {
       _sentUpIds.add(personId);
     }
+    // This device made the match and is already showing it; the poll must
+    // not announce it a second time.
+    final MatchThread? made = result.match;
+    if (made != null) {
+      _knownMatchIds.add(made.id);
+    }
     notifyListeners();
     return result;
   }
 
+  /// Hides [personId] until this visit ends (the server is told too).
   void pass(String personId) {
+    _unhidden.remove(personId);
+    _hiddenThisVisit.add(personId);
     _interactions.pass(personId);
     notifyListeners();
   }
@@ -178,6 +219,16 @@ class InteractionController extends ChangeNotifier {
   void _onMatches(List<MatchThread> matches) {
     final List<MatchThread> arrived = _incomingSince(_matches, matches);
     _matches = matches;
+    for (final MatchThread thread in matches) {
+      final bool isNew = _knownMatchIds.add(thread.id);
+      if (isNew &&
+          _seenFirstMatchList &&
+          !_upInFlight.contains(thread.personId) &&
+          !_newMatches.isClosed) {
+        _newMatches.add(thread);
+      }
+    }
+    _seenFirstMatchList = true;
     for (final MatchThread thread in arrived) {
       if (thread.id == _openMatchId) {
         // You are reading it. Counting it as unread would leave a badge behind
@@ -239,6 +290,7 @@ class InteractionController extends ChangeNotifier {
     _matchSubscription?.cancel();
     _matchSubscription = null;
     _arrivals.close();
+    _newMatches.close();
     _interactions.dispose();
     super.dispose();
   }

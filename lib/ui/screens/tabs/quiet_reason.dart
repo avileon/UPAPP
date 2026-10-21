@@ -1,4 +1,5 @@
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/l10n/dating_strings.dart';
 import '../../../state/live_controller.dart';
 
 /// Why the nearby list is empty — in one place, because two screens ask it.
@@ -27,11 +28,16 @@ String? quietReason({
     // act on.
     return strings.nearbyQuietBody;
   }
-  if (!live.room.isJoined) {
+  if (live.session?.isArea ?? false) {
+    if (live.room.peers == 0) {
+      return strings.quietAreaBody;
+    }
+  } else if (!live.room.isJoined) {
     return strings.quietNoRoomBody;
-  }
-  if (live.room.peers == 0) {
-    return strings.quietEmptyRoomBody(live.room.code);
+  } else if (live.room.peers == 0) {
+    return strings.quietEmptyRoomBody(
+      live.room.name.isEmpty ? live.room.code : live.room.name,
+    );
   }
   // The preference rule is the answer only where the preference rule runs.
   // Outside dating it filters nothing, so blaming it there would send someone

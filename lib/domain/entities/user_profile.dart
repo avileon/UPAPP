@@ -27,6 +27,7 @@ class UserProfile {
     this.bio = '',
     this.photoKeys = const <String>[],
     this.isPhotoVerified = false,
+    this.photoChecks = const <String, String>{},
   });
 
   final String id;
@@ -41,12 +42,23 @@ class UserProfile {
   /// token, so there is no address that works for whoever happens to have it.
   final List<String> photoKeys;
 
+  /// What the face check said about each photo, by key: `ok`, `review` or
+  /// `rejected`. A key that is missing was never checked (uploaded before the
+  /// owner verified their face) and is shown to others like an `ok` one.
+  final Map<String, String> photoChecks;
+
+  /// Hidden from everyone else: waiting for a human, or not the owner's face.
+  bool isPhotoHidden(String key) {
+    final String? check = photoChecks[key];
+    return check == 'review' || check == 'rejected';
+  }
+
   int get photoCount => photoKeys.length;
   String? get mainPhotoKey => photoKeys.isEmpty ? null : photoKeys.first;
   final bool isPhotoVerified;
 
   static const int minimumAge = 18;
-  static const int maxPhotos = 6;
+  static const int maxPhotos = 4;
 
   int ageAt(DateTime now) {
     int age = now.year - birthDate.year;
@@ -88,6 +100,7 @@ class UserProfile {
     String? bio,
     List<String>? photoKeys,
     bool? isPhotoVerified,
+    Map<String, String>? photoChecks,
   }) {
     return UserProfile(
       id: id,
@@ -98,6 +111,7 @@ class UserProfile {
       bio: bio ?? this.bio,
       photoKeys: photoKeys ?? this.photoKeys,
       isPhotoVerified: isPhotoVerified ?? this.isPhotoVerified,
+      photoChecks: photoChecks ?? this.photoChecks,
     );
   }
 

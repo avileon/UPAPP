@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../data/api/api_client.dart';
+import '../domain/entities/geo_fix.dart';
 import '../domain/entities/live_intent.dart';
 import '../domain/entities/live_session.dart';
 import '../domain/entities/nearby_person.dart';
@@ -65,11 +66,19 @@ class LiveController extends ChangeNotifier {
     Duration duration, {
     LiveIntent intent = LiveIntent.meet,
     String note = '',
+    String venue = '',
+    GeoFix? fix,
   }) async {
     _lastErrorCode = null;
+    _endedVenue = null;
     try {
-      final LiveSession session =
-          await _presence.startLive(duration, intent: intent, note: note);
+      final LiveSession session = await _presence.startLive(
+        duration,
+        intent: intent,
+        note: note,
+        venue: venue,
+        fix: fix,
+      );
       _session = session;
       _remaining = session.remainingAt(_now());
       _startTicker();
@@ -82,6 +91,27 @@ class LiveController extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  /// The place whose hour just ran out, so the home screen can offer to scan
+  /// again instead of silently dropping the person out of the room. Cleared by
+  /// the next start.
+  LiveSession? get endedVenue => _endedVenue;
+  LiveSession? _endedVenue;
+
+  void dismissEndedVenue() {
+    if (_endedVenue == null) {
+      return;
+    }
+    _endedVenue = null;
+    notifyListeners();
+  }
+
+  /// Someone in the room just sent you an UP. One event per person per app
+  /// run — the screen flips once, not on every poll.
+  Stream<NearbyPerson> get incomingUps => _incomingUps.stream;
+  final StreamController<NearbyPerson> _incomingUps =
+      StreamController<NearbyPerson>.broadcast();
+  final Set<String> _announcedUps = <String>{};
 
   Future<void> stop() async {
     _lastErrorCode = null;
@@ -98,8 +128,9 @@ class LiveController extends ChangeNotifier {
     Duration duration, {
     LiveIntent intent = LiveIntent.meet,
     String note = '',
+    GeoFix? fix,
   }) =>
-      isLive ? stop() : start(duration, intent: intent, note: note);
+      isLive ? stop() : start(duration, intent: intent, note: note, fix: fix);
 
   /// The intent of the running session, or the default when not Live.
   LiveIntent get intent => _session?.intent ?? LiveIntent.meet;
@@ -126,7 +157,12 @@ class LiveController extends ChangeNotifier {
       final DateTime now = _now();
       if (!session.isActiveAt(now)) {
         // Expiry is not a special case in the UI — it is the same stop path.
-        unawaited(stop());
+        unawaited(stop().then((_) {
+          if (session.isVenue) {
+            _endedVenue = session;
+            notifyListeners();
+          }
+        }));
         return;
       }
       _remaining = session.remainingAt(now);
@@ -136,6 +172,14 @@ class LiveController extends ChangeNotifier {
 
   void _onNearby(List<NearbyPerson> people) {
     _nearby = people;
+    for (final NearbyPerson person in people) {
+      if (person.sentYouUp &&
+          !person.youSentUp &&
+          _announcedUps.add(person.id) &&
+          !_incomingUps.isClosed) {
+        _incomingUps.add(person);
+      }
+    }
     notifyListeners();
   }
 
@@ -154,6 +198,7 @@ class LiveController extends ChangeNotifier {
     _nearbySubscription = null;
     _roomSubscription?.cancel();
     _roomSubscription = null;
+    _incomingUps.close();
     _presence.dispose();
     super.dispose();
   }

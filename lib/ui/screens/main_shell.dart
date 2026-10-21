@@ -41,9 +41,26 @@ class MainShellState extends State<MainShell> {
   String? _pendingChat;
   Timer? _pendingTimer;
 
+  /// A venue sticker's link (`/?venue=CODE`) opens the app; once signed in,
+  /// this is where it lands: the join screen for that place. The code is
+  /// cleared first so a cancelled join does not come back on every launch.
+  Future<void> _openPendingVenue() async {
+    if (!mounted) {
+      return;
+    }
+    final String code = context.backend.venueCode;
+    if (code.isEmpty) {
+      return;
+    }
+    final NavigatorState navigator = Navigator.of(context);
+    await context.backend.setVenueCode('');
+    await navigator.pushNamed(Routes.venueJoin, arguments: code);
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openPendingVenue());
     final String? requested = Uri.base.queryParameters['chat'];
     if (requested == null || requested.isEmpty) {
       return;

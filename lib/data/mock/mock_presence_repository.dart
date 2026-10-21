@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import '../../domain/entities/geo_fix.dart';
 import '../../domain/entities/live_intent.dart';
 import '../../domain/entities/live_session.dart';
 import '../../domain/entities/nearby_person.dart';
@@ -39,14 +40,19 @@ class MockPresenceRepository implements PresenceRepository {
     Duration duration, {
     LiveIntent intent = LiveIntent.meet,
     String note = '',
+    String venue = '',
+    GeoFix? fix,
   }) async {
     final DateTime start = _now();
     _session = LiveSession(
       id: 'live-${start.microsecondsSinceEpoch}',
       startedAt: start,
-      expiresAt: start.add(duration),
+      expiresAt: start.add(venue.isEmpty ? duration : const Duration(hours: 1)),
       intent: intent,
       note: note,
+      venueCode: venue,
+      venueName: venue,
+      isArea: venue.isEmpty && fix != null,
     );
     _discovered.clear();
     _emit();

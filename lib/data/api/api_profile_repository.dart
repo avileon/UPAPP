@@ -50,6 +50,15 @@ class ApiProfileRepository implements ProfileRepository {
   }
 
   @override
+  Future<UserProfile> setPrimaryPhoto(String key) async {
+    final Map<String, dynamic> result = await _client.put(
+      '/me/photos/primary',
+      <String, dynamic>{'key': key},
+    );
+    return _withKeys(result['photos']);
+  }
+
+  @override
   Future<UserProfile> removePhoto(String key) async {
     final Map<String, dynamic> result = await _client.delete('/media/$key');
     return _withKeys(result['photos']);

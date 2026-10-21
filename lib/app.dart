@@ -6,6 +6,7 @@ import 'core/theme/app_theme.dart';
 import 'state/app_scope.dart';
 import 'state/session_controller.dart';
 import 'ui/components/arrival_alerts.dart';
+import 'ui/components/celebrations.dart';
 import 'ui/navigation/routes.dart';
 
 class UpApp extends StatelessWidget {
@@ -107,9 +108,12 @@ class _UpMaterialAppState extends State<_UpMaterialApp> {
           // who wrote. Inside the navigator it would be covered by the first
           // screen pushed on top of the shell.
           builder: (BuildContext context, Widget? child) {
-            return ArrivalAlerts(
+            return Celebrations(
               navigator: _navigator,
-              child: child ?? const SizedBox.shrink(),
+              child: ArrivalAlerts(
+                navigator: _navigator,
+                child: child ?? const SizedBox.shrink(),
+              ),
             );
           },
         );

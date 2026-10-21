@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/l10n/dating_strings.dart';
+import '../../core/l10n/error_text.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
 import '../../state/app_scope.dart';
@@ -32,6 +36,57 @@ class VerifyScreen extends StatefulWidget {
 class _VerifyScreenState extends State<VerifyScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _loaded = false;
+
+  /// The old route — a pose selfie a person looks at. For anyone who says no
+  /// to keeping a face template, and for when the face service is down.
+  bool _manual = false;
+
+  /// Shown under the live check after an attempt that did not pass.
+  String? _liveMessage;
+
+  Future<void> _runLive(VerificationController verification) async {
+    final NavigatorState navigator = Navigator.of(context);
+    final AppStrings s = context.strings;
+    setState(() => _liveMessage = null);
+
+    if (!verification.consent && !await verification.giveConsent()) {
+      setState(() => _liveMessage = errorText(s, verification.lastErrorCode));
+      return;
+    }
+    if (!await verification.startLive()) {
+      if (mounted) {
+        setState(() => _liveMessage = errorText(s, verification.lastErrorCode));
+      }
+      return;
+    }
+    final List<String> steps = verification.liveSteps ?? const <String>[];
+    final List<Uint8List>? frames = await navigator.push<List<Uint8List>>(
+      MaterialPageRoute<List<Uint8List>>(
+        builder: (BuildContext context) => LiveCaptureScreen(steps: steps),
+        fullscreenDialog: true,
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    if (frames == null || frames.length != steps.length) {
+      verification.cancelLive();
+      setState(() => _liveMessage = frames == null ? null : s.faceReason(null));
+      return;
+    }
+    final VerificationStatus? result = await verification.submitFrames(frames);
+    if (!mounted) {
+      return;
+    }
+    if (result == null) {
+      setState(() => _liveMessage = errorText(s, verification.lastErrorCode));
+    } else if (result == VerificationStatus.rejected) {
+      setState(() => _liveMessage = s.faceReason(verification.reason));
+    } else {
+      // Approved or pending: the photos may have just been re-checked.
+      unawaited(context.session.reloadProfile());
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -93,7 +148,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
       child: ListView(
         children: <Widget>[
           UpTopBar(
-            title: s.verifyTitle,
+            title: s.faceTitle,
             onBack: () => Navigator.of(context).pop(),
           ),
           if (verification == null)
@@ -106,8 +161,20 @@ class _VerifyScreenState extends State<VerifyScreen> {
           else
             ListenableBuilder(
               listenable: verification,
-              builder: (BuildContext context, Widget? _) =>
-                  _Body(verification: verification, onCapture: _capture),
+              builder: (BuildContext context, Widget? _) {
+                final bool decided =
+                    verification.status == VerificationStatus.approved ||
+                        verification.status == VerificationStatus.pending;
+                if (_manual && !decided) {
+                  return _Body(verification: verification, onCapture: _capture);
+                }
+                return _LiveBody(
+                  verification: verification,
+                  message: _liveMessage,
+                  onStart: () => _runLive(verification),
+                  onManual: () => setState(() => _manual = true),
+                );
+              },
             ),
           const SizedBox(height: Insets.xl),
         ],
@@ -288,6 +355,360 @@ class _Result extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The automatic face check: what it does, the consent, and the button.
+class _LiveBody extends StatelessWidget {
+  const _LiveBody({
+    required this.verification,
+    required this.message,
+    required this.onStart,
+    required this.onManual,
+  });
+
+  final VerificationController verification;
+  final String? message;
+  final VoidCallback onStart;
+  final VoidCallback onManual;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final UpPalette p = context.palette;
+
+    if (verification.status == VerificationStatus.approved) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          _Result(
+            icon: Icons.verified_rounded,
+            colour: p.cyan,
+            title: s.faceApproved,
+            body: s.faceApprovedBody,
+          ),
+          if (verification.method == 'live')
+            UpButton(
+              label: s.deleteFace,
+              style: UpButtonStyle.quiet,
+              onPressed: () async {
+                final ScaffoldMessengerState messenger =
+                    ScaffoldMessenger.of(context);
+                await verification.deleteBiometrics();
+                messenger.showSnackBar(SnackBar(content: Text(s.deleteFaceDone)));
+              },
+            ),
+        ],
+      );
+    }
+    if (verification.status == VerificationStatus.pending) {
+      return _Result(
+        icon: Icons.hourglass_top_rounded,
+        colour: p.amber,
+        title: s.facePending,
+        body: s.facePendingBody,
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const SizedBox(height: Insets.md),
+        Center(
+          child: Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: p.cyan, width: 2),
+              boxShadow: <BoxShadow>[
+                BoxShadow(color: p.cyan.withValues(alpha: 0.35), blurRadius: 30),
+              ],
+            ),
+            child: Icon(Icons.face_rounded, size: 48, color: p.cyan),
+          ),
+        ),
+        const SizedBox(height: Insets.lg),
+        Text(
+          s.faceHeadline,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineLarge,
+        ),
+        const SizedBox(height: Insets.sm),
+        Text(
+          s.faceBody,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: Insets.lg),
+        if (!verification.consent)
+          UpCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(s.consentTitle, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: Insets.xs),
+                Text(
+                  s.consentBody,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: p.muted),
+                ),
+              ],
+            ),
+          ),
+        if (message != null) ...<Widget>[
+          const SizedBox(height: Insets.md),
+          UpCard(
+            borderColor: p.danger,
+            child: Text(message!, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+        ],
+        const SizedBox(height: Insets.xl),
+        UpButton(
+          label: verification.busy
+              ? s.checkingFace
+              : (verification.consent ? s.startCheck : s.consentAgree),
+          icon: Icons.photo_camera_rounded,
+          onPressed: verification.busy ? null : onStart,
+        ),
+        const SizedBox(height: Insets.sm),
+        UpButton(
+          label: s.manualFallback,
+          style: UpButtonStyle.quiet,
+          onPressed: verification.busy ? null : onManual,
+        ),
+      ],
+    );
+  }
+}
+
+/// The camera, the oval, and one instruction at a time.
+///
+/// Pops with one frame per step, in order, or null if the camera never came
+/// up. The frames are not mirrored or edited here; the server works out which
+/// way round the device holds its pictures.
+class LiveCaptureScreen extends StatefulWidget {
+  const LiveCaptureScreen({required this.steps, super.key});
+
+  final List<String> steps;
+
+  @override
+  State<LiveCaptureScreen> createState() => _LiveCaptureScreenState();
+}
+
+class _LiveCaptureScreenState extends State<LiveCaptureScreen> {
+  CameraController? _camera;
+  String? _error;
+  int _step = 0;
+  int _count = 3;
+  bool _shooting = false;
+  final List<Uint8List> _frames = <Uint8List>[];
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_open());
+  }
+
+  Future<void> _open() async {
+    try {
+      final List<CameraDescription> cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        throw StateError('no camera');
+      }
+      final CameraDescription front = cameras.firstWhere(
+        (CameraDescription c) => c.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
+      final CameraController controller = CameraController(
+        front,
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
+      await controller.initialize();
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() => _camera = controller);
+      // A beat to find the oval before the first countdown.
+      await Future<void>.delayed(const Duration(milliseconds: 900));
+      await _run();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = context.strings.cameraDenied);
+      }
+    }
+  }
+
+  Future<void> _run() async {
+    final CameraController? camera = _camera;
+    if (camera == null) {
+      return;
+    }
+    for (int i = 0; i < widget.steps.length; i++) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _step = i;
+        _count = 3;
+      });
+      for (int c = 3; c > 0; c--) {
+        if (!mounted) {
+          return;
+        }
+        setState(() => _count = c);
+        await Future<void>.delayed(const Duration(milliseconds: 550));
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(() => _shooting = true);
+      final XFile shot = await camera.takePicture();
+      _frames.add(await shot.readAsBytes());
+      if (mounted) {
+        setState(() => _shooting = false);
+      }
+    }
+    if (mounted) {
+      Navigator.of(context).pop(List<Uint8List>.unmodifiable(_frames));
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_camera?.dispose());
+    super.dispose();
+  }
+
+  String _instruction(AppStrings s, String step) => switch (step) {
+        'left' => s.stepLeft,
+        'right' => s.stepRight,
+        _ => s.stepCenter,
+      };
+
+  IconData? _arrow(String step) => switch (step) {
+        'left' => Icons.west_rounded,
+        'right' => Icons.east_rounded,
+        _ => null,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final UpPalette p = context.palette;
+    final CameraController? camera = _camera;
+    final String step =
+        widget.steps.isEmpty ? 'center' : widget.steps[_step];
+    final IconData? arrow = _arrow(step);
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Column(
+          children: <Widget>[
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Insets.screen),
+              child: Row(
+                children: <Widget>[
+                  for (int i = 0; i < widget.steps.length; i++) ...<Widget>[
+                    if (i > 0) const SizedBox(width: 6),
+                    Expanded(
+                      child: Container(
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: i < _frames.length
+                              ? p.cyan
+                              : (i == _step ? p.amber : Colors.white24),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: Insets.lg),
+            Text(
+              _error ?? _instruction(s, step),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: Insets.md),
+            Expanded(
+              child: Center(
+                child: camera == null || !camera.value.isInitialized
+                    ? (_error == null
+                        ? const CircularProgressIndicator()
+                        : Icon(Icons.videocam_off_rounded,
+                            color: p.danger, size: 56))
+                    : AspectRatio(
+                        aspectRatio: 3 / 4,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: <Widget>[
+                            ClipOval(
+                              child: FittedBox(
+                                fit: BoxFit.cover,
+                                child: SizedBox(
+                                  width: 300,
+                                  height: 300 * camera.value.aspectRatio,
+                                  child: CameraPreview(camera),
+                                ),
+                              ),
+                            ),
+                            IgnorePointer(
+                              child: DecoratedBox(
+                                decoration: ShapeDecoration(
+                                  shape: OvalBorder(
+                                    side: BorderSide(
+                                      color: _shooting ? p.cyan : p.amber,
+                                      width: 4,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (arrow != null)
+                              Center(
+                                child: Icon(arrow,
+                                    size: 96,
+                                    color: Colors.white.withValues(alpha: 0.85)),
+                              ),
+                          ],
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(height: Insets.md),
+            Text(
+              _error != null ? '' : (_shooting ? '📸' : '$_count'),
+              style: TextStyle(
+                color: p.amber,
+                fontSize: 44,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: Insets.lg),
+          ],
+        ),
       ),
     );
   }

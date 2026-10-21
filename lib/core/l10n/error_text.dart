@@ -1,4 +1,5 @@
 import 'app_strings.dart';
+import 'dating_strings.dart';
 
 /// Turns a server error code into something a person can act on.
 ///
@@ -8,6 +9,10 @@ import 'app_strings.dart';
 /// server is unreachable" lead somewhere different, and everything else is
 /// noise a user cannot do anything with.
 String errorText(AppStrings strings, String? code) {
+  final String? dating = strings.datingError(code);
+  if (dating != null) {
+    return dating;
+  }
   switch (code) {
     case null:
       return '';

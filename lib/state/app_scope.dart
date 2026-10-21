@@ -8,6 +8,8 @@ import '../data/api/api_interaction_repository.dart';
 import '../data/api/api_presence_repository.dart';
 import '../data/api/api_profile_repository.dart';
 import '../data/api/backend_config.dart';
+import '../data/api/venue_api.dart';
+import '../data/location/location_service.dart';
 import '../data/mock/mock_auth_repository.dart';
 import '../data/mock/mock_data.dart';
 import '../data/mock/mock_interaction_repository.dart';
@@ -17,6 +19,7 @@ import '../domain/repositories/auth_repository.dart';
 import '../domain/repositories/interaction_repository.dart';
 import '../domain/repositories/presence_repository.dart';
 import '../domain/repositories/profile_repository.dart';
+import 'blocks_controller.dart';
 import 'interaction_controller.dart';
 import 'live_controller.dart';
 import 'people_directory.dart';
@@ -43,8 +46,19 @@ class AppScope extends InheritedWidget {
     required super.child,
     this.push,
     this.verification,
+    this.blocks,
+    this.venues,
+    this.location = const LocationService(),
     super.key,
   });
+
+  /// Null on the mock stack: there is no server holding a block list.
+  final BlocksController? blocks;
+
+  /// Null on the mock stack: no registered places to look up.
+  final VenueApi? venues;
+
+  final LocationService location;
 
   final SessionController session;
   final LiveController live;
@@ -86,6 +100,8 @@ class AppScope extends InheritedWidget {
       config != oldWidget.config ||
       push != oldWidget.push ||
       verification != oldWidget.verification ||
+      blocks != oldWidget.blocks ||
+      venues != oldWidget.venues ||
       booting != oldWidget.booting;
 }
 
@@ -97,6 +113,9 @@ extension AppScopeAccess on BuildContext {
   PhotoCache get photos => AppScope.of(this).photos;
   PushController? get push => AppScope.of(this).push;
   VerificationController? get verification => AppScope.of(this).verification;
+  BlocksController? get blocks => AppScope.of(this).blocks;
+  VenueApi? get venues => AppScope.of(this).venues;
+  LocationService get location => AppScope.of(this).location;
   bool get booting => AppScope.of(this).booting;
   BackendConfig get backend => AppScope.of(this).config;
 }
@@ -137,6 +156,9 @@ class _AppScopeHostState extends State<AppScopeHost> {
   late InteractionController _interactionController;
   PushController? _push;
   VerificationController? _verification;
+  BlocksController? _blocks;
+  VenueApi? _venues;
+  final LocationService _location = const LocationService();
 
   bool _usingApi = false;
   bool _booting = true;
@@ -202,6 +224,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
       _session,
       if (_push != null) _push!,
       if (_verification != null) _verification!,
+      if (_blocks != null) _blocks!,
       if (_client != null) _client!,
     ];
     final PhotoCache retiredPhotos = _photoCache;
@@ -223,6 +246,8 @@ class _AppScopeHostState extends State<AppScopeHost> {
         } else if (old is PushController) {
           old.dispose();
         } else if (old is VerificationController) {
+          old.dispose();
+        } else if (old is BlocksController) {
           old.dispose();
         } else if (old is ApiClient) {
           old.dispose();
@@ -247,6 +272,8 @@ class _AppScopeHostState extends State<AppScopeHost> {
     _client = null;
     _push = null;
     _verification = null;
+    _blocks = null;
+    _venues = null;
     // No fetcher: every key resolves to nothing and the aura placeholder
     // stands in, which is exactly what the mock stack is for.
     _photoCache = PhotoCache();
@@ -279,7 +306,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
     _profiles = ApiProfileRepository(client: client);
     _presence = ApiPresenceRepository(
       client: client,
-      venueCode: () => _config.venueCode,
+      locate: _location.tryFix,
       onPeople: _people.rememberAll,
     );
     final ApiInteractionRepository interactions = ApiInteractionRepository(
@@ -290,6 +317,8 @@ class _AppScopeHostState extends State<AppScopeHost> {
     final PushController push = PushController(client: client);
     _push = push;
     _verification = VerificationController(client: client);
+    _blocks = BlocksController(client: client);
+    _venues = VenueApi(client: client);
     _session = SessionController(
       auth: _auth,
       profiles: _profiles,
@@ -319,6 +348,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
     _session.dispose();
     _push?.dispose();
     _verification?.dispose();
+    _blocks?.dispose();
     _client?.dispose();
     _photoCache.dispose();
     _people.dispose();
@@ -337,6 +367,9 @@ class _AppScopeHostState extends State<AppScopeHost> {
       config: _config,
       push: _push,
       verification: _verification,
+      blocks: _blocks,
+      venues: _venues,
+      location: _location,
       booting: _booting,
       child: Builder(builder: widget.builder),
     );

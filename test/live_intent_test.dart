@@ -13,20 +13,14 @@ void main() {
     // said "interested in women" could stand in the same room all evening and
     // never see each other — correct for dating, absurd for a five-a-side game.
     expect(LiveIntent.date.preferencesApply, isTrue);
-    for (final LiveIntent intent in <LiveIntent>[
-      LiveIntent.meet,
-      LiveIntent.work,
-      LiveIntent.doing,
-    ]) {
-      expect(intent.preferencesApply, isFalse, reason: intent.name);
-    }
+    expect(LiveIntent.meet.preferencesApply, isFalse);
   });
 
   test('an intent this build does not know about is not an error', () {
     // A phone one version behind must still be able to go Live. Falling to the
     // most permissive intent is safe in exactly one direction: it can show you
     // people, never hide the ones dating would have hidden.
-    for (final String? raw in <String?>[null, '', 'DATE', 'romance', 'meet ']) {
+    for (final String? raw in <String?>[null, '', 'DATE', 'romance', 'meet ', 'work', 'doing']) {
       expect(LiveIntent.fromWire(raw), LiveIntent.meet, reason: '$raw');
     }
   });
@@ -34,7 +28,7 @@ void main() {
   test('the wire names are the protocol and do not follow a rename', () {
     expect(
       LiveIntent.values.map((LiveIntent i) => i.wire).toList(),
-      <String>['meet', 'date', 'work', 'doing'],
+      <String>['meet', 'date'],
     );
     for (final LiveIntent intent in LiveIntent.values) {
       expect(LiveIntent.fromWire(intent.wire), intent);

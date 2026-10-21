@@ -21,6 +21,12 @@ environment:
 #                         Gallery only, no camera, which is why the app asks for
 #                         no permissions on Android 13 and later.
 #   qr_flutter          — draws the venue QR. Pure Dart, no platform code.
+#   camera              — the live face check needs frames from a preview the
+#                         app controls. `image_picker` on the web is a file
+#                         input, and a file input accepts any file.
+#   geolocator          — "am I really in this bar" and "who is around me".
+#                         Web and Android from one API.
+#   mobile_scanner      — scanning a venue's QR from inside the app.
 #   web                 — typed bindings for the browser APIs the SDK does not
 #                         wrap: service workers and the Push API. Maintained by
 #                         the Dart team, no transitive dependencies, and
@@ -40,6 +46,9 @@ dependencies:
   image_picker: ^1.1.2
   qr_flutter: ^4.1.0
   web: ^1.0.0
+  camera: ^0.11.0
+  geolocator: ^14.0.0
+  mobile_scanner: ^7.0.0
 
 dev_dependencies:
   flutter_test:

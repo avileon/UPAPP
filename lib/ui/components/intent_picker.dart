@@ -13,29 +13,21 @@ extension LiveIntentPresentation on LiveIntent {
   String label(AppStrings s) => switch (this) {
         LiveIntent.meet => s.intentMeet,
         LiveIntent.date => s.intentDate,
-        LiveIntent.work => s.intentWork,
-        LiveIntent.doing => s.intentDoing,
       };
 
   String hint(AppStrings s) => switch (this) {
         LiveIntent.meet => s.intentMeetHint,
         LiveIntent.date => s.intentDateHint,
-        LiveIntent.work => s.intentWorkHint,
-        LiveIntent.doing => s.intentDoingHint,
       };
 
   IconData get icon => switch (this) {
         LiveIntent.meet => Icons.groups_2_rounded,
         LiveIntent.date => Icons.favorite_rounded,
-        LiveIntent.work => Icons.work_outline_rounded,
-        LiveIntent.doing => Icons.directions_run_rounded,
       };
 
   List<String> openers(AppStrings s) => switch (this) {
         LiveIntent.meet => s.openersMeet,
         LiveIntent.date => s.openersDate,
-        LiveIntent.work => s.openersWork,
-        LiveIntent.doing => s.openersDoing,
       };
 }
 
@@ -182,7 +174,7 @@ class _IntentTile extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 13,
                       height: 1.2,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                       color: selected ? p.onAmber : p.foreground,

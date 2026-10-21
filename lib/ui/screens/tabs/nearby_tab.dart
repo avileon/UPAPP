@@ -14,6 +14,7 @@ import '../../components/up_buttons.dart';
 import '../../components/up_nav_bar.dart';
 import '../../navigation/routes.dart';
 import '../main_shell.dart';
+import '../people_viewer_screen.dart';
 import 'quiet_reason.dart';
 
 class NearbyTab extends StatelessWidget {
@@ -113,8 +114,11 @@ class NearbyTab extends StatelessWidget {
               person.youSentUp || context.interactions.hasSentUpTo(person.id),
           sentLabel: s.upSentLabel,
           onTap: () => Navigator.of(context).pushNamed(
-            Routes.profilePreview,
-            arguments: person.id,
+            Routes.people,
+            arguments: PeopleViewerArgs(
+              ids: people.map((NearbyPerson p) => p.id).toList(growable: false),
+              initialIndex: index,
+            ),
           ),
         );
       },

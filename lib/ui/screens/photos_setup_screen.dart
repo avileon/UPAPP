@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/l10n/dating_strings.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/entities/user_profile.dart';
@@ -37,7 +38,86 @@ class _PhotosSetupScreenState extends State<PhotosSetupScreen> {
   /// turns a 6 MB camera JPEG into a few hundred kilobytes before it ever
   /// touches the uplink. On a phone tethered to a laptop over a tunnel, that
   /// is the difference between instant and a spinner.
-  Future<void> _pick() async {
+  /// Camera or gallery — asked each time, because both are normal: a photo
+  /// taken right now, or a good one from last summer. Either way, the server
+  /// checks it is the verified face before anyone else can see it.
+  Future<void> _chooseSource() async {
+    final AppStrings s = context.strings;
+    final ImageSource? source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (BuildContext context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.photo_camera_rounded),
+              title: Text(s.takePhoto),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: Text(s.chooseFromGallery),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source != null) {
+      await _pick(source);
+    }
+  }
+
+  /// A filled slot: make it the main photo, or delete it.
+  Future<void> _photoOptions(String key, bool isMain) async {
+    final AppStrings s = context.strings;
+    final SessionController session = context.session;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final String? action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (BuildContext context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            if (!isMain && !session.draftProfile.isPhotoHidden(key))
+              ListTile(
+                leading: const Icon(Icons.star_rounded),
+                title: Text(s.makeMain),
+                onTap: () => Navigator.of(context).pop('main'),
+              ),
+            if (session.draftProfile.photoChecks[key] == 'rejected')
+              ListTile(
+                leading: const Icon(Icons.info_outline_rounded),
+                title: Text(s.photoRejectedHint),
+              ),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: context.palette.danger),
+              title: Text(s.deletePhoto),
+              onTap: () => Navigator.of(context).pop('delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) {
+      return;
+    }
+    if (action == 'delete') {
+      await _remove(key);
+    } else if (action == 'main') {
+      setState(() => _busy = true);
+      final bool ok = await session.setPrimaryPhoto(key);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _busy = false);
+      if (!ok) {
+        messenger.showSnackBar(SnackBar(content: Text(session.errorMessage(s))));
+      }
+    }
+  }
+
+  Future<void> _pick(ImageSource source) async {
     final SessionController session = context.session;
     final PhotoCache cache = context.photos;
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
@@ -46,7 +126,8 @@ class _PhotosSetupScreenState extends State<PhotosSetupScreen> {
     XFile? file;
     try {
       file = await _picker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
+        preferredCameraDevice: CameraDevice.front,
         maxWidth: 1440,
         maxHeight: 1440,
         imageQuality: 85,
@@ -112,7 +193,7 @@ class _PhotosSetupScreenState extends State<PhotosSetupScreen> {
               Text(s.photosTitle,
                   style: Theme.of(context).textTheme.headlineLarge),
               const SizedBox(height: Insets.sm),
-              Text(s.photosBody,
+              Text(s.photosFourBody,
                   style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: Insets.xl),
               Expanded(
@@ -127,6 +208,7 @@ class _PhotosSetupScreenState extends State<PhotosSetupScreen> {
                   ),
                   itemBuilder: (BuildContext context, int index) {
                     if (index < keys.length) {
+                      final String? check = profile.photoChecks[keys[index]];
                       return _FilledSlot(
                         photoKey: keys[index],
                         seed: index,
@@ -134,6 +216,14 @@ class _PhotosSetupScreenState extends State<PhotosSetupScreen> {
                         isMain: index == 0,
                         mainLabel: s.mainPhoto,
                         removeLabel: s.removePhoto,
+                        status: check == 'review'
+                            ? s.photoInReview
+                            : check == 'rejected'
+                                ? s.photoRejected
+                                : null,
+                        onTap: _busy
+                            ? null
+                            : () => _photoOptions(keys[index], index == 0),
                         onRemove: _busy ? null : () => _remove(keys[index]),
                       );
                     }
@@ -144,7 +234,7 @@ class _PhotosSetupScreenState extends State<PhotosSetupScreen> {
                     }
                     return _EmptySlot(
                       label: _busy ? s.uploading : s.addPhoto,
-                      onTap: _busy ? null : _pick,
+                      onTap: _busy ? null : _chooseSource,
                     );
                   },
                 ),
@@ -181,7 +271,13 @@ class _FilledSlot extends StatelessWidget {
     required this.mainLabel,
     required this.removeLabel,
     required this.onRemove,
+    this.status,
+    this.onTap,
   });
+
+  /// "In review" / "No match · hidden", when the face check said so.
+  final String? status;
+  final VoidCallback? onTap;
 
   final String photoKey;
   final int seed;
@@ -196,8 +292,21 @@ class _FilledSlot extends StatelessWidget {
     return Stack(
       children: <Widget>[
         Positioned.fill(
-          child: UpPhoto(photoKey: photoKey, seed: seed, initial: initial),
+          child: GestureDetector(
+            onTap: onTap,
+            child: Opacity(
+              opacity: status == null ? 1 : 0.55,
+              child: UpPhoto(photoKey: photoKey, seed: seed, initial: initial),
+            ),
+          ),
         ),
+        if (status != null)
+          PositionedDirectional(
+            start: Insets.sm,
+            end: Insets.sm,
+            bottom: Insets.sm,
+            child: UpTag(label: status!),
+          ),
         if (isMain)
           PositionedDirectional(
             top: Insets.sm,

@@ -35,6 +35,18 @@ jobs:
       # class this project does not have. It is not our test; remove it.
       - run: rm -f test/widget_test.dart
 
+      # android/ is regenerated above, so the permissions the app needs are
+      # added here: the camera for photos and the face check, and location
+      # for joining a venue and for "around me". Nothing in the background.
+      - name: Android permissions
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          for perm in CAMERA ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION; do
+            grep -q "android.permission.$perm" "$M" || \
+              sed -i "s#<application#<uses-permission android:name=\"android.permission.$perm\"/>\n    <application#" "$M"
+          done
+          grep -n "uses-permission" "$M"
+
       - run: flutter pub get
 
       # Captured rather than streamed: the logs ship as release assets so the

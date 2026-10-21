@@ -66,6 +66,28 @@ class MockProfileRepository implements ProfileRepository {
   }
 
   @override
+  Future<UserProfile> setPrimaryPhoto(String key) async {
+    final UserProfile? current = _profile;
+    if (current == null || !current.photoKeys.contains(key)) {
+      return current ??
+          UserProfile(
+            id: 'me',
+            firstName: '',
+            birthDate: _defaultBirthDate,
+            gender: Gender.male,
+            interestedIn: InterestedIn.women,
+          );
+    }
+    _profile = current.copyWith(
+      photoKeys: <String>[
+        key,
+        ...current.photoKeys.where((String k) => k != key),
+      ],
+    );
+    return _profile!;
+  }
+
+  @override
   Future<Uint8List?> photoBytes(String key) async => null;
 
   void clear() => _profile = null;

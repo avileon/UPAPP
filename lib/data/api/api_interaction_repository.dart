@@ -113,9 +113,21 @@ class ApiInteractionRepository implements InteractionRepository {
     }
   }
 
-  /// Local and stays local. A pass is not an event anyone else is entitled to.
+  /// Hides someone for the rest of this visit.
+  ///
+  /// The server is told so the hide survives a reload and so a rescan in the
+  /// same place keeps it; the person hidden is never told. Fire and forget —
+  /// the local set already took them off the screen.
   @override
-  void pass(String personId) => _passedIds.add(personId);
+  void pass(String personId) {
+    _passedIds.add(personId);
+    unawaited(
+      _client.post('/users/$personId/hide').then<void>(
+        (_) {},
+        onError: (Object _) {},
+      ),
+    );
+  }
 
   @override
   Future<void> sendMessage(String matchId, String body) async {

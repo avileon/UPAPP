@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -70,10 +71,30 @@ class VerificationController extends ChangeNotifier {
   String? get lastErrorCode => _lastErrorCode;
   String? _lastErrorCode;
 
+  /// 'live' (automatic face check) or 'manual' (a person looked), once approved.
+  String? get method => _method;
+  String? _method;
+
+  /// The person agreed to their face being kept as a template.
+  bool get consent => _consent;
+  bool _consent = false;
+
+  /// Why the last automatic check said no: `no_face`, `wrong_direction`, …
+  String? get reason => _reason;
+  String? _reason;
+
+  /// The head-turn steps for the live check, once asked for.
+  List<String>? get liveSteps => _liveSteps;
+  List<String>? _liveSteps;
+  String? _liveChallengeId;
+
   Future<void> refresh() async {
     try {
       final Map<String, dynamic> result = await _client.get('/me/verification');
       _status = _parse(result['status']);
+      _method = result['method'] is String ? result['method'] as String : null;
+      _consent = result['consent'] == true;
+      _reason = result['reason'] is String ? result['reason'] as String : null;
     } on ApiException {
       // A status this screen could not read is not worth an error: the person
       // can still start a verification, and the answer arrives with it.
@@ -139,6 +160,99 @@ class VerificationController extends ChangeNotifier {
     } finally {
       _set(busy: false);
     }
+  }
+
+  /// Records the explicit yes to keeping a face template.
+  Future<bool> giveConsent() async {
+    _set(busy: true, error: null);
+    try {
+      await _client.post(
+        '/me/biometric/consent',
+        <String, dynamic>{'accepted': true},
+      );
+      _consent = true;
+      return true;
+    } on ApiException catch (error) {
+      _lastErrorCode = error.code;
+      return false;
+    } finally {
+      _set(busy: false);
+    }
+  }
+
+  /// Asks the server for a head-turn sequence. Nothing before this touches
+  /// the camera — the steps must not be known in advance.
+  Future<bool> startLive() async {
+    if (_busy) {
+      return false;
+    }
+    _set(busy: true, error: null);
+    try {
+      final Map<String, dynamic> result = await _client.post(
+        '/me/verification/challenge',
+        <String, dynamic>{'mode': 'live'},
+      );
+      final Object? steps = result['steps'];
+      if (steps is! List) {
+        return false;
+      }
+      _liveSteps = steps.whereType<String>().toList(growable: false);
+      _liveChallengeId = _string(result['challengeId']);
+      return _liveSteps!.isNotEmpty;
+    } on ApiException catch (error) {
+      _lastErrorCode = error.code;
+      return false;
+    } finally {
+      _set(busy: false);
+    }
+  }
+
+  /// Sends one frame per step. Returns the new status.
+  Future<VerificationStatus?> submitFrames(List<Uint8List> frames) async {
+    final String? id = _liveChallengeId;
+    if (_busy || id == null) {
+      return null;
+    }
+    _set(busy: true, error: null);
+    try {
+      final Map<String, dynamic> result = await _client.postLarge(
+        '/me/verification/frames',
+        <String, dynamic>{
+          'challengeId': id,
+          'frames': frames.map(base64Encode).toList(growable: false),
+        },
+      );
+      _status = _parse(result['status']);
+      _reason = result['reason'] is String ? result['reason'] as String : null;
+      if (_status == VerificationStatus.approved) {
+        _method = 'live';
+      }
+      return _status;
+    } on ApiException catch (error) {
+      _lastErrorCode = error.code;
+      return null;
+    } finally {
+      // Spent either way: the server consumed it.
+      _liveSteps = null;
+      _liveChallengeId = null;
+      _set(busy: false);
+    }
+  }
+
+  /// Forgets the face template (and with it the automatic badge).
+  Future<void> deleteBiometrics() async {
+    try {
+      await _client.delete('/me/biometric');
+    } on ApiException catch (error) {
+      _lastErrorCode = error.code;
+    }
+    await refresh();
+  }
+
+  void cancelLive() {
+    _liveSteps = null;
+    _liveChallengeId = null;
+    notifyListeners();
   }
 
   /// Throws the current pose away without sending anything.

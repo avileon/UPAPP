@@ -10,19 +10,14 @@
 /// running partner at seven in the morning and a date on Friday night, and an
 /// app that makes them edit a profile to say so gets neither.
 ///
-/// Four, and no more. Every extra option splits the room, and a room split
-/// four ways in a bar holding twelve people already has three empty corners.
+/// Two, since October 2026: UP is for dating and for meeting people. The
+/// retired "work" and "doing" come back from an old server as [meet].
 enum LiveIntent {
   /// The default, and the one this app is now about: meet whoever is around.
   meet('meet'),
 
   /// The only intent where "who are you interested in" filters anything.
-  date('date'),
-
-  work('work'),
-
-  /// Something specific, now: a run, a coffee, a fourth for a game.
-  doing('doing');
+  date('date');
 
   const LiveIntent(this.wire);
 

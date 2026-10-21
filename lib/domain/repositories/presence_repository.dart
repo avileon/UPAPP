@@ -1,3 +1,4 @@
+import '../entities/geo_fix.dart';
 import '../entities/live_intent.dart';
 import '../entities/live_session.dart';
 import '../entities/nearby_person.dart';
@@ -15,10 +16,16 @@ abstract interface class PresenceRepository {
   /// The intent travels with the session rather than the account, and it is
   /// what decides who you are shown — including whether gender preference
   /// filters anything at all.
+  ///
+  /// [venue] is a registered place's code (from its QR) and needs [fix] to be
+  /// inside it; the server answers with one hour. [fix] without a venue is
+  /// area mode: everyone in area mode nearby. Neither is radio only.
   Future<LiveSession> startLive(
     Duration duration, {
     LiveIntent intent,
     String note,
+    String venue,
+    GeoFix? fix,
   });
 
   /// Maps to `GET /rooms`. Rooms that already have people in them, for one

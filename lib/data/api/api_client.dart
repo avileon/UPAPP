@@ -60,12 +60,17 @@ class ApiClient {
 
   Future<Map<String, dynamic>> delete(String path) => send('DELETE', path);
 
+  /// A JSON post that may carry megabytes — the face-check frames.
+  Future<Map<String, dynamic>> postLarge(String path, Object body) =>
+      send('POST', path, body: body, timeout: _mediaTimeout);
+
   Future<Map<String, dynamic>> send(
     String method,
     String path, {
     Object? body,
     bool authenticated = true,
     bool allowRefresh = true,
+    Duration? timeout,
   }) async {
     if (!config.isConfigured) {
       throw const ApiException(0, 'no_server');
@@ -82,6 +87,7 @@ class ApiClient {
         path,
         body: body,
         authenticated: authenticated,
+        timeout: timeout,
       );
     } on ApiException catch (error) {
       // Exactly one refresh attempt, and only when there is something to
@@ -96,7 +102,13 @@ class ApiClient {
       if (!await _refresh(held)) {
         rethrow;
       }
-      return _once(method, path, body: body, authenticated: authenticated);
+      return _once(
+        method,
+        path,
+        body: body,
+        authenticated: authenticated,
+        timeout: timeout,
+      );
     }
   }
 
@@ -188,6 +200,7 @@ class ApiClient {
     String path, {
     Object? body,
     required bool authenticated,
+    Duration? timeout,
   }) async {
     final http.Request request =
         http.Request(method, Uri.parse('${config.baseUrl}$path'))
@@ -200,7 +213,7 @@ class ApiClient {
     if (body != null) {
       request.body = jsonEncode(body);
     }
-    return _decode(await _perform(request, _timeout));
+    return _decode(await _perform(request, timeout ?? _timeout));
   }
 
   Map<String, dynamic> _decode(http.Response response) {

@@ -4,17 +4,18 @@ import 'package:flutter/material.dart';
 
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/l10n/dating_strings.dart';
 import '../../../core/l10n/error_text.dart';
 import '../../../core/theme/palette.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../data/location/location_service.dart';
+import '../../../domain/entities/geo_fix.dart';
 import '../../../domain/entities/live_session.dart';
 import '../../../domain/entities/nearby_person.dart';
-import '../../../domain/entities/room_status.dart';
 import '../../../state/app_scope.dart';
 import '../../../state/interaction_controller.dart';
 import '../../../state/live_controller.dart';
 import '../../../state/session_controller.dart';
-import '../../../domain/entities/live_intent.dart';
 import '../../components/common.dart';
 import '../../components/intent_picker.dart';
 import '../../components/note_field.dart';
@@ -24,15 +25,16 @@ import '../../components/up_chip.dart';
 import '../../components/up_nav_bar.dart';
 import '../../navigation/routes.dart';
 import '../demo_sheet.dart';
+import '../people_viewer_screen.dart';
 import '../main_shell.dart';
 import 'quiet_reason.dart';
 import '../../components/up_photo.dart';
 
 /// The one screen the product lives or dies on.
 ///
-/// Duration is chosen here, before going Live, not buried in settings — it is a
-/// decision people make in the moment ("I'm here for one drink") and burying it
-/// turns Live into an always-on switch, which is exactly what UP is not.
+/// Three questions, top to bottom: why are you out (meet people / date),
+/// where (around me / at a place with a QR), and the button. While Live it
+/// becomes the room: who is here, tap to see them, and how long is left.
 class HomeTab extends StatelessWidget {
   const HomeTab({super.key});
 
@@ -44,31 +46,23 @@ class HomeTab extends StatelessWidget {
     final InteractionController interactions = context.interactions;
 
     return ListenableBuilder(
-      listenable: Listenable.merge(
-        // `backend` too: the room shown below changes on the venue screen, and
-        // without it the row keeps reading the old code after popping back.
-        <Listenable>[session, live, interactions, context.backend],
-      ),
+      listenable: Listenable.merge(<Listenable>[session, live, interactions]),
       builder: (BuildContext context, Widget? _) {
         final List<NearbyPerson> visible = live.visibleNearby(
           passedIds: interactions.passedIds,
           blockedIds: interactions.blockedIds,
         );
-        // Both sources, deduplicated: the server marks the people in front of
-        // you who UP'd you, and the mock stack keeps its own set. Whoever knows
-        // it, the banner is what turns an UP into something the other person
-        // can actually notice.
         final int incoming = <String>{
           ...interactions.incomingUpIds,
           for (final NearbyPerson person in visible)
             if (person.sentYouUp) person.id,
         }.length;
+        final LiveSession? running = live.session;
+        final bool atVenue = running?.isVenue ?? false;
+        final String venueName = running == null
+            ? ''
+            : (running.venueName.isEmpty ? running.venueCode : running.venueName);
 
-        // Scrollable, but only when it has to be. The screen is designed to
-        // fit — the radar in the middle and the button at the bottom of the
-        // thumb's reach — and on a tall phone it still does. On a short one,
-        // or with the keyboard up over the note field, this is what keeps the
-        // Go Live button reachable instead of clipped off the bottom edge.
         return LayoutBuilder(
           builder: (BuildContext context, BoxConstraints constraints) {
             return SingleChildScrollView(
@@ -81,21 +75,34 @@ class HomeTab extends StatelessWidget {
                     children: <Widget>[
                       _StatusRow(isLive: live.isLive),
                       const SizedBox(height: Insets.md),
-                      // Above the button, because it changes what the button means.
-                      // Asking afterwards would be asking about a decision already
-                      // made — and the reason the app read as a dating app is that it
-                      // never asked at all.
+                      if (!live.isLive && live.endedVenue != null) ...<Widget>[
+                        _EndedVenueBanner(
+                          name: live.endedVenue!.venueName.isEmpty
+                              ? live.endedVenue!.venueCode
+                              : live.endedVenue!.venueName,
+                          onScan: () => _scanAndJoin(context),
+                          onDismiss: live.dismissEndedVenue,
+                        ),
+                        const SizedBox(height: Insets.md),
+                      ],
                       IntentPicker(
                         selected: live.isLive ? live.intent : session.liveIntent,
                         onSelect: session.setLiveIntent,
                         strings: s,
                         enabled: !live.isLive,
                       ),
+                      if (!live.isLive) ...<Widget>[
+                        const SizedBox(height: Insets.md),
+                        _PlacePicker(
+                          venueMode: session.venueMode,
+                          onSelect: session.setVenueMode,
+                        ),
+                      ],
                       if (incoming > 0) ...<Widget>[
                         const SizedBox(height: Insets.md),
                         _IncomingBanner(
                           label: s.incomingUps(incoming),
-                          onTap: () => MainShell.of(context)?.select(UpTab.nearby),
+                          onTap: () => _openViewer(context, visible, firstUp: true),
                         ),
                       ],
                       const SizedBox(height: Insets.lg),
@@ -104,19 +111,27 @@ class HomeTab extends StatelessWidget {
                         blipCount: visible.length,
                         child: _GoLiveButton(
                           isLive: live.isLive,
-                          label: live.isLive ? s.stopLive : s.goLive,
-                          onPressed: () => _toggleLive(context, live, session),
+                          label: live.isLive
+                              ? s.stopLive
+                              : (session.venueMode
+                                  ? s.scanQr.replaceAll(' ', '\n')
+                                  : s.goLive),
+                          onPressed: () => _toggleLive(context),
                         ),
                       ),
                       const SizedBox(height: Insets.xl),
                       Text(
-                        live.isLive ? s.visibleTitle : s.invisibleTitle,
+                        live.isLive
+                            ? (atVenue ? s.venueLiveTitle(venueName) : s.areaLiveTitle)
+                            : s.invisibleTitle,
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.headlineMedium,
                       ),
                       const SizedBox(height: Insets.sm),
                       Text(
-                        live.isLive ? s.visibleBody : s.invisibleBody,
+                        live.isLive
+                            ? s.visibleBody
+                            : (session.venueMode ? s.modeVenueHint : s.invisibleBody),
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
@@ -132,11 +147,17 @@ class HomeTab extends StatelessWidget {
                                 ],
                               ),
                         ),
+                        if (atVenue && live.remaining.inMinutes < 10) ...<Widget>[
+                          const SizedBox(height: Insets.sm),
+                          UpButton(
+                            label: s.stillHere,
+                            icon: Icons.qr_code_scanner_rounded,
+                            style: UpButtonStyle.ghost,
+                            onPressed: () => _scanAndJoin(context),
+                          ),
+                        ],
                       ],
                       const SizedBox(height: Insets.md),
-                      // The line other people read under your name. Offered before
-                      // going Live and left visible during it, because it is the one
-                      // thing on this screen that changes what a stranger does next.
                       NoteField(
                         value: live.isLive ? live.session?.note ?? '' : session.liveNote,
                         onChanged: session.setLiveNote,
@@ -148,40 +169,28 @@ class HomeTab extends StatelessWidget {
                         _NearbySummary(
                           people: visible,
                           localeCode: session.localeCode,
-                          label: '${s.peopleNearby(visible.length)} · ${s.seeNearby}',
-                          // The home screen is where someone stands waiting for a name
-                          // to appear. If none is coming, the reason belongs here and
-                          // not one tab away.
+                          label: '${s.peopleNearby(visible.length)} · ${s.seePeople}',
                           hint: quietReason(
                             strings: s,
                             live: live,
                             hasServer: context.backend.isConfigured,
                             anyoneVisible: visible.isNotEmpty,
                           ),
-                          onTap: () => MainShell.of(context)?.select(UpTab.nearby),
+                          onTap: () {
+                            if (visible.isEmpty) {
+                              MainShell.of(context)?.select(UpTab.nearby);
+                            } else {
+                              _openViewer(context, visible);
+                            }
+                          },
                         )
-                      else
+                      else if (!session.venueMode)
                         _DurationPicker(
                           selected: session.liveDuration,
                           minutesShort: s.minutesShort,
                           caption: s.durationLabel,
                           onSelect: session.setLiveDuration,
                         ),
-                      const SizedBox(height: Insets.md),
-                      // The room is the only thing that decides who is "here", so it
-                      // belongs on the screen where you go Live — not buried in
-                      // settings.
-                      _RoomRow(
-                        label: s.venueRoom,
-                        // The saved code is what you chose; the room is what the server
-                        // put you in. They differ exactly when it matters — a code
-                        // picked before going Live — so both are on screen.
-                        savedCode: context.backend.venueCode,
-                        room: live.room,
-                        isLive: live.isLive,
-                        strings: s,
-                        onTap: () => Navigator.of(context).pushNamed(Routes.venue),
-                      ),
                       const SizedBox(height: Insets.lg),
                     ],
                   ),
@@ -201,121 +210,223 @@ class HomeTab extends StatelessWidget {
   }
 }
 
+/// Opens the full-screen people viewer on [people], starting with the first
+/// person who sent an UP when [firstUp] is set.
+void _openViewer(
+  BuildContext context,
+  List<NearbyPerson> people, {
+  bool firstUp = false,
+  int index = 0,
+}) {
+  if (people.isEmpty) {
+    return;
+  }
+  int start = index;
+  if (firstUp) {
+    final int found = people.indexWhere((NearbyPerson p) => p.sentYouUp);
+    start = found < 0 ? 0 : found;
+  }
+  Navigator.of(context).pushNamed(
+    Routes.people,
+    arguments: PeopleViewerArgs(
+      ids: people.map((NearbyPerson p) => p.id).toList(growable: false),
+      initialIndex: start,
+    ),
+  );
+}
 
-/// The current room, and a way into the screen that shares it.
-///
-/// Reads as one line, and that line is the answer to the question people
-/// actually have while holding the phone: *am I in the room, and is anyone else
-/// in it?* Saving a code is not joining — going Live is — so a code with no
-/// session says so rather than implying otherwise.
-class _RoomRow extends StatelessWidget {
-  const _RoomRow({
-    required this.label,
-    required this.savedCode,
-    required this.room,
-    required this.isLive,
-    required this.strings,
-    required this.onTap,
-  });
+/// Scans a place's QR and joins it. Shared by the button, "still here?" and
+/// the banner after the hour ran out.
+Future<void> _scanAndJoin(BuildContext context) async {
+  final NavigatorState navigator = Navigator.of(context);
+  final Object? code = await navigator.pushNamed(Routes.scan);
+  if (code is String && code.isNotEmpty) {
+    await navigator.pushNamed(Routes.venueJoin, arguments: code);
+  }
+}
 
-  final String label;
-  final String savedCode;
-  final RoomStatus room;
-  final bool isLive;
-  final AppStrings strings;
-  final VoidCallback onTap;
+/// Goes Live (around me, or by scanning a place), or stops.
+Future<void> _toggleLive(BuildContext context) async {
+  final LiveController live = context.live;
+  final SessionController session = context.session;
+  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+  final NavigatorState navigator = Navigator.of(context);
+  final AppStrings s = context.strings;
 
-  /// The code to show: what the server confirmed while Live, otherwise what is
-  /// saved. Never the saved one while Live — that is the lie this fixes.
-  String get _code => isLive && room.isJoined ? room.code : savedCode;
+  if (live.isLive) {
+    await live.stop();
+    return;
+  }
+  if (session.venueMode) {
+    await _scanAndJoin(context);
+    return;
+  }
+
+  GeoFix? fix;
+  if (context.backend.isConfigured) {
+    try {
+      fix = await context.location.currentFix();
+    } on LocationException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(errorText(s, error.code))));
+      return;
+    }
+  }
+  if (!context.mounted) {
+    return;
+  }
+  // A new visit: whoever was hidden last time is back.
+  context.interactions.forgetHidden();
+  await live.start(
+    session.liveDuration,
+    intent: session.liveIntent,
+    note: session.liveNote,
+    fix: fix,
+  );
+  final String? code = live.lastErrorCode;
+  if (code == 'verification_required') {
+    messenger.showSnackBar(SnackBar(content: Text(errorText(s, code))));
+    await navigator.pushNamed(Routes.verify);
+  } else if (code != null) {
+    messenger.showSnackBar(SnackBar(content: Text(errorText(s, code))));
+  }
+}
+
+/// Around me, or at a place.
+class _PlacePicker extends StatelessWidget {
+  const _PlacePicker({required this.venueMode, required this.onSelect});
+
+  final bool venueMode;
+  final ValueChanged<bool> onSelect;
 
   @override
   Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
     final UpPalette p = context.palette;
-    final bool joined = isLive && room.isJoined;
-    final String? note = _note();
 
+    Widget option({
+      required bool selected,
+      required IconData icon,
+      required String label,
+      required VoidCallback onTap,
+    }) {
+      return Expanded(
+        child: Material(
+          color: selected ? p.cyan.withValues(alpha: 0.16) : p.surface.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(Radii.md),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(Radii.md),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                vertical: Insets.sm + 2,
+                horizontal: Insets.sm,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(Radii.md),
+                border: Border.all(
+                  color: selected ? p.cyan : p.line,
+                  width: selected ? 1.6 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Icon(icon, size: 18, color: selected ? p.cyan : p.muted),
+                  const SizedBox(width: Insets.xs + 2),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                        color: selected ? p.cyan : p.foreground,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Text(
+          s.whereQuestion,
+          textAlign: TextAlign.center,
+          style: Theme.of(context)
+              .textTheme
+              .labelMedium
+              ?.copyWith(color: p.muted, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: Insets.sm),
+        Row(
+          children: <Widget>[
+            option(
+              selected: !venueMode,
+              icon: Icons.near_me_rounded,
+              label: s.modeArea,
+              onTap: () => onSelect(false),
+            ),
+            const SizedBox(width: Insets.sm),
+            option(
+              selected: venueMode,
+              icon: Icons.qr_code_scanner_rounded,
+              label: s.modeVenue,
+              onTap: () => onSelect(true),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// "Your hour at X is over" — with the way back in.
+class _EndedVenueBanner extends StatelessWidget {
+  const _EndedVenueBanner({
+    required this.name,
+    required this.onScan,
+    required this.onDismiss,
+  });
+
+  final String name;
+  final VoidCallback onScan;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final UpPalette p = context.palette;
     return UpCard(
-      onTap: onTap,
-      borderColor: joined ? p.cyan : null,
+      borderColor: p.amber,
       padding: const EdgeInsets.symmetric(
         horizontal: Insets.lg,
         vertical: Insets.md,
       ),
       child: Row(
         children: <Widget>[
-          Icon(
-            Icons.qr_code_rounded,
-            size: 20,
-            color: joined ? p.cyan : p.dim,
-          ),
-          const SizedBox(width: Insets.sm),
+          Icon(Icons.timer_off_rounded, color: p.amber),
+          const SizedBox(width: Insets.md),
           Expanded(
-            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
-          ),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  _code.isEmpty ? strings.venueNoCodeShort : _code,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: _code.isEmpty
-                            ? p.dim
-                            : (joined ? p.cyan : p.foreground),
-                        letterSpacing: _code.isEmpty ? 0 : 2,
-                      ),
-                ),
-                if (note != null)
-                  Text(
-                    note,
-                    textAlign: TextAlign.end,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-              ],
+            child: Text(
+              s.venueEnded(name),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
+          ),
+          TextButton(onPressed: onScan, child: Text(s.scanAgain)),
+          IconButton(
+            onPressed: onDismiss,
+            icon: Icon(Icons.close_rounded, size: 18, color: p.dim),
           ),
         ],
       ),
     );
-  }
-
-  String? _note() {
-    if (_code.isEmpty) {
-      return null;
-    }
-    if (!isLive) {
-      return strings.roomNotLive;
-    }
-    if (!room.isJoined) {
-      // Live, a code saved, and the server has no room for this session: the
-      // re-issue has not landed yet, or it failed. Say "not active" rather than
-      // pretending.
-      return strings.roomNotLive;
-    }
-    return room.peers == 0
-        ? strings.roomAlone
-        : strings.roomOthers(room.peers);
-  }
-}
-
-/// Goes Live, and surfaces a refusal instead of swallowing it.
-Future<void> _toggleLive(
-  BuildContext context,
-  LiveController live,
-  SessionController session,
-) async {
-  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-  final AppStrings s = context.strings;
-  await live.toggle(
-    session.liveDuration,
-    intent: session.liveIntent,
-    note: session.liveNote,
-  );
-  final String? code = live.lastErrorCode;
-  if (code != null) {
-    messenger.showSnackBar(SnackBar(content: Text(errorText(s, code))));
   }
 }
 
@@ -525,7 +636,10 @@ class _NearbySummary extends StatelessWidget {
     return Column(
       children: <Widget>[
         if (count > 0)
-          Center(
+          GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: Center(
             child: SizedBox(
               height: Sizes.avatarSm,
               width: Sizes.avatarSm + (count - 1) * overlapStep,
@@ -550,6 +664,7 @@ class _NearbySummary extends StatelessWidget {
                 ],
               ),
             ),
+          ),
           ),
         if (hint != null) ...<Widget>[
           const SizedBox(height: Insets.sm),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/l10n/dating_strings.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/entities/match_thread.dart';
 import '../../domain/entities/nearby_person.dart';
@@ -17,14 +18,28 @@ import '../components/up_buttons.dart';
 /// enough that people actually file one, and blocking someone you reported is
 /// a choice, not an automatic side effect.
 class SafetySheet extends StatelessWidget {
-  const SafetySheet({required this.personId, super.key});
+  const SafetySheet({
+    required this.personId,
+    this.closeScreen = true,
+    super.key,
+  });
 
   final String personId;
 
-  static Future<void> show(BuildContext context, String personId) {
+  /// Whether blocking also closes the screen underneath. The people viewer
+  /// says no: the blocked person drops out and the next one is already there.
+  final bool closeScreen;
+
+  static Future<void> show(
+    BuildContext context,
+    String personId, {
+    bool closeScreen = true,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
-      builder: (BuildContext context) => SafetySheet(personId: personId),
+      isScrollControlled: true,
+      builder: (BuildContext context) =>
+          SafetySheet(personId: personId, closeScreen: closeScreen),
     );
   }
 
@@ -38,7 +53,8 @@ class SafetySheet extends StatelessWidget {
         person?.nameFor(context.session.localeCode) ?? '';
 
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
+        child: Padding(
         padding: const EdgeInsets.fromLTRB(
           Insets.screen,
           Insets.lg,
@@ -59,6 +75,22 @@ class SafetySheet extends StatelessWidget {
               ),
               const SizedBox(height: Insets.sm),
             ],
+            if (context.live.isLive && match == null) ...<Widget>[
+              UpButton(
+                label: s.hideForVisit,
+                icon: Icons.visibility_off_rounded,
+                style: UpButtonStyle.ghost,
+                onPressed: () => _hide(context, s.hiddenDone(name)),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: Insets.xs, bottom: Insets.sm),
+                child: Text(
+                  s.hideForVisitHint,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ],
             UpButton(
               label: s.report,
               style: UpButtonStyle.ghost,
@@ -67,8 +99,17 @@ class SafetySheet extends StatelessWidget {
             const SizedBox(height: Insets.sm),
             UpButton(
               label: s.block,
+              icon: Icons.block_rounded,
               style: UpButtonStyle.danger,
               onPressed: () => _block(context, s.blockedDone(name)),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: Insets.xs),
+              child: Text(
+                s.blockHint,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
             const SizedBox(height: Insets.sm),
             UpButton(
@@ -79,6 +120,7 @@ class SafetySheet extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -87,6 +129,14 @@ class SafetySheet extends StatelessWidget {
     await context.interactions.unmatch(matchId);
     navigator.pop();
     navigator.pop();
+  }
+
+  void _hide(BuildContext context, String confirmation) {
+    final NavigatorState navigator = Navigator.of(context);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    context.interactions.pass(personId);
+    navigator.pop();
+    messenger.showSnackBar(SnackBar(content: Text(confirmation)));
   }
 
   Future<void> _report(BuildContext context, String confirmation) async {
@@ -106,7 +156,7 @@ class SafetySheet extends StatelessWidget {
     // memory either.
     people.forget(personId);
     navigator.pop();
-    if (navigator.canPop()) {
+    if (closeScreen && navigator.canPop()) {
       navigator.pop();
     }
     messenger.showSnackBar(SnackBar(content: Text(confirmation)));
