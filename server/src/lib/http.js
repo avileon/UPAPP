@@ -60,18 +60,19 @@ export function createRouter() {
     post: (p, h) => add('POST', p, h),
     put: (p, h) => add('PUT', p, h),
     delete: (p, h) => add('DELETE', p, h),
+    patch: (p, h) => add('PATCH', p, h),
     match,
   };
 }
 
 const MAX_BODY_BYTES = 1_000_000;
 
-export async function readJsonBody(req) {
+export async function readJsonBody(req, maxBytes = MAX_BODY_BYTES) {
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > MAX_BODY_BYTES) throw badRequest('body_too_large');
+    if (size > maxBytes) throw badRequest('body_too_large');
     chunks.push(chunk);
   }
   if (chunks.length === 0) return {};

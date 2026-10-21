@@ -86,3 +86,27 @@ export function notifyMatch(store, { recipientId, otherName, matchId }) {
     }),
   );
 }
+
+/**
+ * Someone live near you sent you an UP. Only sent while you are live: the
+ * point is that they are in the room right now.
+ */
+export function notifyIncomingUp(store, { recipientId }) {
+  detach(
+    deliver(store, recipientId, {
+      kind: 'up',
+      title: 'UP',
+      body: 'מישהו כאן שלח לך UP! ⬆',
+    }),
+  );
+}
+
+export function notifyVenueEnding(store, { recipientId, venueName }) {
+  detach(
+    deliver(store, recipientId, {
+      kind: 'venue',
+      title: 'UP',
+      body: `השעה שלך ב-${venueName} עומדת להיגמר — סרקו שוב כדי להישאר`,
+    }),
+  );
+}

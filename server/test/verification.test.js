@@ -102,7 +102,7 @@ test('photo verification', async (t) => {
     });
 
   await t.test('the badge is granted by a person, never by submitting', async () => {
-    const a = await s.signUp('+972550000007');
+    const a = await s.signUp('+972550000007', { verified: false });
     const issued = await challenge(a);
     await submit(a, issued.body.challengeId);
 

@@ -5,7 +5,15 @@ import {
   normaliseIntent,
   preferencesGateDiscovery,
 } from './domain/intent.js';
-import { PresenceStore } from './domain/presence.js';
+import {
+  FaceClient,
+  FaceServiceUnavailable,
+  judgeLiveAttempt,
+  judgeProfilePhoto,
+  LiveChallengeStore,
+  TemplateSealer,
+} from './domain/face.js';
+import { normaliseVenue, PresenceStore } from './domain/presence.js';
 import {
   ChallengeStore,
   findPose,
@@ -35,9 +43,19 @@ import {
   tooManyRequests,
   unauthorized,
 } from './lib/http.js';
-import { PhotoStore, readBinaryBody } from './lib/media.js';
+import { insideVenue, readPosition } from './lib/geo.js';
+import { PhotoStore, readBinaryBody, sniffImage } from './lib/media.js';
+import { adminPage } from './lib/admin_page.js';
 import { StaticSite } from './lib/static.js';
-import { notifyMatch, notifyNewMessage, pushConfigured } from './push.js';
+import {
+  notifyIncomingUp,
+  notifyMatch,
+  notifyNewMessage,
+  notifyVenueEnding,
+  pushConfigured,
+} from './push.js';
+import { randomBytes } from 'node:crypto';
+import { dirname, join } from 'node:path';
 import { Store } from './store.js';
 
 const GENDERS = ['male', 'female', 'other'];
@@ -66,6 +84,17 @@ const str = (value, max) =>
  * a whitelist. There is no distance, no last-seen, no phone, no vote count —
  * not hidden in the client, simply never sent.
  */
+/**
+ * The photos other people may see: checked against the owner's face, or
+ * uploaded before checks existed. Anything waiting, unverified or rejected
+ * stays visible to its owner only.
+ */
+function visiblePhotos(store, userId, profile) {
+  const photos = JSON.parse(profile?.photos ?? '[]');
+  const checks = store.photoChecks(userId);
+  return photos.filter((key) => checks[key] === undefined || checks[key] === 'ok');
+}
+
 function publicProfile(store, user, profile) {
   return {
     id: user.id,
@@ -80,19 +109,24 @@ function publicProfile(store, user, profile) {
       return age;
     })(),
     bio: profile?.bio_short ?? '',
-    photos: JSON.parse(profile?.photos ?? '[]'),
+    photos: visiblePhotos(store, user.id, profile),
     photoVerified: store.realityBadge(user.id),
     // A different claim from `photoVerified`, and worth its own field. That
     // one is other people's opinion after meeting you; this one is somebody
     // having looked at a selfie in a pose this person could not have known in
     // advance. Neither substitutes for the other.
     selfieVerified: store.isSelfieVerified(user.id),
+    // 'live' (automatic face check) or 'manual' (a human looked), or null.
+    verifiedBy: store.verificationMethod(user.id),
   };
 }
 
 function privateProfile(store, user, profile) {
   return {
     ...publicProfile(store, user, profile),
+    // Your own profile shows every photo, with what the face check said.
+    photos: JSON.parse(profile?.photos ?? '[]'),
+    photoChecks: store.photoChecks(user.id),
     phone: user.phone,
     gender: user.gender,
     interestedIn: user.interested_in,
@@ -107,6 +141,8 @@ export function createApp({
   photos,
   selfies,
   site,
+  face,
+  sealer,
 } = {}) {
   const db = openDatabase(database);
   const store = new Store(db);
@@ -119,6 +155,55 @@ export function createApp({
     ttlSeconds: config.verification.challengeTtlSeconds,
   });
   const web = site ?? new StaticSite(config.siteDirectory);
+  const faces = face ?? new FaceClient();
+  const templates =
+    sealer ??
+    new TemplateSealer({
+      keyFile:
+        config.face.keyFile ||
+        (database === ':memory:' ? '' : join(dirname(database), '.face-key')),
+    });
+  const liveChallenges = new LiveChallengeStore();
+
+  const faceUnavailable = () => new HttpError(503, 'face_service_unavailable');
+
+  /** The person's verified face, or null. */
+  const templateFor = (userId) => {
+    const row = store.findFaceTemplate(userId);
+    if (!row || row.model !== config.face.model) return null;
+    return templates.open(row.embedding);
+  };
+
+  /**
+   * Re-checks a person's photos against a template that has just appeared.
+   *
+   * Photos uploaded before verification were saved as `unverified` (or never
+   * checked at all); now there is a face to compare them with. Ones that do
+   * not match are hidden, not deleted — the owner sees why and decides.
+   */
+  const recheckPhotos = async (userId) => {
+    const template = templateFor(userId);
+    if (!template) return;
+    const photos = JSON.parse(store.findProfile(userId)?.photos ?? '[]');
+    const checks = store.photoChecks(userId);
+    for (const key of photos) {
+      const current = checks[key];
+      if (current === 'ok' || current === 'review') continue;
+      const file = media.open(key);
+      if (!file) continue;
+      try {
+        const verdict = judgeProfilePhoto(await faces.analyze(file.body), template);
+        const status =
+          verdict.result === 'ok' ? 'ok' : verdict.result === 'review' ? 'review' : 'rejected';
+        store.setPhotoCheck(userId, key, status, verdict.score);
+      } catch {
+        return; // face-svc down: leave the rest for the next attempt.
+      }
+    }
+  };
+  const recheckLater = (userId) => {
+    recheckPhotos(userId).catch(() => {});
+  };
   const router = createRouter();
 
   const requireUser = (req) => {
@@ -258,6 +343,29 @@ export function createApp({
 
     const body = await readBinaryBody(req);
     if (body.length === 0) throw badRequest('empty_body');
+    if (!sniffImage(body)) throw badRequest('not_an_image');
+
+    // The face check runs before anything is written. A photo that is not
+    // the verified person never touches the disk.
+    // No verified face yet: nothing to compare with, so no check is recorded
+    // and the photo is treated like any unchecked one. Verifying later runs
+    // the comparison over everything already uploaded (see recheckPhotos).
+    const template = templateFor(user.id);
+    let faceMatch = null;
+    let score = null;
+    if (template) {
+      let verdict;
+      try {
+        verdict = judgeProfilePhoto(await faces.analyze(body), template);
+      } catch (error) {
+        if (error instanceof FaceServiceUnavailable) throw faceUnavailable();
+        throw error;
+      }
+      if (verdict.result === 'no_face') throw badRequest('photo_no_face');
+      if (verdict.result === 'mismatch') throw badRequest('photo_face_mismatch');
+      faceMatch = verdict.result;
+      score = verdict.score;
+    }
 
     const saved = media.save(body);
     const result = store.addPhoto(user.id, saved.key);
@@ -266,7 +374,24 @@ export function createApp({
       media.remove(saved.key);
       throw badRequest('photo_limit_reached');
     }
-    return { status: 200, body: { key: saved.key, photos: result.photos } };
+    if (faceMatch) store.setPhotoCheck(user.id, saved.key, faceMatch, score);
+    return {
+      status: 200,
+      body: { key: saved.key, photos: result.photos, faceMatch },
+    };
+  });
+
+  /** Makes one photo the main one — first everywhere it is shown. */
+  router.put('/me/photos/primary', async (req) => {
+    const user = requireUser(req);
+    const body = await readJsonBody(req);
+    const key = str(body.key, 64);
+    if (store.photoChecks(user.id)[key] === 'rejected') {
+      throw badRequest('photo_not_approved');
+    }
+    const result = store.setPrimaryPhoto(user.id, key);
+    if (!result.updated) throw notFound('photo_not_found');
+    return { status: 200, body: { photos: result.photos } };
   });
 
   /**
@@ -301,6 +426,7 @@ export function createApp({
     const result = store.removePhoto(user.id, params.key);
     if (!result.removed) throw notFound('photo_not_found');
     media.remove(params.key);
+    store.removePhotoCheck(params.key);
     return { status: 200, body: { photos: result.photos } };
   });
 
@@ -318,18 +444,50 @@ export function createApp({
 
   // -- live ----------------------------------------------------------------
 
+  /**
+   * Going Live, in one of three ways.
+   *
+   * - **At a venue** (`venue` + location): the code came off a QR on the wall,
+   *   and the phone has to be inside that place's radius. One hour, then scan
+   *   again. An unregistered code is refused — a code anyone can type from
+   *   home is not a room.
+   * - **In the area** (location only): everyone else in area mode within
+   *   `config.area.radiusM`.
+   * - **Radio only** (neither): BLE tokens, for the native app.
+   *
+   * The location is used for the check and then dropped; an area session keeps
+   * its last position in memory, for its own lifetime, and never sends it.
+   */
   router.post('/live/start', async (req) => {
     const user = requireUser(req);
     if (!isOfAge(user.birth_date)) throw forbidden('profile_incomplete');
+    if (config.live.requireVerification && !store.isSelfieVerified(user.id)) {
+      throw forbidden('verification_required');
+    }
     const body = await readJsonBody(req);
-    const seconds = Number(body.durationSeconds) || 3600;
-    const { session, tokens } = live.startLive(
-      user.id,
-      seconds,
-      body.venue,
-      body.intent,
-      body.note,
-    );
+    const position = readPosition(body, config.venues.maxAcceptedAccuracyM);
+    const options = { intent: body.intent, note: body.note };
+    let seconds = Number(body.durationSeconds) || 3600;
+    let venueRow = null;
+
+    if (body.venue !== undefined && body.venue !== null && body.venue !== '') {
+      const code = normaliseVenue(String(body.venue));
+      venueRow = code ? store.findVenue(code) : null;
+      if (!venueRow || !venueRow.active) throw notFound('venue_unknown');
+      if (!position) throw badRequest('location_required');
+      if (!insideVenue(position, venueRow, config.venues.maxAccuracyCreditM)) {
+        throw forbidden('too_far');
+      }
+      options.venue = venueRow.code;
+      options.venueName = venueRow.name;
+      seconds = config.venues.sessionSeconds;
+      options.maxSeconds = config.venues.sessionSeconds;
+    } else if (body.lat !== undefined || body.lng !== undefined || body.mode === 'area') {
+      if (!position) throw badRequest('location_required');
+      options.position = position;
+    }
+
+    const { session, tokens } = live.startLive(user.id, seconds, options);
     return {
       status: 200,
       body: {
@@ -340,10 +498,24 @@ export function createApp({
         // the intent and the note: an unknown intent silently becomes "meet",
         // and the phone has to be told which one it got.
         venue: session.venue,
+        venueName: session.venueName,
+        mode: session.venue ? 'venue' : session.position ? 'area' : 'radio',
         intent: session.intent,
         note: session.note,
         tokens,
       },
+    };
+  });
+
+  /** The name of a registered place, for the screen that asks to join it. */
+  router.get('/venues/:code', async (req, params) => {
+    requireUser(req);
+    const code = normaliseVenue(params.code);
+    const venue = code ? store.findVenue(code) : null;
+    if (!venue || !venue.active) throw notFound('venue_unknown');
+    return {
+      status: 200,
+      body: { code: venue.code, name: venue.name, sessionMinutes: config.venues.sessionSeconds / 60 },
     };
   });
 
@@ -389,6 +561,10 @@ export function createApp({
 
     const session = live.activeSession(user.id);
     if (!session) throw forbidden('not_live');
+    // Area mode follows the phone. A fix that is missing or too vague changes
+    // nothing — the last good one stands.
+    const position = readPosition(body, config.venues.maxAcceptedAccuracyM);
+    if (position) live.updatePosition(user.id, position);
 
     const profile = store.findProfile(user.id);
     const seen = new Set([user.id]);
@@ -402,6 +578,8 @@ export function createApp({
       const other = store.findUser(otherId);
       if (!other) return;
       if (store.isBlockedEitherWay(user.id, otherId)) return;
+      // Hidden for this visit. Back next time.
+      if (live.hasHidden(user.id, otherId)) return;
 
       const otherSession = live.activeSession(otherId);
       if (!otherSession) return;
@@ -442,7 +620,7 @@ export function createApp({
       if (typeof raw !== 'string') continue;
       admit(live.resolveToken(raw));
     }
-    const peers = live.venuePeers(user.id);
+    const peers = [...live.venuePeers(user.id), ...live.areaPeers(user.id)];
     for (const peerId of peers) {
       admit(peerId);
     }
@@ -462,6 +640,9 @@ export function createApp({
         // A count carries no identity — a venue key is a label two people
         // already agreed on, and everyone counted here typed it themselves.
         room: session.venue,
+        roomName: session.venueName,
+        mode: session.venue ? 'venue' : session.position ? 'area' : 'radio',
+        expiresAt: new Date(session.expiresAt).toISOString(),
         roomPeers: peers.length,
         // Echoed so a phone that reconnected mid-session knows which room it
         // is actually in — the answer to "why is this list empty" is usually
@@ -507,6 +688,11 @@ export function createApp({
     }
 
     const result = store.sendLike(user.id, targetId);
+    if (result.outcome === 'recorded' && live.isLive(targetId)) {
+      // Someone in the same room just sent you an UP. Worth a buzz: they are
+      // here, now, and the whole point is that you can look up.
+      notifyIncomingUp(store, { recipientId: targetId });
+    }
     if (result.match) {
       // Only the other person is told. The sender is looking at the match
       // screen this call just produced.
@@ -644,6 +830,44 @@ export function createApp({
     return { status: 200, body: { blocked: true } };
   });
 
+  /** Unblocks. What the block deleted — UPs, a match — does not come back. */
+  router.delete('/users/:id/block', async (req, params) => {
+    const user = requireUser(req);
+    const removed = store.unblock(user.id, params.id);
+    if (!removed) throw notFound('not_blocked');
+    return { status: 200, body: { blocked: false } };
+  });
+
+  router.get('/me/blocks', async (req) => {
+    const user = requireUser(req);
+    return {
+      status: 200,
+      body: {
+        blocked: store.listBlocked(user.id).map((row) => ({
+          id: row.id,
+          firstName: row.first_name ?? '',
+          // Their main photo, so the list is recognisable. The photo route
+          // still serves it only to a signed-in caller.
+          photo: JSON.parse(row.photos ?? '[]')[0] ?? null,
+          blockedAt: row.created_at,
+        })),
+      },
+    };
+  });
+
+  /**
+   * Hides someone until this visit ends.
+   *
+   * The next time both are live in the same place, they show up again — the
+   * difference from a block, which is forever until lifted.
+   */
+  router.post('/users/:id/hide', async (req, params) => {
+    const user = requireUser(req);
+    if (params.id === user.id) throw badRequest('cannot_hide_self');
+    if (!live.hide(user.id, params.id)) throw badRequest('not_live');
+    return { status: 200, body: { hidden: true } };
+  });
+
   router.post('/users/:id/report', async (req, params) => {
     const user = requireUser(req);
     if (!store.findUser(params.id)) throw notFound('user_not_found');
@@ -666,12 +890,37 @@ export function createApp({
    */
   router.post('/me/verification/challenge', async (req) => {
     const user = requireUser(req);
+    const body = await readJsonBody(req);
+
+    if (body.mode === 'live') {
+      // Biometric data is "special category" data. No template without an
+      // explicit yes, and the manual route below stays open for anyone who
+      // says no.
+      if (!user.biometric_consent_at) throw forbidden('consent_required');
+      if (
+        store.countRecentLiveAttempts(user.id, hoursAgo(24)) >= config.face.attemptsPerDay
+      ) {
+        throw tooManyRequests('too_many_attempts');
+      }
+      const challenge = liveChallenges.issue(user.id);
+      return {
+        status: 200,
+        body: {
+          challengeId: challenge.id,
+          mode: 'live',
+          steps: challenge.steps,
+          expiresAt: new Date(challenge.expiresAt).toISOString(),
+        },
+      };
+    }
+
     const challenge = challenges.issue(user.id);
     const pose = findPose(challenge.pose);
     return {
       status: 200,
       body: {
         challengeId: challenge.id,
+        mode: 'manual',
         pose: challenge.pose,
         // Both languages: the app decides which to show, and a pose nobody can
         // read is a pose nobody can strike.
@@ -680,6 +929,73 @@ export function createApp({
         expiresAt: new Date(challenge.expiresAt).toISOString(),
       },
     };
+  });
+
+  router.post('/me/biometric/consent', async (req) => {
+    const user = requireUser(req);
+    const body = await readJsonBody(req);
+    if (body.accepted !== true) throw badRequest('consent_not_given');
+    store.recordBiometricConsent(user.id);
+    return { status: 200, body: { consent: true } };
+  });
+
+  router.delete('/me/biometric', async (req) => {
+    const user = requireUser(req);
+    store.deleteBiometrics(user.id);
+    return { status: 200, body: { deleted: true } };
+  });
+
+  /**
+   * The live check: one frame per step, taken by the app's own camera
+   * preview, judged here.
+   *
+   * Frames arrive as base64 in one JSON body and leave memory when this
+   * request does — except the single centre frame of a borderline attempt,
+   * which waits in the review directory for a human and is deleted when they
+   * decide.
+   */
+  router.post('/me/verification/frames', async (req) => {
+    const user = requireUser(req);
+    const body = await readJsonBody(req, 24 * 1024 * 1024);
+    const challenge = liveChallenges.take(user.id, str(body.challengeId, 64));
+    if (!challenge) throw badRequest('challenge_expired');
+
+    const frames = Array.isArray(body.frames) ? body.frames : [];
+    if (frames.length !== challenge.steps.length) throw badRequest('wrong_frame_count');
+    const images = frames.map((f) => Buffer.from(typeof f === 'string' ? f : '', 'base64'));
+    if (images.some((img) => !sniffImage(img))) throw badRequest('not_an_image');
+
+    const analyses = [];
+    try {
+      for (const img of images) analyses.push(await faces.analyze(img));
+    } catch (error) {
+      if (error instanceof FaceServiceUnavailable) throw faceUnavailable();
+      throw error;
+    }
+
+    const verdict = judgeLiveAttempt(challenge.steps, analyses);
+    if (verdict.status === 'rejected') {
+      store.recordLiveVerification(user.id, { status: 'rejected', reason: verdict.reason });
+      return { status: 200, body: { status: 'rejected', reason: verdict.reason } };
+    }
+
+    store.saveFaceTemplate(user.id, templates.seal(verdict.template), config.face.model);
+
+    if (verdict.status === 'pending') {
+      const saved = selfieStore.save(images[verdict.centerIndex]);
+      const result = store.recordLiveVerification(user.id, {
+        status: 'pending',
+        reason: verdict.reason,
+        score: verdict.score,
+        storageKey: saved.key,
+      });
+      if (result.replacedKey) selfieStore.remove(result.replacedKey);
+      return { status: 200, body: { status: 'pending' } };
+    }
+
+    store.recordLiveVerification(user.id, { status: 'approved', score: verdict.score });
+    recheckLater(user.id);
+    return { status: 200, body: { status: 'approved' } };
   });
 
   /**
@@ -720,8 +1036,16 @@ export function createApp({
       body: {
         // "approved" wins over a later rejected attempt: the badge is a fact
         // about the person, and it does not come and go with a bad photograph.
-        status: approved ? 'approved' : latest?.status ?? 'none',
+        status: approved
+          ? 'approved'
+          : latest?.status === 'revoked'
+            ? 'none'
+            : (latest?.status ?? 'none'),
         submittedAt: latest?.created_at ?? null,
+        reason: approved ? null : (latest?.reason ?? null),
+        method: store.verificationMethod(user.id),
+        consent: Boolean(user.biometric_consent_at),
+        hasTemplate: Boolean(store.findFaceTemplate(user.id)),
         poses: POSES.map((pose) => pose.key),
       },
     };
@@ -754,7 +1078,13 @@ export function createApp({
         pending: store.pendingVerifications().map((row) => ({
           id: row.id,
           pose: row.pose,
-          instruction: findPose(row.pose)?.he ?? row.pose,
+          method: row.method,
+          score: row.score,
+          reason: row.reason,
+          instruction:
+            row.method === 'live'
+              ? 'בדיקת פנים חיה — גבולית'
+              : (findPose(row.pose)?.he ?? row.pose),
           firstName: row.first_name ?? '',
           // The profile photos, to compare the face against. This is the whole
           // job: is the person in the selfie the person in the profile.
@@ -778,13 +1108,145 @@ export function createApp({
     requireOperator(req);
     const body = await readJsonBody(req);
     const status = body.approve === true ? 'approved' : 'rejected';
+    const row = store.findVerification(params.id);
     const decided = store.decideVerification(params.id, status);
     if (!decided) throw notFound('verification_not_found');
+    if (row?.method === 'live') {
+      // A rejected borderline attempt leaves no face behind; an approved one
+      // turns on photo checks for everything already uploaded.
+      if (status === 'rejected') store.deleteBiometrics(decided.userId);
+      else recheckLater(decided.userId);
+    }
     // The photograph has done its job. Keeping a library of face photographs
     // taken on demand is a liability that grows every day and protects nobody.
     if (decided.key) selfieStore.remove(decided.key);
     return { status: 200, body: { status } };
   });
+
+  router.get('/admin/photo-reviews', async (req) => {
+    requireOperator(req);
+    return {
+      status: 200,
+      body: {
+        pending: store.pendingPhotoReviews().map((row) => ({
+          key: row.storage_key,
+          userId: row.user_id,
+          firstName: row.first_name ?? '',
+          score: row.score,
+          checkedAt: row.checked_at,
+        })),
+      },
+    };
+  });
+
+  router.get('/admin/photos/:key', async (req, params) => {
+    requireOperator(req);
+    const file = media.open(params.key);
+    if (!file) throw notFound('photo_not_found');
+    return { binary: { status: 200, ...file } };
+  });
+
+  router.post('/admin/photo-reviews/:key/decide', async (req, params) => {
+    requireOperator(req);
+    const body = await readJsonBody(req);
+    const check = store.findPhotoCheck(params.key);
+    if (!check || check.face_match !== 'review') throw notFound('review_not_found');
+    store.setPhotoCheck(check.user_id, params.key, body.approve === true ? 'ok' : 'rejected', check.score);
+    return { status: 200, body: { status: body.approve === true ? 'ok' : 'rejected' } };
+  });
+
+  // -- venues (operator) -------------------------------------------------------
+
+  const venueJson = (v) => ({
+    code: v.code,
+    name: v.name,
+    lat: v.lat,
+    lng: v.lng,
+    radiusM: v.radius_m,
+    active: Boolean(v.active),
+    createdAt: v.created_at,
+    // What goes on the sticker. Scanning it opens the app on the join screen;
+    // the phone's location is what actually lets you in.
+    joinUrl: `${config.publicUrl}/?venue=${v.code}`,
+    live: live.rooms('meet', { minimum: 1, limit: 1000 }).find((r) => r.code === v.code)?.people ?? 0,
+  });
+
+  const readVenueFields = (body, { partial = false } = {}) => {
+    const fields = {};
+    if (body.name !== undefined || !partial) {
+      const name = str(body.name, 60);
+      if (!name) throw badRequest('name_required');
+      fields.name = name;
+    }
+    if (body.lat !== undefined || body.lng !== undefined || !partial) {
+      const lat = Number(body.lat);
+      const lng = Number(body.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+        throw badRequest('invalid_location');
+      }
+      fields.lat = lat;
+      fields.lng = lng;
+    }
+    if (body.radiusM !== undefined || !partial) {
+      const radius = Math.round(Number(body.radiusM ?? config.venues.defaultRadiusM));
+      if (!Number.isFinite(radius) || radius < 20 || radius > 2000) throw badRequest('invalid_radius');
+      fields.radius_m = radius;
+    }
+    if (body.active !== undefined) fields.active = body.active === true;
+    return fields;
+  };
+
+  router.get('/admin/venues', async (req) => {
+    requireOperator(req);
+    return { status: 200, body: { venues: store.listVenues().map(venueJson) } };
+  });
+
+  router.post('/admin/venues', async (req) => {
+    requireOperator(req);
+    const body = await readJsonBody(req);
+    const fields = readVenueFields(body);
+    let code = body.code ? normaliseVenue(String(body.code)) : null;
+    if (body.code && !code) throw badRequest('invalid_code');
+    if (!code) {
+      // Names are usually Hebrew; the code is what fits in a URL.
+      const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      do {
+        code = Array.from(randomBytes(6), (b) => alphabet[b % alphabet.length]).join('');
+      } while (store.findVenue(code));
+    }
+    if (store.findVenue(code)) throw badRequest('code_taken');
+    const venue = store.createVenue({
+      code,
+      name: fields.name,
+      lat: fields.lat,
+      lng: fields.lng,
+      radiusM: fields.radius_m,
+    });
+    return { status: 201, body: venueJson(venue) };
+  });
+
+  router.patch('/admin/venues/:code', async (req, params) => {
+    requireOperator(req);
+    const body = await readJsonBody(req);
+    const venue = store.updateVenue(params.code, readVenueFields(body, { partial: true }));
+    if (!venue) throw notFound('venue_unknown');
+    return { status: 200, body: venueJson(venue) };
+  });
+
+  router.delete('/admin/venues/:code', async (req, params) => {
+    requireOperator(req);
+    if (!store.deleteVenue(params.code)) throw notFound('venue_unknown');
+    return { status: 200, body: { deleted: true } };
+  });
+
+  /**
+   * The operator's page: places and their stickers, and the review queue.
+   * The page itself is public HTML with nothing in it; every action it takes
+   * goes through the routes above with the admin key.
+   */
+  router.get('/admin', async () => ({
+    html: adminPage(),
+  }));
 
   // -- notifications -------------------------------------------------------
 
@@ -888,6 +1350,19 @@ export function createApp({
         sendBinary(res, result.binary.status ?? 200, result.binary);
         return;
       }
+      if (result.html !== undefined) {
+        const html = Buffer.from(result.html, 'utf8');
+        res.writeHead(200, {
+          'content-type': 'text/html; charset=utf-8',
+          'content-length': html.length,
+          'cache-control': 'no-store',
+          'x-content-type-options': 'nosniff',
+          'x-frame-options': 'DENY',
+          'referrer-policy': 'no-referrer',
+        });
+        res.end(html);
+        return;
+      }
       if ((result.status ?? 200) >= 400) {
         logRefusal(req, url, result.status, result.body?.error);
       }
@@ -903,5 +1378,16 @@ export function createApp({
     }
   };
 
-  return { handle, store, live, media, web, db, router };
+  /** Called by the sweeper: "your hour here is nearly up — scan again". */
+  const remindVenueEndings = () => {
+    for (const session of live.takeDueReminders(config.venues.remindBeforeSeconds * 1000)) {
+      notifyVenueEnding(store, {
+        recipientId: session.userId,
+        venueName: session.venueName ?? session.venue,
+      });
+    }
+    liveChallenges.sweep();
+  };
+
+  return { handle, store, live, media, web, db, router, remindVenueEndings };
 }

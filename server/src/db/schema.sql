@@ -142,3 +142,37 @@ CREATE TABLE IF NOT EXISTS verifications (
 );
 CREATE INDEX IF NOT EXISTS idx_verifications_user ON verifications(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_verifications_status ON verifications(status, created_at);
+
+-- Temporary hides live in the presence store (memory): they die with the
+-- session, which is exactly the product rule — next visit, you see them again.
+
+-- Registered places. A QR on the wall carries only the code; the coordinates
+-- here are what the phone's location is checked against.
+CREATE TABLE IF NOT EXISTS venues (
+  code        TEXT PRIMARY KEY,            -- normaliseVenue(): A-Z0-9, 3-12
+  name        TEXT NOT NULL,
+  lat         REAL NOT NULL,
+  lng         REAL NOT NULL,
+  radius_m    INTEGER NOT NULL DEFAULT 80,
+  active      INTEGER NOT NULL DEFAULT 1,
+  created_at  TEXT NOT NULL
+);
+
+-- Face check of each profile photo against the owner's verified face.
+-- No row = a photo uploaded before checks existed (treated as visible).
+CREATE TABLE IF NOT EXISTS photo_checks (
+  storage_key  TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  face_match   TEXT NOT NULL,              -- ok | review | unverified | rejected
+  score        REAL,
+  checked_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_photo_checks_user ON photo_checks(user_id);
+
+-- The verified face, as numbers. Encrypted at rest; never an image.
+CREATE TABLE IF NOT EXISTS face_templates (
+  user_id      TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  embedding    BLOB NOT NULL,              -- iv(12) | tag(16) | AES-256-GCM(float32[128])
+  model        TEXT NOT NULL,
+  created_at   TEXT NOT NULL
+);

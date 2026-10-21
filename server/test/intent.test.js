@@ -10,7 +10,7 @@ import {
   NOTE_MAX_LENGTH,
   preferencesGateDiscovery,
 } from '../src/domain/intent.js';
-import { startTestServer } from './helpers.js';
+import { HERE, startTestServer } from './helpers.js';
 
 /**
  * Why someone is Live, and what it changes.
@@ -26,11 +26,13 @@ test('intent shapes who you meet', async (t) => {
   const s = await startTestServer();
   t.after(() => s.close());
 
-  const live = (user, { venue, intent, note, seconds = 600 } = {}) =>
-    s.call('POST', '/live/start', {
+  const live = (user, { venue, intent, note, seconds = 600 } = {}) => {
+    if (venue) s.registerVenue(venue);
+    return s.call('POST', '/live/start', {
       token: user.token,
-      body: { durationSeconds: seconds, venue, intent, note },
+      body: { durationSeconds: seconds, venue, intent, note, ...(venue ? HERE : {}) },
     });
+  };
 
   await t.test('two men in a room see each other when they came to meet people',
     async () => {
@@ -78,8 +80,8 @@ test('intent shapes who you meet', async (t) => {
     const a = await s.signUp('+972540000005');
     const b = await s.signUp('+972540000006');
 
-    await live(a, { venue: 'MIX01', intent: 'work' });
-    await live(b, { venue: 'MIX01', intent: 'doing' });
+    await live(a, { venue: 'MIX01', intent: 'meet' });
+    await live(b, { venue: 'MIX01', intent: 'date' });
 
     assert.deepEqual((await s.nearby(a)).body.people, []);
     assert.equal((await s.nearby(a)).body.roomPeers, 0);
@@ -153,15 +155,15 @@ test('intent shapes who you meet', async (t) => {
       s.signUp('+972540000016'),
       s.signUp('+972540000017'),
     ]);
-    await live(a, { venue: 'WORK01', intent: 'work' });
-    await live(b, { venue: 'WORK01', intent: 'work' });
+    await live(a, { venue: 'WORK01', intent: 'date' });
+    await live(b, { venue: 'WORK01', intent: 'date' });
 
     const codesFor = async (intent) =>
       (await s.call(`GET`, `/rooms?intent=${intent}`, { token: c.token })).body.rooms
         .map((room) => room.code);
 
-    assert.ok(!(await codesFor('date')).includes('WORK01'));
-    assert.ok((await codesFor('work')).includes('WORK01'));
+    assert.ok(!(await codesFor('meet')).includes('WORK01'));
+    assert.ok((await codesFor('date')).includes('WORK01'));
   });
 
   await t.test('finding rooms requires signing in', async () => {
@@ -170,12 +172,13 @@ test('intent shapes who you meet', async (t) => {
 });
 
 test('intent is a small closed set with sane defaults', async (t) => {
-  await t.test('four of them, and dating is the only one that filters', () => {
-    assert.deepEqual(INTENTS, ['meet', 'date', 'work', 'doing']);
+  await t.test('two of them — meet and date — and dating is the one that filters', () => {
+    assert.deepEqual(INTENTS, ['meet', 'date']);
     assert.equal(preferencesGateDiscovery('date'), true);
-    for (const intent of ['meet', 'work', 'doing']) {
-      assert.equal(preferencesGateDiscovery(intent), false, intent);
-    }
+    assert.equal(preferencesGateDiscovery('meet'), false);
+    // Retired intents from older phones land in "meet", not in an error.
+    assert.equal(normaliseIntent('work'), 'meet');
+    assert.equal(normaliseIntent('doing'), 'meet');
   });
 
   await t.test('anything unrecognised falls to meeting people', () => {

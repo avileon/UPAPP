@@ -73,15 +73,16 @@ test('venue presence', async (t) => {
     assert.equal((await s.nearby(a)).body.people.length, 1);
   });
 
-  await t.test('a code too short to be meant is no code', async () => {
+  await t.test('a code nobody registered is not a room', async () => {
+    // Typed codes used to make rooms on the fly — which meant anyone, from
+    // anywhere, could sit in a bar's room. Only registered places now.
     const a = await s.signUp('+972520000009');
-    const b = await s.signUp('+972520000010');
-
-    const liveA = await s.goLiveAt(a, 'x');
-    await s.goLiveAt(b, 'x');
-
-    assert.equal(liveA.body.venue, null);
-    assert.deepEqual((await s.nearby(a)).body.people, []);
+    const res = await s.call('POST', '/live/start', {
+      token: a.token,
+      body: { venue: 'NOSUCH1', lat: 32.0853, lng: 34.7818, accuracy: 10 },
+    });
+    assert.equal(res.status, 404);
+    assert.equal(res.body.error, 'venue_unknown');
   });
 
   await t.test('leaving the venue means going live again without it', async () => {
@@ -167,6 +168,7 @@ test('venue presence', async (t) => {
         'photos',
         'selfieVerified',
         'sentYouUp',
+        'verifiedBy',
         'youSentUp',
       ].sort(),
     );

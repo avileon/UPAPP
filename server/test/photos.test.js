@@ -119,14 +119,14 @@ test('photos', async (t) => {
 
   await t.test('the photo limit holds and leaves nothing on disk', async () => {
     const a = await s.signUp('+972530000005');
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 4; i++) {
       assert.equal((await s.uploadPhoto(a, PNG)).status, 200, `photo ${i + 1}`);
     }
     const before = readdirSync(s.photoDir).length;
 
-    const seventh = await s.uploadPhoto(a, PNG);
-    assert.equal(seventh.status, 400);
-    assert.equal(seventh.body.error, 'photo_limit_reached');
+    const fifth = await s.uploadPhoto(a, PNG);
+    assert.equal(fifth.status, 400);
+    assert.equal(fifth.body.error, 'photo_limit_reached');
     assert.equal(
       readdirSync(s.photoDir).length,
       before,
@@ -187,6 +187,7 @@ test('photos', async (t) => {
         'photos',
         'selfieVerified',
         'sentYouUp',
+        'verifiedBy',
         'youSentUp',
       ].sort(),
     );

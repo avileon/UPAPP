@@ -1,6 +1,7 @@
 import { config } from '../config.js';
 import { intentsMeet, normaliseIntent, normaliseNote } from './intent.js';
 import { hashSecret, newId, randomToken } from '../lib/crypto.js';
+import { distanceM } from '../lib/geo.js';
 
 /**
  * Live sessions and the rotating BLE tokens that belong to them.
@@ -44,12 +45,33 @@ export class PresenceStore {
     this._tokensByHash = new Map();
   }
 
-  /** Starts (or replaces) a user's live session and mints a first token batch. */
-  startLive(userId, durationSeconds, venue = null, intent = null, note = '') {
+  /**
+   * Starts (or replaces) a user's live session and mints a first token batch.
+   *
+   * `options.venue` must already have been checked by the caller (QR + GPS);
+   * this store trusts it. `options.position` puts the session in "area" mode:
+   * it sees other area sessions within `config.area.radiusM`. The position is
+   * held in memory for the session only and never leaves this file.
+   *
+   * Renewing in the same place (scanning the QR again inside the hour) keeps
+   * the people this person hid: a hide lasts for the visit, not for a scan.
+   */
+  startLive(userId, durationSeconds, venueOrOptions = null, intent = null, note = '') {
+    const options =
+      venueOrOptions && typeof venueOrOptions === 'object'
+        ? venueOrOptions
+        : { venue: venueOrOptions, intent, note };
     const capped = Math.min(
       Math.max(Number(durationSeconds) || 0, 60),
-      config.live.maxDurationSeconds,
+      options.maxSeconds ?? config.live.maxDurationSeconds,
     );
+    const venue = normaliseVenue(options.venue);
+    const position = venue ? null : (options.position ?? null);
+    const previous = this.activeSession(userId);
+    const samePlace =
+      previous &&
+      previous.venue === venue &&
+      Boolean(previous.position) === Boolean(position);
     this.stopLive(userId);
 
     const startedAt = this._now();
@@ -58,15 +80,83 @@ export class PresenceStore {
       userId,
       startedAt,
       expiresAt: startedAt + capped * 1000,
-      venue: normaliseVenue(venue),
+      venue,
+      venueName: venue ? (options.venueName ?? venue) : null,
+      position: position ? { lat: position.lat, lng: position.lng } : null,
       // Why they are here, and what they are doing. Both belong to the session
       // rather than the account: they are true for the next hour and then they
       // are not, which is exactly what makes them worth showing to a stranger.
-      intent: normaliseIntent(intent),
-      note: normaliseNote(note),
+      intent: normaliseIntent(options.intent),
+      note: normaliseNote(options.note ?? ''),
+      hidden: samePlace ? previous.hidden : new Set(),
+      reminded: false,
     };
     this._sessionsByUser.set(userId, session);
     return { session, tokens: this.mintTokens(userId) };
+  }
+
+  /** Moves an area session. Ignored for venue sessions and when not live. */
+  updatePosition(userId, position) {
+    const session = this.activeSession(userId);
+    if (!session || session.venue || !session.position || !position) return false;
+    session.position = { lat: position.lat, lng: position.lng };
+    return true;
+  }
+
+  /**
+   * Hides someone for the rest of this visit.
+   *
+   * Not a block: the next time both are live in the same place, they see each
+   * other again. One-way — the hidden person is not told, and still sees the
+   * person who hid them.
+   */
+  hide(userId, otherId) {
+    const session = this.activeSession(userId);
+    if (!session) return false;
+    session.hidden.add(otherId);
+    return true;
+  }
+
+  hasHidden(userId, otherId) {
+    return this.activeSession(userId)?.hidden.has(otherId) ?? false;
+  }
+
+  /**
+   * Area sessions within the radius, same intent.
+   *
+   * Venue sessions are a closed room and are not mixed in: somebody who
+   * scanned into a bar sees the bar.
+   */
+  areaPeers(userId) {
+    const session = this.activeSession(userId);
+    if (!session?.position) return [];
+    const now = this._now();
+    const peers = [];
+    for (const [otherId, other] of this._sessionsByUser) {
+      if (otherId === userId) continue;
+      if (!other.position || other.expiresAt <= now) continue;
+      if (!intentsMeet(other.intent, session.intent)) continue;
+      if (distanceM(session.position, other.position) > config.area.radiusM) continue;
+      peers.push(otherId);
+    }
+    return peers;
+  }
+
+  /**
+   * Venue sessions whose hour is nearly over and that have not been told yet.
+   * Marks them, so each session is reminded once.
+   */
+  takeDueReminders(beforeMs) {
+    const now = this._now();
+    const due = [];
+    for (const session of this._sessionsByUser.values()) {
+      if (!session.venue || session.reminded) continue;
+      if (session.expiresAt <= now) continue;
+      if (session.expiresAt - now > beforeMs) continue;
+      session.reminded = true;
+      due.push(session);
+    }
+    return due;
   }
 
   /**

@@ -66,6 +66,9 @@ export class Store {
         )
         .run(nowIso(), userId);
       this.db.prepare(`DELETE FROM refresh_tokens WHERE user_id = ?`).run(userId);
+      // The face goes with the account, immediately — not at the hard delete.
+      this.db.prepare(`DELETE FROM face_templates WHERE user_id = ?`).run(userId);
+      this.db.prepare(`DELETE FROM photo_checks WHERE user_id = ?`).run(userId);
       // A deleted account must stop being able to interrupt anyone's phone.
       this.db.prepare(`DELETE FROM push_subscriptions WHERE user_id = ?`).run(userId);
       this.db
@@ -140,6 +143,222 @@ export class Store {
       )
       .run(JSON.stringify(photos), storageKey, nowIso(), userId);
     return { photos, added: true };
+  }
+
+  /**
+   * Makes one of the person's photos the first one — the one everybody sees.
+   *
+   * The order of `photos` *is* the display order everywhere, so "primary" is
+   * stored as position zero as well as in `photo_primary`; a screen that only
+   * reads the array still gets it right.
+   */
+  setPrimaryPhoto(userId, storageKey) {
+    const profile = this.findProfile(userId);
+    const photos = JSON.parse(profile?.photos ?? '[]');
+    const index = photos.indexOf(storageKey);
+    if (index === -1) return { photos, updated: false };
+    photos.splice(index, 1);
+    photos.unshift(storageKey);
+    this.db
+      .prepare(
+        `UPDATE profiles SET photos = ?, photo_primary = ?, updated_at = ? WHERE user_id = ?`,
+      )
+      .run(JSON.stringify(photos), storageKey, nowIso(), userId);
+    return { photos, updated: true };
+  }
+
+  // -- photo face checks -----------------------------------------------------
+
+  setPhotoCheck(userId, storageKey, faceMatch, score = null) {
+    this.db
+      .prepare(
+        `INSERT INTO photo_checks (storage_key, user_id, face_match, score, checked_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(storage_key) DO UPDATE SET
+           face_match = excluded.face_match,
+           score = excluded.score,
+           checked_at = excluded.checked_at`,
+      )
+      .run(storageKey, userId, faceMatch, score, nowIso());
+  }
+
+  /** `{ key: status }` for one person's photos. Missing = never checked. */
+  photoChecks(userId) {
+    const rows = this.db
+      .prepare(`SELECT storage_key, face_match FROM photo_checks WHERE user_id = ?`)
+      .all(userId);
+    return Object.fromEntries(rows.map((r) => [r.storage_key, r.face_match]));
+  }
+
+  removePhotoCheck(storageKey) {
+    this.db.prepare(`DELETE FROM photo_checks WHERE storage_key = ?`).run(storageKey);
+  }
+
+  pendingPhotoReviews(limit = 50) {
+    return this.db
+      .prepare(
+        `SELECT c.storage_key, c.user_id, c.score, c.checked_at, p.first_name
+           FROM photo_checks c
+           LEFT JOIN profiles p ON p.user_id = c.user_id
+          WHERE c.face_match = 'review'
+          ORDER BY c.checked_at ASC
+          LIMIT ?`,
+      )
+      .all(limit);
+  }
+
+  findPhotoCheck(storageKey) {
+    return (
+      this.db.prepare(`SELECT * FROM photo_checks WHERE storage_key = ?`).get(storageKey) ??
+      null
+    );
+  }
+
+  // -- face templates and consent -------------------------------------------
+
+  recordBiometricConsent(userId) {
+    this.db
+      .prepare(`UPDATE users SET biometric_consent_at = ? WHERE id = ?`)
+      .run(nowIso(), userId);
+  }
+
+  saveFaceTemplate(userId, sealed, model) {
+    this.db
+      .prepare(
+        `INSERT INTO face_templates (user_id, embedding, model, created_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET
+           embedding = excluded.embedding,
+           model = excluded.model,
+           created_at = excluded.created_at`,
+      )
+      .run(userId, sealed, model, nowIso());
+  }
+
+  findFaceTemplate(userId) {
+    return (
+      this.db.prepare(`SELECT * FROM face_templates WHERE user_id = ?`).get(userId) ?? null
+    );
+  }
+
+  /**
+   * Forgets the face. The badge goes with it: a live-verified badge is a
+   * claim about a template that no longer exists.
+   */
+  deleteBiometrics(userId) {
+    return transaction(this.db, () => {
+      this.db.prepare(`DELETE FROM face_templates WHERE user_id = ?`).run(userId);
+      this.db
+        .prepare(`UPDATE users SET biometric_consent_at = NULL WHERE id = ?`)
+        .run(userId);
+      this.db
+        .prepare(
+          `UPDATE verifications SET status = 'revoked'
+            WHERE user_id = ? AND method = 'live' AND status = 'approved'`,
+        )
+        .run(userId);
+      return true;
+    });
+  }
+
+  /** Live attempts in the last day — the rate limit on face checks. */
+  countRecentLiveAttempts(userId, sinceIso) {
+    const row = this.db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM verifications
+          WHERE user_id = ? AND method = 'live' AND created_at >= ?`,
+      )
+      .get(userId, sinceIso);
+    return row?.n ?? 0;
+  }
+
+  /**
+   * Records the outcome of an automatic live check.
+   *
+   * `approved` and `rejected` are final rows with no file. `pending` keeps the
+   * centre frame for a human, exactly like a manual selfie.
+   */
+  recordLiveVerification(userId, { status, score = null, reason = null, storageKey = null }) {
+    return transaction(this.db, () => {
+      let replacedKey = null;
+      if (status === 'pending') {
+        const previous = this.db
+          .prepare(
+            `SELECT id, storage_key FROM verifications WHERE user_id = ? AND status = 'pending'`,
+          )
+          .get(userId);
+        if (previous) {
+          this.db.prepare(`DELETE FROM verifications WHERE id = ?`).run(previous.id);
+          replacedKey = previous.storage_key;
+        }
+      }
+      const id = newId();
+      const at = nowIso();
+      this.db
+        .prepare(
+          `INSERT INTO verifications
+             (id, user_id, status, pose, storage_key, created_at, decided_at, method, score, reason)
+           VALUES (?, ?, ?, 'live', ?, ?, ?, 'live', ?, ?)`,
+        )
+        .run(
+          id,
+          userId,
+          status,
+          storageKey,
+          at,
+          status === 'pending' ? null : at,
+          score,
+          reason,
+        );
+      return { id, replacedKey };
+    });
+  }
+
+  /** How this person got their badge, if they have one: 'live' | 'manual' | null. */
+  verificationMethod(userId) {
+    const row = this.db
+      .prepare(
+        `SELECT method FROM verifications WHERE user_id = ? AND status = 'approved'
+          ORDER BY CASE method WHEN 'live' THEN 0 ELSE 1 END LIMIT 1`,
+      )
+      .get(userId);
+    return row?.method ?? null;
+  }
+
+  // -- venues ----------------------------------------------------------------
+
+  findVenue(code) {
+    return this.db.prepare(`SELECT * FROM venues WHERE code = ?`).get(code) ?? null;
+  }
+
+  listVenues() {
+    return this.db.prepare(`SELECT * FROM venues ORDER BY created_at DESC`).all();
+  }
+
+  createVenue({ code, name, lat, lng, radiusM }) {
+    this.db
+      .prepare(
+        `INSERT INTO venues (code, name, lat, lng, radius_m, active, created_at)
+         VALUES (?, ?, ?, ?, ?, 1, ?)`,
+      )
+      .run(code, name, lat, lng, radiusM, nowIso());
+    return this.findVenue(code);
+  }
+
+  updateVenue(code, fields) {
+    const current = this.findVenue(code);
+    if (!current) return null;
+    const next = { ...current, ...fields };
+    this.db
+      .prepare(
+        `UPDATE venues SET name = ?, lat = ?, lng = ?, radius_m = ?, active = ? WHERE code = ?`,
+      )
+      .run(next.name, next.lat, next.lng, next.radius_m, next.active ? 1 : 0, code);
+    return this.findVenue(code);
+  }
+
+  deleteVenue(code) {
+    return this.db.prepare(`DELETE FROM venues WHERE code = ?`).run(code).changes > 0;
   }
 
   // -- otp -----------------------------------------------------------------
@@ -245,6 +464,28 @@ export class Store {
       )
       .get(a, b, b, a);
     return row !== undefined;
+  }
+
+  /** Lifts a block. Nothing that the block deleted (UPs, a match) comes back. */
+  unblock(blockerId, blockedId) {
+    return (
+      this.db
+        .prepare(`DELETE FROM blocks WHERE blocker_id = ? AND blocked_id = ?`)
+        .run(blockerId, blockedId).changes > 0
+    );
+  }
+
+  /** The people this user blocked, newest first, with what it takes to show them. */
+  listBlocked(userId) {
+    return this.db
+      .prepare(
+        `SELECT b.blocked_id AS id, b.created_at, p.first_name, p.photos
+           FROM blocks b
+           LEFT JOIN profiles p ON p.user_id = b.blocked_id
+          WHERE b.blocker_id = ?
+          ORDER BY b.created_at DESC`,
+      )
+      .all(userId);
   }
 
   blockedIds(userId) {
@@ -504,6 +745,7 @@ export class Store {
     return this.db
       .prepare(
         `SELECT v.id, v.user_id, v.pose, v.storage_key, v.created_at,
+                v.method, v.score, v.reason,
                 p.first_name, p.photos
            FROM verifications v
            LEFT JOIN profiles p ON p.user_id = v.user_id

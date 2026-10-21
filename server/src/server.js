@@ -9,15 +9,18 @@ const app = createApp({ database: config.databaseFile });
 
 // Presence lives in memory and everything in it expires; this keeps the maps
 // from growing across a long-running process.
-const sweeper = setInterval(() => app.live.sweep(), 60_000);
+const sweeper = setInterval(() => {
+  app.live.sweep();
+  app.remindVenueEndings();
+}, 60_000);
 sweeper.unref();
 
 const server = createServer((req, res) => {
   // The phone talks to this over a Cloudflare tunnel, so the browser-style
   // preflight only matters for local web testing — but it costs nothing.
   res.setHeader('access-control-allow-origin', '*');
-  res.setHeader('access-control-allow-headers', 'authorization, content-type');
-  res.setHeader('access-control-allow-methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('access-control-allow-headers', 'authorization, content-type, x-admin-token');
+  res.setHeader('access-control-allow-methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();

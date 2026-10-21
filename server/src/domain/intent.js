@@ -12,11 +12,11 @@
  * for a running partner on Tuesday morning and a date on Friday night, and an
  * app that makes them edit a profile to say so will get neither.
  *
- * Four, deliberately. Every extra option splits the room, and a room split
- * four ways in a bar with twelve people in it already has three empty
- * corners.
+ * Two, since October 2026: UP is an app for dating and for meeting people,
+ * and nothing else. "work" and "doing" were retired — a phone one version
+ * behind that still sends them lands in "meet" rather than in an error.
  */
-export const INTENTS = Object.freeze(['meet', 'date', 'work', 'doing']);
+export const INTENTS = Object.freeze(['meet', 'date']);
 
 export const DEFAULT_INTENT = 'meet';
 

@@ -17,7 +17,31 @@ const here = dirname(fileURLToPath(import.meta.url));
 export function openDatabase(file = config.databaseFile) {
   const db = new DatabaseSync(file);
   db.exec(readFileSync(join(here, 'schema.sql'), 'utf8'));
+  migrate(db);
   return db;
+}
+
+/**
+ * Columns added after a table first shipped.
+ *
+ * `CREATE TABLE IF NOT EXISTS` never alters an existing table, so a column
+ * that arrived later has to be added here, idempotently, or the production
+ * database (created months ago) and a fresh test database disagree.
+ */
+const ADDED_COLUMNS = [
+  ['users', 'biometric_consent_at', 'TEXT'],
+  ['verifications', 'method', "TEXT NOT NULL DEFAULT 'manual'"],
+  ['verifications', 'score', 'REAL'],
+  ['verifications', 'reason', 'TEXT'],
+];
+
+function migrate(db) {
+  for (const [table, column, type] of ADDED_COLUMNS) {
+    const exists = db
+      .prepare(`SELECT 1 FROM pragma_table_info(?) WHERE name = ?`)
+      .get(table, column);
+    if (!exists) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
 }
 
 /** ISO-8601 in UTC. Every timestamp in this codebase is written by the server. */

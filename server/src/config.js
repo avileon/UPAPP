@@ -9,6 +9,20 @@ import { dirname, join } from 'node:path';
  * that would be unsafe in production fails loudly instead — see `assertProd`.
  */
 
+const num = (name, fallback) => {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  const value = Number.parseFloat(raw);
+  if (Number.isNaN(value)) throw new Error(`${name} must be a number`);
+  return value;
+};
+
+const bool = (name, fallback) => {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  return !['0', 'false', 'no', 'off'].includes(raw.toLowerCase());
+};
+
 const int = (name, fallback) => {
   const raw = process.env[name];
   if (raw === undefined || raw === '') return fallback;
@@ -54,6 +68,48 @@ export const config = {
     tokenTtlSeconds: int('BLE_TOKEN_TTL', 10 * 60),
     /** How many tokens a device gets per batch. */
     tokenBatchSize: int('BLE_TOKEN_BATCH', 6),
+    /**
+     * Going Live requires a verified face (live check or manual review).
+     * A dating app where anyone can appear as anyone is the thing UP is not.
+     */
+    requireVerification: bool('REQUIRE_VERIFICATION', true),
+  },
+
+  /** Registered places: a QR on the wall plus the phone's location. */
+  venues: {
+    /** One scan buys one hour in the room; after that, scan again. */
+    sessionSeconds: int('VENUE_SESSION_SECONDS', 60 * 60),
+    /** Push "your hour is almost up" this long before it ends. */
+    remindBeforeSeconds: int('VENUE_REMIND_BEFORE_SECONDS', 5 * 60),
+    /** A GPS fix is fuzzy; this much of its stated error is forgiven. */
+    maxAccuracyCreditM: int('MAX_ACCURACY_CREDIT_M', 150),
+    /** A fix worse than this is no fix at all. */
+    maxAcceptedAccuracyM: int('MAX_ACCEPTED_ACCURACY_M', 500),
+    defaultRadiusM: int('VENUE_DEFAULT_RADIUS_M', 80),
+  },
+
+  /** "Who is around me" without a venue: phones within this many metres. */
+  area: {
+    radiusM: int('AREA_RADIUS_M', 500),
+  },
+
+  /** Face checks. Thresholds per docs/FACE_VERIFICATION_SPEC.md. */
+  face: {
+    serviceUrl: process.env.FACE_SVC_URL ?? 'http://127.0.0.1:8091',
+    timeoutMs: int('FACE_SVC_TIMEOUT_MS', 15000),
+    liveTtlSeconds: int('FACE_LIVE_TTL_SECONDS', 120),
+    minScore: num('FACE_MIN_SCORE', 0.85),
+    minWidthRatio: num('FACE_MIN_WIDTH_RATIO', 0.18),
+    yawCenter: num('FACE_YAW_CENTER', 0.15),
+    yawTurn: num('FACE_YAW_TURN', 0.22),
+    blurMin: num('FACE_BLUR_MIN', 15),
+    samePerson: num('FACE_SAME_PERSON', 0.45),
+    replayed: num('FACE_REPLAYED', 0.995),
+    matchAccept: num('FACE_MATCH_ACCEPT', 0.40),
+    matchReview: num('FACE_MATCH_REVIEW', 0.30),
+    attemptsPerDay: int('FACE_ATTEMPTS_PER_DAY', 8),
+    keyFile: process.env.FACE_TEMPLATE_KEY_FILE ?? '',
+    model: 'sface-2021dec',
   },
 
   /** Where the built web app lives, if it has been fetched. */
@@ -117,8 +173,11 @@ export const config = {
     subject: process.env.VAPID_SUBJECT ?? 'mailto:admin@up.atar.co',
   },
 
+  /** Where the web app is reached from outside — what a venue QR points at. */
+  publicUrl: (process.env.PUBLIC_URL ?? 'https://up.atar.co').replace(/\/+$/, ''),
+
   minimumAge: 18,
-  maxPhotos: 6,
+  maxPhotos: 4,
   maxMessageLength: 1000,
 };
 

@@ -41,6 +41,7 @@ test('privacy and safety', async (t) => {
         'photos',
         'selfieVerified',
         'sentYouUp',
+        'verifiedBy',
         'youSentUp',
       ].sort(),
     );

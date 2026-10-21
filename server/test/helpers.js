@@ -5,7 +5,44 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createApp } from '../src/app.js';
+import { normaliseVenue } from '../src/domain/presence.js';
 import { PhotoStore } from '../src/lib/media.js';
+
+/** Where every test venue is, and a phone standing in it. */
+export const HERE = { lat: 32.0853, lng: 34.7818, accuracy: 10 };
+
+/**
+ * A face-svc stand-in. `script` maps the first bytes of an image (as a
+ * string) to a canned analysis, so a test can say "this frame is person A
+ * turned left" without a model.
+ */
+export class FakeFaces {
+  constructor() {
+    this.byTag = new Map();
+    this.down = false;
+    this.calls = 0;
+  }
+
+  set(tag, analysis) {
+    this.byTag.set(tag.padEnd(8).slice(0, 8), analysis);
+  }
+
+  async analyze(bytes) {
+    this.calls += 1;
+    if (this.down) {
+      const { FaceServiceUnavailable } = await import('../src/domain/face.js');
+      throw new FaceServiceUnavailable();
+    }
+    const tag = Buffer.from(bytes).subarray(-8).toString('latin1');
+    const raw = this.byTag.get(tag) ?? { width: 640, height: 640, faces: [] };
+    // The same decoding FaceClient does on face-svc's JSON.
+    const { decodeEmbedding } = await import('../src/domain/face.js');
+    return {
+      ...raw,
+      faces: raw.faces.map((f) => ({ ...f, embedding: decodeEmbedding(f.embedding) })),
+    };
+  }
+}
 
 /**
  * Spins the real app on an ephemeral port and talks to it over real HTTP.
@@ -14,7 +51,7 @@ import { PhotoStore } from '../src/lib/media.js';
  * makes these tests worth having: routing, auth headers, status codes and JSON
  * shapes are all part of the contract the Flutter client depends on.
  */
-export async function startTestServer() {
+export async function startTestServer({ faces = new FakeFaces() } = {}) {
   // A directory of its own per suite. Photos are the one thing in this server
   // that outlives the in-memory database, so without this the tests would be
   // writing real files into the repository.
@@ -26,6 +63,7 @@ export async function startTestServer() {
     database: ':memory:',
     photos: new PhotoStore(photoDir),
     selfies: new PhotoStore(selfieDir),
+    face: faces,
   });
   const server = createServer(app.handle);
   server.listen(0, '127.0.0.1');
@@ -67,6 +105,11 @@ export async function startTestServer() {
         bio: overrides.bio ?? '',
       },
     });
+    // Verified by default: going Live requires it, and almost no test is
+    // about verification. The ones that are pass `verified: false`.
+    if (overrides.verified !== false && profile.body.id) {
+      app.store.recordLiveVerification(profile.body.id, { status: 'approved' });
+    }
     return { token, id: profile.body.id, refreshToken: verified.body.refreshToken };
   };
 
@@ -87,11 +130,21 @@ export async function startTestServer() {
   };
 
   /** Goes live under a venue key, the way the app does when a code is set. */
-  const goLiveAt = async (user, venue, intent) =>
-    call('POST', '/live/start', {
+  const registerVenue = (venue) => {
+    const code = normaliseVenue(venue);
+    if (code && !app.store.findVenue(code)) {
+      app.store.createVenue({ code, name: `Venue ${code}`, lat: HERE.lat, lng: HERE.lng, radiusM: 80 });
+    }
+    return code;
+  };
+
+  const goLiveAt = async (user, venue, intent, position = HERE) => {
+    registerVenue(venue);
+    return call('POST', '/live/start', {
       token: user.token,
-      body: { durationSeconds: 3600, venue, intent },
+      body: { durationSeconds: 3600, venue, intent, ...position },
     });
+  };
 
   /** Who this user can see right now with no BLE tokens at all. */
   const nearby = async (user, tokens = []) =>
@@ -135,6 +188,7 @@ export async function startTestServer() {
 
   return {
     app,
+    faces,
     // The store itself, for the handful of assertions that are about a row
     // existing rather than about a response. Reaching for it is a smell
     // everywhere the HTTP surface can answer the question instead.
@@ -143,6 +197,7 @@ export async function startTestServer() {
     signUp,
     goLiveTogether,
     goLiveAt,
+    registerVenue,
     nearby,
     uploadPhoto,
     uploadRaw,
