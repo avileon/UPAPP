@@ -11,6 +11,16 @@ extension DatingStrings on AppStrings {
 
   String _t(String he, String en) => _he ? he : en;
 
+  // -- leaving ---------------------------------------------------------------
+
+  String get exitTitle => _t('לצאת מ-UP?', 'Leave UP?');
+  String get exitBody => _t(
+        'בטוח שאתה רוצה לצאת מהאפליקציה?',
+        'Are you sure you want to leave the app?',
+      );
+  String get exitStay => _t('להישאר', 'Stay');
+  String get exitLeave => _t('יציאה', 'Leave');
+
   // -- where ---------------------------------------------------------------
 
   String get whereQuestion => _t('איפה אתם?', 'Where are you?');

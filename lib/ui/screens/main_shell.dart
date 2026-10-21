@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/l10n/dating_strings.dart';
 import '../../domain/entities/match_thread.dart';
 import '../../state/app_scope.dart';
 import '../../state/interaction_controller.dart';
@@ -115,7 +117,16 @@ class MainShellState extends State<MainShell> {
           WidgetsBinding.instance
               .addPostFrameCallback((_) => _openPendingChat());
         }
-        return UpScaffold(
+        // Back on the root screen used to close the app without a word. Now:
+        // back on another tab goes home first, and back on home asks.
+        return PopScope<Object?>(
+          canPop: false,
+          onPopInvokedWithResult: (bool didPop, Object? _) {
+            if (!didPop) {
+              _onBack();
+            }
+          },
+          child: UpScaffold(
           padded: false,
           bottomBar: UpNavBar(
             current: _tab,
@@ -134,8 +145,45 @@ class MainShellState extends State<MainShell> {
             UpTab.chats => const ChatsTab(),
             UpTab.me => const MeTab(),
           },
+        ),
         );
       },
     );
+  }
+
+  bool _asking = false;
+
+  Future<void> _onBack() async {
+    if (_tab != UpTab.home) {
+      select(UpTab.home);
+      return;
+    }
+    if (_asking) {
+      return;
+    }
+    _asking = true;
+    final AppStrings s = context.strings;
+    final bool? leave = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text(s.exitTitle),
+        content: Text(s.exitBody),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(s.exitStay),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(s.exitLeave),
+          ),
+        ],
+      ),
+    );
+    _asking = false;
+    if (leave ?? false) {
+      // Android closes the app; on the web this leaves the page.
+      await SystemNavigator.pop();
+    }
   }
 }
