@@ -42,6 +42,11 @@ class LiveController extends ChangeNotifier {
   /// Cleared by the next attempt.
   String? get lastErrorCode => _lastErrorCode;
   String? _lastErrorCode;
+
+  /// For `too_far`: how many metres from the place the phone was, as the
+  /// server measured it. Null otherwise.
+  int? get lastDistanceM => _lastDistanceM;
+  int? _lastDistanceM;
   Duration get remaining => _remaining;
   List<NearbyPerson> get nearby => _nearby;
 
@@ -83,6 +88,8 @@ class LiveController extends ChangeNotifier {
       _remaining = session.remainingAt(_now());
       _startTicker();
     } on ApiException catch (error) {
+      _lastDistanceM =
+          error.code == 'too_far' ? int.tryParse(error.message) : null;
       // Going Live is one tap on the main screen. A dead tunnel there must
       // leave the button where it was and say why, not throw into the void.
       _lastErrorCode = error.code;

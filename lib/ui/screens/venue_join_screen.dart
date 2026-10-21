@@ -142,8 +142,11 @@ class _VenueJoinScreenState extends State<VenueJoinScreen> {
       return;
     }
     if (code != null) {
+      final int? metres = live.lastDistanceM;
       setState(() {
-        _error = errorText(s, code);
+        _error = code == 'too_far' && metres != null
+            ? '${errorText(s, code)}\n${s.distanceFromPlace(metres, fix.accuracy.round())}'
+            : errorText(s, code);
         _phase = _Phase.ready;
       });
       return;

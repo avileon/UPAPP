@@ -43,7 +43,7 @@ import {
   tooManyRequests,
   unauthorized,
 } from './lib/http.js';
-import { insideVenue, readPosition } from './lib/geo.js';
+import { distanceM, insideVenue, readPosition } from './lib/geo.js';
 import { PhotoStore, readBinaryBody, sniffImage } from './lib/media.js';
 import { adminPage } from './lib/admin_page.js';
 import { StaticSite } from './lib/static.js';
@@ -476,7 +476,17 @@ export function createApp({
       if (!venueRow || !venueRow.active) throw notFound('venue_unknown');
       if (!position) throw badRequest('location_required');
       if (!insideVenue(position, venueRow, config.venues.maxAccuracyCreditM)) {
-        throw forbidden('too_far');
+        // How far, rounded — so the person (and whoever set the place up)
+        // can tell "the next street" from "the venue pin is in another town".
+        // A distance to a public place, not a location.
+        const error = forbidden('too_far');
+        error.message = String(Math.round(distanceM(position, venueRow) / 10) * 10);
+        error.details = {
+          distanceM: Math.round(distanceM(position, venueRow) / 10) * 10,
+          accuracyM: Math.round(position.accuracy),
+          radiusM: venueRow.radius_m,
+        };
+        throw error;
       }
       options.venue = venueRow.code;
       options.venueName = venueRow.name;
@@ -1370,7 +1380,11 @@ export function createApp({
     } catch (error) {
       if (error instanceof HttpError) {
         logRefusal(req, url, error.status, error.code);
-        sendJson(res, error.status, { error: error.code, message: error.message });
+        sendJson(res, error.status, {
+          error: error.code,
+          message: error.message,
+          ...(error.details ?? {}),
+        });
         return;
       }
       console.error('unhandled', error);

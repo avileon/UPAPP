@@ -130,7 +130,7 @@ const TEMPLATE = String.raw`<!doctype html>
   <div class="name" id="s-name"></div>
   <div id="s-qr"></div>
   <div class="cta">סרקו כדי לראות מי כאן עכשיו ולשלוח UP</div>
-  <div class="small">כניסה לשעה · מאומת לפי מיקום · קוד: <span id="s-code"></span></div>
+  <div class="small">כניסה לשעה · מאומת לפי מיקום · קוד: <span id="s-code" dir="ltr"></span></div>
   <button class="noprint" onclick="window.print()">🖨 הדפסה</button>
 </div>
 
@@ -199,10 +199,13 @@ const TEMPLATE = String.raw`<!doctype html>
     $('loc-note').textContent = 'מאתר…';
     navigator.geolocation.getCurrentPosition(function (p) {
       $('v-loc').value = p.coords.latitude.toFixed(6) + ', ' + p.coords.longitude.toFixed(6);
-      $('loc-note').textContent = 'דיוק: ±' + Math.round(p.coords.accuracy) + ' מ\'. עמדו בתוך המקום כשאתם לוחצים.';
+      var acc = Math.round(p.coords.accuracy);
+      $('loc-note').textContent = 'דיוק: ±' + acc + ' מ\'. ' + (acc > 100
+        ? '⚠ דיוק נמוך — כנראה מחשב (מיקום לפי רשת). עדיף לפתוח את הדף הזה בטלפון כשאתם בתוך המקום.'
+        : 'מצוין. עמדו בתוך המקום כשאתם לוחצים.');
     }, function () {
       $('loc-note').textContent = 'לא התקבל מיקום. אפשר להדביק lat,lng או קישור ממפות.';
-    }, { enableHighAccuracy: true, timeout: 15000 });
+    }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
   };
 
   // -- venues -----------------------------------------------------------------
@@ -242,6 +245,7 @@ const TEMPLATE = String.raw`<!doctype html>
             ])
           ]),
           el('button', { class: 'mint', text: 'QR להדפסה', onclick: function () { showSticker(v); } }),
+          el('button', { class: 'ghost', text: '📍 עדכן למיקום שלי', onclick: function () { moveHere(v); } }),
           el('button', { class: 'ghost', text: v.active ? 'השבתה' : 'הפעלה', onclick: function () {
             api('PATCH', '/admin/venues/' + v.code, { active: !v.active }).then(loadVenues)
               .catch(function (e) { say(e.message); });
@@ -254,6 +258,21 @@ const TEMPLATE = String.raw`<!doctype html>
         ]));
       });
     });
+  }
+
+  // Re-pins a place to where this device is standing. The phone is the right
+  // device for it: a laptop's location is a guess from the network, often a
+  // few kilometres off.
+  function moveHere(v) {
+    if (!navigator.geolocation) return say('הדפדפן לא תומך במיקום');
+    say('מאתר…');
+    navigator.geolocation.getCurrentPosition(function (p) {
+      var acc = Math.round(p.coords.accuracy);
+      if (acc > 100 && !confirm('הדיוק כרגע ±' + acc + ' מ\' (נמוך). לעדכן בכל זאת?')) return;
+      api('PATCH', '/admin/venues/' + v.code, { lat: p.coords.latitude, lng: p.coords.longitude })
+        .then(function () { say('המיקום של ' + v.name + ' עודכן (±' + acc + ' מ\')'); loadVenues(); })
+        .catch(function (e) { say(e.message); });
+    }, function () { say('לא התקבל מיקום'); }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
   }
 
   window.showSticker = function (v) {

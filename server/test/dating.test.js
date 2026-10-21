@@ -78,6 +78,8 @@ test('venues: QR code + location, one hour', async (t) => {
     const res = await join(a, { lat: HERE.lat + 0.02, lng: HERE.lng }); // ~2km away
     assert.equal(res.status, 403);
     assert.equal(res.body.error, 'too_far');
+    assert.ok(res.body.distanceM > 2000 && res.body.distanceM < 2400);
+    assert.equal(res.body.lat, undefined);
   });
 
   await t.test('a fix too vague to mean anything is no fix', async () => {

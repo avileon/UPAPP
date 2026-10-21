@@ -48,6 +48,16 @@ extension DatingStrings on AppStrings {
         'הכניסה ל-$minutes דקות. אחרי זה סורקים שוב.',
         'You are in for $minutes minutes, then scan again.',
       );
+  String distanceFromPlace(int metres, int accuracy) {
+    final String d = metres >= 1000
+        ? '${(metres / 1000).toStringAsFixed(1)} ${_t('ק"מ', 'km')}'
+        : '$metres ${_t('מ\'', 'm')}';
+    return _t(
+      'הטלפון נמצא במרחק כ-$d מהמקום (דיוק ±$accuracy מ\').',
+      'Your phone is about $d from the place (±$accuracy m).',
+    );
+  }
+
   String get joinUnknown =>
       _t('המקום הזה לא רשום ב-UP', 'This place is not on UP');
   String get locating => _t('מאתרים מיקום…', 'Finding your location…');
