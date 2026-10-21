@@ -357,6 +357,14 @@ export class Store {
     return this.findVenue(code);
   }
 
+  /** Sets the place's logo (a media key) and returns the one it replaced. */
+  setVenueLogo(code, key) {
+    const current = this.findVenue(code);
+    if (!current) return { found: false, previous: null };
+    this.db.prepare(`UPDATE venues SET logo_key = ? WHERE code = ?`).run(key, code);
+    return { found: true, previous: current.logo_key ?? null };
+  }
+
   deleteVenue(code) {
     return this.db.prepare(`DELETE FROM venues WHERE code = ?`).run(code).changes > 0;
   }

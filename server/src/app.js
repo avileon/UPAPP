@@ -525,7 +525,13 @@ export function createApp({
     if (!venue || !venue.active) throw notFound('venue_unknown');
     return {
       status: 200,
-      body: { code: venue.code, name: venue.name, sessionMinutes: config.venues.sessionSeconds / 60 },
+      body: {
+        code: venue.code,
+        name: venue.name,
+        // A media key: the app fetches it like any photo. Null = no logo.
+        logo: venue.logo_key ?? null,
+        sessionMinutes: config.venues.sessionSeconds / 60,
+      },
     };
   });
 
@@ -1178,7 +1184,13 @@ export function createApp({
     // What goes on the sticker. Scanning it opens the app on the join screen;
     // the phone's location is what actually lets you in.
     joinUrl: `${config.publicUrl}/?venue=${v.code}`,
-    live: live.rooms('meet', { minimum: 1, limit: 1000 }).find((r) => r.code === v.code)?.people ?? 0,
+    logo: v.logo_key ?? null,
+    live: ['meet', 'date'].reduce(
+      (sum, intent) =>
+        sum +
+        (live.rooms(intent, { minimum: 1, limit: 1000 }).find((r) => r.code === v.code)?.people ?? 0),
+      0,
+    ),
   });
 
   const readVenueFields = (body, { partial = false } = {}) => {
@@ -1243,8 +1255,34 @@ export function createApp({
     return { status: 200, body: venueJson(venue) };
   });
 
+  /**
+   * The place's logo — the body is the image, like a profile photo. It pops
+   * up with confetti on the phone of whoever just checked in there.
+   */
+  router.post('/admin/venues/:code/logo', async (req, params) => {
+    requireOperator(req);
+    const venue = store.findVenue(params.code);
+    if (!venue) throw notFound('venue_unknown');
+    const body = await readBinaryBody(req);
+    if (body.length === 0) throw badRequest('empty_body');
+    const saved = media.save(body);
+    const { previous } = store.setVenueLogo(venue.code, saved.key);
+    if (previous) media.remove(previous);
+    return { status: 200, body: venueJson(store.findVenue(venue.code)) };
+  });
+
+  router.delete('/admin/venues/:code/logo', async (req, params) => {
+    requireOperator(req);
+    const { found, previous } = store.setVenueLogo(params.code, null);
+    if (!found) throw notFound('venue_unknown');
+    if (previous) media.remove(previous);
+    return { status: 200, body: { removed: true } };
+  });
+
   router.delete('/admin/venues/:code', async (req, params) => {
     requireOperator(req);
+    const doomed = store.findVenue(params.code);
+    if (doomed?.logo_key) media.remove(doomed.logo_key);
     if (!store.deleteVenue(params.code)) throw notFound('venue_unknown');
     return { status: 200, body: { deleted: true } };
   });

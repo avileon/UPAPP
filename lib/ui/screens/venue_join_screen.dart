@@ -14,6 +14,8 @@ import '../../state/app_scope.dart';
 import '../../state/live_controller.dart';
 import '../../state/session_controller.dart';
 import '../components/common.dart';
+import '../components/confetti.dart';
+import '../components/up_photo.dart';
 import '../components/up_buttons.dart';
 import '../components/up_scaffold.dart';
 import '../navigation/routes.dart';
@@ -32,7 +34,7 @@ class VenueJoinScreen extends StatefulWidget {
   State<VenueJoinScreen> createState() => _VenueJoinScreenState();
 }
 
-enum _Phase { loading, ready, locating, joining }
+enum _Phase { loading, ready, locating, joining, welcome }
 
 class _VenueJoinScreenState extends State<VenueJoinScreen> {
   _Phase _phase = _Phase.loading;
@@ -153,11 +155,27 @@ class _VenueJoinScreenState extends State<VenueJoinScreen> {
     }
     // In. The pending code from the link has done its job.
     await context.backend.setVenueCode('');
-    navigator.pop(true);
+    if (!mounted) {
+      return;
+    }
+    // The moment of arrival: the place's logo pops, with confetti.
+    setState(() => _phase = _Phase.welcome);
+    await Future<void>.delayed(const Duration(milliseconds: 2800));
+    if (mounted) {
+      navigator.pop(true);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final VenueInfo? arrived = _venue;
+    if (_phase == _Phase.welcome && arrived != null) {
+      return _Welcome(venue: arrived);
+    }
+    return _buildJoin(context);
+  }
+
+  Widget _buildJoin(BuildContext context) {
     final AppStrings s = context.strings;
     final UpPalette p = context.palette;
     final VenueInfo? venue = _venue;
@@ -233,6 +251,95 @@ class _VenueJoinScreenState extends State<VenueJoinScreen> {
             onPressed: busy ? null : () => Navigator.of(context).pop(false),
           ),
           const SizedBox(height: Insets.lg),
+        ],
+      ),
+    );
+  }
+}
+
+/// "You're in": the place's logo springs up, confetti falls.
+class _Welcome extends StatefulWidget {
+  const _Welcome({required this.venue});
+
+  final VenueInfo venue;
+
+  @override
+  State<_Welcome> createState() => _WelcomeState();
+}
+
+class _WelcomeState extends State<_Welcome> with SingleTickerProviderStateMixin {
+  late final AnimationController _pop = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..forward();
+
+  @override
+  void dispose() {
+    _pop.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final UpPalette p = context.palette;
+    final VenueInfo venue = widget.venue;
+    final String? logo = venue.logoKey;
+
+    return UpScaffold(
+      child: Stack(
+        children: <Widget>[
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                ScaleTransition(
+                  scale: CurvedAnimation(parent: _pop, curve: Curves.elasticOut),
+                  child: Container(
+                    width: 200,
+                    height: 200,
+                    padding: const EdgeInsets.all(Insets.lg),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(
+                          color: p.cyan.withValues(alpha: 0.55),
+                          blurRadius: 60,
+                          spreadRadius: 6,
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: logo == null
+                          ? Icon(Icons.storefront_rounded, size: 96, color: p.onCyan)
+                          : UpPhoto(
+                              photoKey: logo,
+                              seed: venue.code.hashCode.abs() % 360,
+                              initial: venue.name.isEmpty
+                                  ? 'U'
+                                  : venue.name.substring(0, 1),
+                              aspectRatio: 1,
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: Insets.xl),
+                FadeTransition(
+                  opacity: _pop,
+                  child: Text(
+                    s.welcomeTo(venue.name),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                          color: p.cyan,
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Positioned.fill(child: ConfettiBurst(particles: 180)),
         ],
       ),
     );

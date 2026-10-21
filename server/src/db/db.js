@@ -33,6 +33,7 @@ const ADDED_COLUMNS = [
   ['verifications', 'method', "TEXT NOT NULL DEFAULT 'manual'"],
   ['verifications', 'score', 'REAL'],
   ['verifications', 'reason', 'TEXT'],
+  ['venues', 'logo_key', 'TEXT'],
 ];
 
 function migrate(db) {

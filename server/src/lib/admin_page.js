@@ -75,6 +75,11 @@ const TEMPLATE = String.raw`<!doctype html>
   #sticker { position: fixed; inset: 0; background: #fff; color: #111; flex-direction: column;
     align-items: center; justify-content: center; gap: 14px; text-align: center; z-index: 10;
     padding: 24px; }
+  .venue .logo { width: 56px; height: 56px; border-radius: 12px; overflow: hidden;
+    background: #0f0b16; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; text-align: center; flex: 0 0 56px; }
+  .venue .logo img { width: 100%; height: 100%; object-fit: contain; }
+  #s-logo img { max-width: 220px; max-height: 120px; object-fit: contain; }
   #sticker .brand { font-size: 64px; font-weight: 900; color: #ff3d8b; letter-spacing: 2px; line-height: 1; }
   #sticker .name { font-size: 30px; font-weight: 800; }
   #sticker .cta { font-size: 22px; max-width: 520px; }
@@ -126,6 +131,7 @@ const TEMPLATE = String.raw`<!doctype html>
 
 <div id="sticker" role="dialog" aria-label="מדבקת QR">
   <button class="ghost close noprint" onclick="closeSticker()">✕ סגירה</button>
+  <div id="s-logo"></div>
   <div class="brand">UP</div>
   <div class="name" id="s-name"></div>
   <div id="s-qr"></div>
@@ -234,7 +240,29 @@ const TEMPLATE = String.raw`<!doctype html>
       if (!j.venues.length) box.appendChild(el('p', { class: 'muted', text: 'עוד אין מקומות.' }));
       j.venues.forEach(function (v) {
         var maps = 'https://www.google.com/maps?q=' + v.lat + ',' + v.lng;
+        var logoBox = el('div', { class: 'logo' });
+        if (v.logo) {
+          imageUrl('/admin/photos/' + v.logo).then(function (u) {
+            logoBox.appendChild(el('img', { src: u, alt: 'logo' }));
+          }).catch(function () {});
+        } else {
+          logoBox.appendChild(el('span', { class: 'muted', text: 'אין לוגו' }));
+        }
+        var file = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', hidden: 'hidden' });
+        file.onchange = function () {
+          if (!file.files || !file.files[0]) return;
+          say('מעלה לוגו…');
+          fetch('/admin/venues/' + v.code + '/logo', {
+            method: 'POST',
+            headers: { 'x-admin-token': token, 'content-type': file.files[0].type || 'image/png' },
+            body: file.files[0]
+          }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function () { say('הלוגו עודכן'); loadVenues(); })
+            .catch(function (e) { say('שגיאה: ' + e.message); });
+        };
         box.appendChild(el('div', { class: 'card venue' }, [
+          logoBox,
+          file,
           el('div', { class: 'info' }, [
             el('div', {}, [el('b', { text: v.name }), document.createTextNode(' '),
               el('span', { class: 'pill' + (v.active ? ' on' : ''), text: v.active ? 'פעיל' : 'מושבת' })]),
@@ -245,6 +273,7 @@ const TEMPLATE = String.raw`<!doctype html>
             ])
           ]),
           el('button', { class: 'mint', text: 'QR להדפסה', onclick: function () { showSticker(v); } }),
+          el('button', { class: 'ghost', text: v.logo ? 'החלפת לוגו' : 'העלאת לוגו', onclick: function () { file.click(); } }),
           el('button', { class: 'ghost', text: '📍 עדכן למיקום שלי', onclick: function () { moveHere(v); } }),
           el('button', { class: 'ghost', text: v.active ? 'השבתה' : 'הפעלה', onclick: function () {
             api('PATCH', '/admin/venues/' + v.code, { active: !v.active }).then(loadVenues)
@@ -281,6 +310,12 @@ const TEMPLATE = String.raw`<!doctype html>
     $('s-qr').innerHTML = q.createSvgTag({ cellSize: 8, margin: 2, scalable: true });
     $('s-name').textContent = v.name;
     $('s-code').textContent = v.code;
+    $('s-logo').innerHTML = '';
+    if (v.logo) {
+      imageUrl('/admin/photos/' + v.logo).then(function (u) {
+        $('s-logo').appendChild(el('img', { src: u, alt: '' }));
+      }).catch(function () {});
+    }
     $('sticker').style.display = 'flex';
   };
   window.closeSticker = function () { $('sticker').style.display = 'none'; };

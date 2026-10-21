@@ -68,6 +68,9 @@ extension DatingStrings on AppStrings {
     );
   }
 
+  String welcomeTo(String name) =>
+      _t('ברוכים הבאים ל-$name!', 'Welcome to $name!');
+
   String get joinUnknown =>
       _t('המקום הזה לא רשום ב-UP', 'This place is not on UP');
   String get locating => _t('מאתרים מיקום…', 'Finding your location…');

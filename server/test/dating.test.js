@@ -494,6 +494,31 @@ test('operator: venues and the admin page', async (t) => {
     assert.equal((await op('DELETE', '/admin/venues/BAR12')).status, 200);
   });
 
+  await t.test('a logo goes up, shows on the join screen, and replaces the old one', async () => {
+    const v = (await op('POST', '/admin/venues', { name: 'Logo Bar', lat: HERE.lat, lng: HERE.lng })).body;
+    const upload = async (bytes) => {
+      const r = await fetch(`${s.base}/admin/venues/${v.code}/logo`, {
+        method: 'POST',
+        headers: { 'x-admin-token': 'op-key', 'content-type': 'image/png' },
+        body: bytes,
+      });
+      return r.json();
+    };
+    const first = await upload(img('logo1'));
+    assert.ok(first.logo);
+    const second = await upload(img('logo2'));
+    assert.notEqual(second.logo, first.logo);
+    assert.ok(!readdirSync(s.photoDir).includes(first.logo), 'old logo removed');
+
+    const user = await s.signUp('+972576000009');
+    const info = await s.call('GET', `/venues/${v.code}`, { token: user.token });
+    assert.equal(info.body.logo, second.logo);
+    const res = await fetch(`${s.base}/media/${second.logo}`, {
+      headers: { authorization: `Bearer ${user.token}` },
+    });
+    assert.equal(res.status, 200);
+  });
+
   await t.test('bad input is refused', async () => {
     assert.equal((await op('POST', '/admin/venues', { lat: 1, lng: 1 })).body.error, 'name_required');
     assert.equal((await op('POST', '/admin/venues', { name: 'x', lat: 100, lng: 1 })).body.error, 'invalid_location');

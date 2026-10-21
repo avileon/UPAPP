@@ -10,7 +10,11 @@ class VenueInfo {
     required this.code,
     required this.name,
     required this.sessionMinutes,
+    this.logoKey,
   });
+
+  /// The place's logo, as a media key, or null.
+  final String? logoKey;
 
   final String code;
   final String name;
@@ -35,6 +39,7 @@ class VenueApi {
         code: ApiMappers.string(json['code']),
         name: ApiMappers.string(json['name']),
         sessionMinutes: ApiMappers.integer(json['sessionMinutes'], 60),
+        logoKey: json['logo'] is String ? json['logo'] as String : null,
       );
     } on ApiException catch (error) {
       if (error.code == 'venue_unknown') {
