@@ -13,6 +13,7 @@ import {
   LiveChallengeStore,
   TemplateSealer,
 } from './domain/face.js';
+import { nightKey } from './domain/night.js';
 import { normaliseVenue, PresenceStore } from './domain/presence.js';
 import { CardStore } from './domain/cards.js';
 import { cardGonePage, cardPage } from './site/card_page.js';
@@ -237,6 +238,23 @@ export function createApp({
   };
 
   const hoursAgo = (n) => new Date(Date.now() - n * 3600_000).toISOString();
+
+  /**
+   * Tonight's UP allowance at the place the user is in, or null when there is
+   * no limit (area mode, not live, or the limit is switched off).
+   */
+  const tonight = () =>
+    nightKey(Date.now(), {
+      timeZone: config.likes.nightTimeZone,
+      resetHour: config.likes.nightResetHour,
+    });
+  const upQuota = (userId) => {
+    const limit = config.likes.perVenueNight;
+    const venue = live.activeSession(userId)?.venue;
+    if (!venue || !(limit > 0)) return null;
+    const used = Math.min(limit, store.countVenueUps(userId, venue, tonight()));
+    return { venue, limit, used, remaining: limit - used };
+  };
 
   // -- auth ----------------------------------------------------------------
 
@@ -680,6 +698,8 @@ export function createApp({
         mode: session.venue ? 'venue' : session.position ? 'area' : 'radio',
         expiresAt: new Date(session.expiresAt).toISOString(),
         roomPeers: peers.length,
+        // How many UPs are left here tonight. Null = no limit (area mode).
+        upQuota: upQuota(user.id),
         // Echoed so a phone that reconnected mid-session knows which room it
         // is actually in — the answer to "why is this list empty" is usually
         // one of these two fields.
@@ -723,7 +743,29 @@ export function createApp({
       throw tooManyRequests('like_rate_limited');
     }
 
-    const result = store.sendLike(user.id, targetId);
+    // Four per place per night. Answering an UP you received is free, and so
+    // is pressing again on someone you already sent one to.
+    const quota = upQuota(user.id);
+    const night = tonight();
+    let spent = false;
+    if (
+      quota &&
+      !store.hasLiked(user.id, targetId) &&
+      !store.hasLiked(targetId, user.id)
+    ) {
+      if (!store.trySpendVenueUp(user.id, targetId, quota.venue, night, quota.limit)) {
+        throw tooManyRequests('venue_up_limit');
+      }
+      spent = true;
+    }
+
+    let result;
+    try {
+      result = store.sendLike(user.id, targetId);
+    } catch (error) {
+      if (spent) store.refundVenueUp(user.id, targetId, quota.venue, night);
+      throw error;
+    }
     if (result.outcome === 'recorded' && live.isLive(targetId)) {
       // Someone in the same room just sent you an UP. Worth a buzz: they are
       // here, now, and the whole point is that you can look up.
@@ -747,6 +789,7 @@ export function createApp({
         match: result.match
           ? { id: result.match.id, personId: targetId, matchedAt: result.match.matched_at }
           : null,
+        upQuota: upQuota(user.id),
       },
     };
   });

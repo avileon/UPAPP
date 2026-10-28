@@ -35,6 +35,8 @@ String errorText(AppStrings strings, String? code) {
       return strings.errorOtpWrong;
     case 'otp_rate_limited':
     case 'otp_attempts_exhausted':
+    case 'venue_up_limit':
+      return strings.upsSpentHere;
     case 'like_rate_limited':
       return strings.errorRateLimited;
     default:

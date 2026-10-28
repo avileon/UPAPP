@@ -77,6 +77,24 @@ class _FakePresence implements PresenceRepository {
 }
 
 void main() {
+  group('UpQuota', () {
+    test('reads the server allowance; no limit is null', () {
+      expect(
+        UpQuota.fromJson(<String, dynamic>{'limit': 4, 'used': 1, 'remaining': 3}),
+        const UpQuota(limit: 4, remaining: 3),
+      );
+      expect(UpQuota.fromJson(null), isNull);
+      expect(UpQuota.fromJson(<String, dynamic>{'limit': 0, 'remaining': 0}), isNull);
+    });
+
+    test('never goes below zero or above the limit', () {
+      const UpQuota q = UpQuota(limit: 4, remaining: 1);
+      expect(q.withRemaining(-1).remaining, 0);
+      expect(q.withRemaining(9).remaining, 4);
+      expect(q.withRemaining(0).isSpent, isTrue);
+    });
+  });
+
   group('RoomStatus', () {
     test('an empty code is not a room', () {
       expect(RoomStatus.none.isJoined, isFalse);

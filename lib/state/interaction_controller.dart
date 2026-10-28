@@ -118,7 +118,10 @@ class InteractionController extends ChangeNotifier {
   /// screen that sent them, so the poll must not announce it again.
   final Set<String> _upInFlight = <String>{};
 
-  Future<UpResult> sendUp(String personId) async {
+  /// Sends an UP. [announceMatch] is for an UP committed after its screen
+  /// closed (the undo window ran out off-screen): nobody is there to open the
+  /// match, so it goes out on [newMatches] and is celebrated wherever you are.
+  Future<UpResult> sendUp(String personId, {bool announceMatch = false}) async {
     _lastErrorCode = null;
     _upInFlight.add(personId);
     Future<void>.delayed(const Duration(seconds: 8), () {
@@ -132,6 +135,7 @@ class InteractionController extends ChangeNotifier {
       result = const UpResult(UpOutcome.failed);
     }
     if (result.outcome != UpOutcome.rateLimited &&
+        result.outcome != UpOutcome.quotaExhausted &&
         result.outcome != UpOutcome.failed) {
       _sentUpIds.add(personId);
     }
@@ -139,7 +143,12 @@ class InteractionController extends ChangeNotifier {
     // not announce it a second time.
     final MatchThread? made = result.match;
     if (made != null) {
+      // The poll that refresh() triggered was muted by [_upInFlight], so this
+      // is the only announcement either way.
       _knownMatchIds.add(made.id);
+      if (announceMatch && !_newMatches.isClosed) {
+        _newMatches.add(made);
+      }
     }
     notifyListeners();
     return result;

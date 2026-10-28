@@ -1,5 +1,6 @@
 import '../entities/match_thread.dart';
 import '../entities/reality_answer.dart';
+import '../entities/room_status.dart';
 
 /// The result of pressing UP.
 enum UpOutcome {
@@ -15,6 +16,9 @@ enum UpOutcome {
   /// Blocked by the rate limiter.
   rateLimited,
 
+  /// Tonight's UPs at this place are spent.
+  quotaExhausted,
+
   /// The server could not be reached, or refused. Nothing was recorded, and
   /// saying so is the point: an UP that silently did not happen is worse than
   /// an error, because the sender spends the evening believing they sent it.
@@ -22,10 +26,15 @@ enum UpOutcome {
 }
 
 class UpResult {
-  const UpResult(this.outcome, [this.match]);
+  const UpResult(this.outcome, [this.match, this.quota, this.hasQuota = false]);
 
   final UpOutcome outcome;
   final MatchThread? match;
+
+  /// The allowance after this UP. Only meaningful when [hasQuota] — the
+  /// server answered, and null then means "no limit here".
+  final UpQuota? quota;
+  final bool hasQuota;
 }
 
 abstract interface class InteractionRepository {

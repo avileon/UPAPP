@@ -609,6 +609,47 @@ export class Store {
     });
   }
 
+  // -- the per-place UP limit ---------------------------------------------
+
+  countVenueUps(fromUser, venue, night) {
+    const row = this.db
+      .prepare(`SELECT COUNT(*) AS n FROM venue_ups WHERE from_user = ? AND venue = ? AND night = ?`)
+      .get(fromUser, venue, night);
+    return row?.n ?? 0;
+  }
+
+  /**
+   * Takes one of tonight's UPs at [venue], unless they are spent.
+   *
+   * Count and insert in one transaction, so two UPs pressed at the same
+   * instant cannot both see "3 used" and both go through. Spending on the same
+   * person twice is a no-op that succeeds — it was already paid for.
+   */
+  trySpendVenueUp(fromUser, toUser, venue, night, limit) {
+    return transaction(this.db, () => {
+      const already = this.db
+        .prepare(
+          `SELECT 1 FROM venue_ups WHERE from_user = ? AND to_user = ? AND venue = ? AND night = ?`,
+        )
+        .get(fromUser, toUser, venue, night);
+      if (already) return true;
+      if (this.countVenueUps(fromUser, venue, night) >= limit) return false;
+      this.db
+        .prepare(
+          `INSERT INTO venue_ups (from_user, to_user, venue, night, created_at) VALUES (?, ?, ?, ?, ?)`,
+        )
+        .run(fromUser, toUser, venue, night, nowIso());
+      return true;
+    });
+  }
+
+  /** Gives a slot back — only when the UP it paid for never got recorded. */
+  refundVenueUp(fromUser, toUser, venue, night) {
+    this.db
+      .prepare(`DELETE FROM venue_ups WHERE from_user = ? AND to_user = ? AND venue = ? AND night = ?`)
+      .run(fromUser, toUser, venue, night);
+  }
+
   removeLike(fromUser, toUser) {
     this.db
       .prepare(`DELETE FROM likes WHERE from_user = ? AND to_user = ?`)

@@ -15,9 +15,12 @@ class RadarView extends StatefulWidget {
     required this.isLive,
     required this.blipCount,
     required this.child,
+    this.diameter = Sizes.radarDiameter,
     super.key,
   });
 
+  /// Smaller while Live, so the people get the screen.
+  final double diameter;
   final bool isLive;
   final int blipCount;
   final Widget child;
@@ -67,9 +70,11 @@ class _RadarViewState extends State<RadarView>
     final UpPalette p = context.palette;
     final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
 
-    return SizedBox(
-      width: Sizes.radarDiameter,
-      height: Sizes.radarDiameter,
+    return AnimatedContainer(
+      duration: Motion.normal,
+      curve: Curves.easeOutCubic,
+      width: widget.diameter,
+      height: widget.diameter,
       child: Stack(
         alignment: Alignment.center,
         children: <Widget>[
@@ -78,7 +83,7 @@ class _RadarViewState extends State<RadarView>
               animation: _controller,
               builder: (BuildContext context, Widget? _) {
                 return CustomPaint(
-                  size: const Size.square(Sizes.radarDiameter),
+                  size: Size.square(widget.diameter),
                   painter: _RadarPainter(
                     progress: reduceMotion ? 0.0 : _controller.value,
                     isLive: widget.isLive,

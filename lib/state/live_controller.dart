@@ -190,6 +190,19 @@ class LiveController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// UPs left here tonight, or null for no limit.
+  UpQuota? get upQuota => _room.quota;
+
+  /// The answer to an UP carries the new allowance; take it without waiting
+  /// for the next poll, so the counter moves the moment you press.
+  void applyUpQuota(UpQuota? quota) {
+    if (quota == _room.quota) {
+      return;
+    }
+    _room = _room.withQuota(quota);
+    notifyListeners();
+  }
+
   void _onRoom(RoomStatus room) {
     if (room == _room) {
       return;

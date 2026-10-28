@@ -85,13 +85,13 @@ class HomeTab extends StatelessWidget {
                         ),
                         const SizedBox(height: Insets.md),
                       ],
-                      IntentPicker(
-                        selected: live.isLive ? live.intent : session.liveIntent,
-                        onSelect: session.setLiveIntent,
-                        strings: s,
-                        enabled: !live.isLive,
-                      ),
                       if (!live.isLive) ...<Widget>[
+                        IntentPicker(
+                          selected: session.liveIntent,
+                          onSelect: session.setLiveIntent,
+                          strings: s,
+                          enabled: true,
+                        ),
                         const SizedBox(height: Insets.md),
                         _PlacePicker(
                           venueMode: session.venueMode,
@@ -102,41 +102,53 @@ class HomeTab extends StatelessWidget {
                         const SizedBox(height: Insets.md),
                         _IncomingBanner(
                           label: s.incomingUps(incoming),
-                          onTap: () => _openViewer(context, visible, firstUp: true),
+                          onTap: () => _openViewer(
+                            context,
+                            _upFirst(visible, interactions),
+                            firstUp: true,
+                          ),
                         ),
                       ],
-                      const SizedBox(height: Insets.lg),
-                      RadarView(
-                        isLive: live.isLive,
-                        blipCount: visible.length,
-                        child: _GoLiveButton(
+                      SizedBox(height: live.isLive ? Insets.md : Insets.lg),
+                      Center(
+                        child: RadarView(
                           isLive: live.isLive,
-                          label: live.isLive
-                              ? s.stopLive
-                              : (session.venueMode
-                                  ? s.scanQr.replaceAll(' ', '\n')
-                                  : s.goLive),
-                          onPressed: () => _toggleLive(context),
+                          blipCount: visible.length,
+                          diameter: live.isLive
+                              ? _liveRadarDiameter
+                              : Sizes.radarDiameter,
+                          child: _GoLiveButton(
+                            isLive: live.isLive,
+                            diameter: live.isLive
+                                ? _liveOrbDiameter
+                                : Sizes.goLiveDiameter,
+                            label: live.isLive
+                                ? s.stopLive
+                                : (session.venueMode
+                                    ? s.scanQr.replaceAll(' ', '\n')
+                                    : s.goLive),
+                            onPressed: () => _toggleLive(context),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: Insets.xl),
+                      SizedBox(height: live.isLive ? Insets.md : Insets.xl),
                       Text(
                         live.isLive
                             ? (atVenue ? s.venueLiveTitle(venueName) : s.areaLiveTitle)
                             : s.invisibleTitle,
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineMedium,
+                        style: live.isLive
+                            ? Theme.of(context).textTheme.headlineSmall
+                            : Theme.of(context).textTheme.headlineMedium,
                       ),
                       const SizedBox(height: Insets.sm),
-                      Text(
-                        live.isLive
-                            ? s.visibleBody
-                            : (session.venueMode ? s.modeVenueHint : s.invisibleBody),
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
+                      if (!live.isLive)
+                        Text(
+                          session.venueMode ? s.modeVenueHint : s.invisibleBody,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
                       if (live.isLive) ...<Widget>[
-                        const SizedBox(height: Insets.md),
                         Text(
                           '${s.visibleFor} ${_formatRemaining(live.remaining)}',
                           textAlign: TextAlign.center,
@@ -147,6 +159,22 @@ class HomeTab extends StatelessWidget {
                                 ],
                               ),
                         ),
+                        if (live.upQuota != null) ...<Widget>[
+                          const SizedBox(height: Insets.xs),
+                          Text(
+                            live.upQuota!.isSpent
+                                ? s.upsSpentHere
+                                : s.upsLeftHere(
+                                    live.upQuota!.remaining,
+                                    live.upQuota!.limit,
+                                  ),
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelMedium
+                                ?.copyWith(color: context.palette.amber),
+                          ),
+                        ],
                         if (atVenue && live.remaining.inMinutes < 10) ...<Widget>[
                           const SizedBox(height: Insets.sm),
                           UpButton(
@@ -156,41 +184,53 @@ class HomeTab extends StatelessWidget {
                             onPressed: () => _scanAndJoin(context),
                           ),
                         ],
-                      ],
-                      const SizedBox(height: Insets.md),
-                      NoteField(
-                        value: live.isLive ? live.session?.note ?? '' : session.liveNote,
-                        onChanged: session.setLiveNote,
-                        strings: s,
-                        enabled: !live.isLive,
-                      ),
-                      const Spacer(),
-                      if (live.isLive)
-                        _NearbySummary(
-                          people: visible,
-                          localeCode: session.localeCode,
-                          label: '${s.peopleNearby(visible.length)} · ${s.seePeople}',
-                          hint: quietReason(
-                            strings: s,
-                            live: live,
-                            hasServer: context.backend.isConfigured,
-                            anyoneVisible: visible.isNotEmpty,
+                        const SizedBox(height: Insets.lg),
+                        if (visible.isNotEmpty)
+                          _PeopleHeads(
+                            people: _upFirst(visible, interactions),
+                            localeCode: session.localeCode,
+                            title: s.peopleHereTitle,
+                            isSentYou: (NearbyPerson person) =>
+                                person.sentYouUp ||
+                                interactions.incomingUpIds.contains(person.id),
+                            isSentByYou: (NearbyPerson person) =>
+                                person.youSentUp ||
+                                interactions.hasSentUpTo(person.id),
+                            onTap: (List<NearbyPerson> ordered, int index) =>
+                                _openViewer(context, ordered, index: index),
+                          )
+                        else
+                          _NearbySummary(
+                            people: visible,
+                            localeCode: session.localeCode,
+                            label: s.nobodyHereYet,
+                            hint: quietReason(
+                              strings: s,
+                              live: live,
+                              hasServer: context.backend.isConfigured,
+                              anyoneVisible: visible.isNotEmpty,
+                            ),
+                            onTap: () =>
+                                MainShell.of(context)?.select(UpTab.nearby),
                           ),
-                          onTap: () {
-                            if (visible.isEmpty) {
-                              MainShell.of(context)?.select(UpTab.nearby);
-                            } else {
-                              _openViewer(context, visible);
-                            }
-                          },
-                        )
-                      else if (!session.venueMode)
-                        _DurationPicker(
-                          selected: session.liveDuration,
-                          minutesShort: s.minutesShort,
-                          caption: s.durationLabel,
-                          onSelect: session.setLiveDuration,
+                        const Spacer(),
+                      ] else ...<Widget>[
+                        const SizedBox(height: Insets.md),
+                        NoteField(
+                          value: session.liveNote,
+                          onChanged: session.setLiveNote,
+                          strings: s,
+                          enabled: true,
                         ),
+                        const Spacer(),
+                        if (!session.venueMode)
+                          _DurationPicker(
+                            selected: session.liveDuration,
+                            minutesShort: s.minutesShort,
+                            caption: s.durationLabel,
+                            onSelect: session.setLiveDuration,
+                          ),
+                      ],
                       const SizedBox(height: Insets.lg),
                     ],
                   ),
@@ -203,11 +243,27 @@ class HomeTab extends StatelessWidget {
     );
   }
 
+  static const double _liveRadarDiameter = 168;
+  static const double _liveOrbDiameter = 100;
+
   static String _formatRemaining(Duration d) {
     final int minutes = d.inMinutes;
     final int seconds = d.inSeconds % 60;
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
+}
+
+/// Whoever sent you an UP comes first — they are the ones worth a look.
+List<NearbyPerson> _upFirst(
+  List<NearbyPerson> people,
+  InteractionController interactions,
+) {
+  bool sentYou(NearbyPerson p) =>
+      p.sentYouUp || interactions.incomingUpIds.contains(p.id);
+  return <NearbyPerson>[
+    ...people.where(sentYou),
+    ...people.where((NearbyPerson p) => !sentYou(p)),
+  ];
 }
 
 /// Opens the full-screen people viewer on [people], starting with the first
@@ -476,8 +532,10 @@ class _GoLiveButton extends StatefulWidget {
     required this.isLive,
     required this.label,
     required this.onPressed,
+    this.diameter = Sizes.goLiveDiameter,
   });
 
+  final double diameter;
   final bool isLive;
   final String label;
   final VoidCallback onPressed;
@@ -544,9 +602,11 @@ class _GoLiveButtonState extends State<_GoLiveButton>
             child: InkWell(
               onTap: widget.onPressed,
               customBorder: const CircleBorder(),
-              child: SizedBox(
-                width: Sizes.goLiveDiameter,
-                height: Sizes.goLiveDiameter,
+              child: AnimatedContainer(
+                duration: Motion.normal,
+                curve: Curves.easeOutCubic,
+                width: widget.diameter,
+                height: widget.diameter,
                 child: Center(
                   child: Text(
                     widget.label,
@@ -554,7 +614,7 @@ class _GoLiveButtonState extends State<_GoLiveButton>
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           color: isLive ? p.cyan : p.onAmber,
                           height: 1.1,
-                          fontSize: 21,
+                          fontSize: widget.diameter < Sizes.goLiveDiameter ? 17 : 21,
                           fontWeight: FontWeight.w800,
                         ),
                   ),
@@ -605,6 +665,156 @@ class _IncomingBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Everyone Live here, as faces. Tap one to open them full screen; swipe from
+/// there to the next.
+class _PeopleHeads extends StatelessWidget {
+  const _PeopleHeads({
+    required this.people,
+    required this.localeCode,
+    required this.title,
+    required this.isSentYou,
+    required this.isSentByYou,
+    required this.onTap,
+  });
+
+  final List<NearbyPerson> people;
+  final String localeCode;
+  final String title;
+  final bool Function(NearbyPerson) isSentYou;
+  final bool Function(NearbyPerson) isSentByYou;
+  final void Function(List<NearbyPerson> ordered, int index) onTap;
+
+  static const double _diameter = 76;
+
+  @override
+  Widget build(BuildContext context) {
+    final UpPalette p = context.palette;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Text(
+          '$title · ${people.length}',
+          textAlign: TextAlign.center,
+          style: Theme.of(context)
+              .textTheme
+              .labelMedium
+              ?.copyWith(color: p.muted, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: Insets.md),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: Insets.md,
+          runSpacing: Insets.md,
+          children: <Widget>[
+            for (int i = 0; i < people.length; i++)
+              _Head(
+                person: people[i],
+                localeCode: localeCode,
+                diameter: _diameter,
+                sentYou: isSentYou(people[i]),
+                sentByYou: isSentByYou(people[i]),
+                onTap: () => onTap(people, i),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _Head extends StatelessWidget {
+  const _Head({
+    required this.person,
+    required this.localeCode,
+    required this.diameter,
+    required this.sentYou,
+    required this.sentByYou,
+    required this.onTap,
+  });
+
+  final NearbyPerson person;
+  final String localeCode;
+  final double diameter;
+  final bool sentYou;
+  final bool sentByYou;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final UpPalette p = context.palette;
+    final Color ring = sentYou ? p.amber : (sentByYou ? p.cyan : p.line);
+    return Semantics(
+      button: true,
+      label: person.nameFor(localeCode),
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: diameter + 8,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Stack(
+                clipBehavior: Clip.none,
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: ring, width: sentYou ? 2.5 : 1.5),
+                      boxShadow: sentYou
+                          ? <BoxShadow>[
+                              BoxShadow(
+                                color: p.amber.withValues(alpha: 0.55),
+                                blurRadius: 18,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: UpPhoto.circle(
+                      photoKey: person.mainPhotoKey,
+                      seed: person.auraSeed,
+                      initial: person.initialFor(localeCode),
+                      diameter: diameter,
+                    ),
+                  ),
+                  if (sentYou || sentByYou)
+                    PositionedDirectional(
+                      end: -2,
+                      bottom: -2,
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: sentYou ? p.amber : p.cyan,
+                          border: Border.all(color: p.background, width: 2),
+                        ),
+                        child: Icon(
+                          sentYou ? Icons.arrow_upward_rounded : Icons.check_rounded,
+                          size: 15,
+                          color: sentYou ? p.onAmber : p.onCyan,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: Insets.xs),
+              Text(
+                person.nameFor(localeCode),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

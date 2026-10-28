@@ -11,6 +11,27 @@ extension DatingStrings on AppStrings {
 
   String _t(String he, String en) => _he ? he : en;
 
+  // -- the UP allowance --------------------------------------------------
+
+  String upsLeftHere(int left, int limit) => _t(
+        left == 1 ? 'נשאר לך UP אחד כאן הלילה' : 'נשארו לך $left מתוך $limit UP כאן הלילה',
+        left == 1 ? 'One UP left here tonight' : '$left of $limit UPs left here tonight',
+      );
+  String get upsSpentHere => _t(
+        'נגמרו ה-UP שלך כאן הלילה. מחר — 4 חדשים, או במקום אחר.',
+        'No UPs left here tonight. Four new ones tomorrow, or at another place.',
+      );
+  String get upsReplyFree => _t(
+        'להחזיר UP למי ששלח לך — תמיד בחינם',
+        'Sending an UP back is always free',
+      );
+  String upPendingTo(String name) => _t('UP ל$name', 'UP to $name');
+  String get upUndo => _t('ביטול', 'Undo');
+  String get upTapHint => _t('לחיצה על התמונה = UP', 'Tap the photo to send UP');
+  String get peopleHereTitle => _t('מי כאן', 'Who is here');
+  String get nobodyHereYet => _t('עוד אין אף אחד. נשארים — אנשים מגיעים.',
+      'Nobody yet. Stay — people arrive.');
+
   // -- leaving ---------------------------------------------------------------
 
   String get exitTitle => _t('לצאת מ-UP?', 'Leave UP?');

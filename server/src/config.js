@@ -60,6 +60,16 @@ export const config = {
   likes: {
     /** An UP is cheap to send and expensive to receive. */
     maxPerHour: int('LIKES_MAX_PER_HOUR', 60),
+    /**
+     * UPs a person can start at one place in one night. Scarcity is what makes
+     * an UP mean something: four, so you pick. Answering someone who already
+     * sent you one is free — that is not a cold approach, it is a match.
+     * 0 = no limit. Area mode ("around me") is never limited.
+     */
+    perVenueNight: int('UP_PER_VENUE_NIGHT', 4),
+    /** The night turns over at this local hour (Asia/Jerusalem by default). */
+    nightResetHour: int('UP_NIGHT_RESET_HOUR', 6),
+    nightTimeZone: process.env.UP_NIGHT_TZ ?? 'Asia/Jerusalem',
   },
 
   live: {

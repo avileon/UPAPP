@@ -158,6 +158,19 @@ CREATE TABLE IF NOT EXISTS venues (
   created_at  TEXT NOT NULL
 );
 
+-- UPs started at a place, one row per (sender, recipient, place, night).
+-- Kept apart from `likes` on purpose: taking an UP back must not hand the
+-- slot back, or the limit is a revolving door.
+CREATE TABLE IF NOT EXISTS venue_ups (
+  from_user   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  to_user     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  venue       TEXT NOT NULL,
+  night       TEXT NOT NULL,               -- YYYY-MM-DD, local, rolls at 06:00
+  created_at  TEXT NOT NULL,
+  PRIMARY KEY (from_user, to_user, venue, night)
+);
+CREATE INDEX IF NOT EXISTS idx_venue_ups_spend ON venue_ups(from_user, venue, night);
+
 -- Face check of each profile photo against the owner's verified face.
 -- No row = a photo uploaded before checks existed (treated as visible).
 CREATE TABLE IF NOT EXISTS photo_checks (

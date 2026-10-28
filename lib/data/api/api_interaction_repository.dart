@@ -4,6 +4,7 @@ import '../../domain/entities/match_thread.dart';
 import '../../domain/entities/message.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../domain/entities/reality_answer.dart';
+import '../../domain/entities/room_status.dart';
 import '../../domain/repositories/interaction_repository.dart';
 import '../local/read_state_store.dart';
 import 'api_client.dart';
@@ -90,19 +91,23 @@ class ApiInteractionRepository implements InteractionRepository {
           await _client.post('/likes/$personId');
       final String outcome = ApiMappers.string(result['outcome']);
       final Map<String, dynamic> match = ApiMappers.map(result['match']);
+      final UpQuota? quota = UpQuota.fromJson(result['upQuota']);
 
       if (outcome == 'matched' && match.isNotEmpty) {
         // Pull the real thread rather than synthesising one, so the match the
         // UI opens is the same object every later poll will update.
         await refresh();
         final MatchThread? thread = _matchById(ApiMappers.string(match['id']));
-        return UpResult(UpOutcome.matched, thread);
+        return UpResult(UpOutcome.matched, thread, quota, true);
       }
       if (outcome == 'duplicate') {
-        return const UpResult(UpOutcome.duplicate);
+        return UpResult(UpOutcome.duplicate, null, quota, true);
       }
-      return const UpResult(UpOutcome.recorded);
+      return UpResult(UpOutcome.recorded, null, quota, true);
     } on ApiException catch (error) {
+      if (error.code == 'venue_up_limit') {
+        return const UpResult(UpOutcome.quotaExhausted);
+      }
       if (error.isRateLimited) {
         return const UpResult(UpOutcome.rateLimited);
       }

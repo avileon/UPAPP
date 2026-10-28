@@ -11,9 +11,55 @@ import 'package:flutter/foundation.dart';
 ///
 /// [peers] counts people, not identities: everyone in it typed the same code on
 /// purpose, and a number carries nothing that could name them.
+/// Tonight's UPs at this place: four, so you choose. Null on [RoomStatus]
+/// means there is no limit (around me, or the server switched it off).
+@immutable
+class UpQuota {
+  const UpQuota({required this.limit, required this.remaining});
+
+  final int limit;
+  final int remaining;
+
+  bool get isSpent => remaining <= 0;
+
+  UpQuota withRemaining(int value) =>
+      UpQuota(limit: limit, remaining: value.clamp(0, limit));
+
+  /// Reads the server's `upQuota` object; null when absent or no limit.
+  static UpQuota? fromJson(Object? raw) {
+    if (raw is! Map) {
+      return null;
+    }
+    final Object? limit = raw['limit'];
+    final Object? remaining = raw['remaining'];
+    if (limit is! num || remaining is! num || limit <= 0) {
+      return null;
+    }
+    return UpQuota(limit: limit.toInt(), remaining: remaining.toInt());
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is UpQuota && other.limit == limit && other.remaining == remaining;
+
+  @override
+  int get hashCode => Object.hash(limit, remaining);
+}
+
 @immutable
 class RoomStatus {
-  const RoomStatus({required this.code, required this.peers, this.name = ''});
+  const RoomStatus({
+    required this.code,
+    required this.peers,
+    this.name = '',
+    this.quota,
+  });
+
+  /// UPs left here tonight. Null = no limit.
+  final UpQuota? quota;
+
+  RoomStatus withQuota(UpQuota? value) =>
+      RoomStatus(code: code, peers: peers, name: name, quota: value);
 
   /// The place's display name, e.g. "פאב הנמל". Empty outside a venue.
   final String name;
@@ -35,10 +81,11 @@ class RoomStatus {
       other is RoomStatus &&
       other.code == code &&
       other.peers == peers &&
-      other.name == name;
+      other.name == name &&
+      other.quota == quota;
 
   @override
-  int get hashCode => Object.hash(code, peers, name);
+  int get hashCode => Object.hash(code, peers, name, quota);
 
   @override
   String toString() => 'RoomStatus($code, peers: $peers)';

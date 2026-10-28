@@ -185,9 +185,9 @@ class ApiPresenceRepository implements PresenceRepository {
   @override
   Stream<RoomStatus> watchRoom() => _room.stream;
 
-  void _emitRoom(String code, int peers, String name) {
+  void _emitRoom(String code, int peers, String name, [UpQuota? quota]) {
     if (!_room.isClosed) {
-      _room.add(RoomStatus(code: code, peers: peers, name: name));
+      _room.add(RoomStatus(code: code, peers: peers, name: name, quota: quota));
     }
   }
 
@@ -244,6 +244,7 @@ class ApiPresenceRepository implements PresenceRepository {
         ApiMappers.string(result['room']),
         ApiMappers.integer(result['roomPeers']),
         ApiMappers.string(result['roomName']),
+        UpQuota.fromJson(result['upQuota']),
       );
     } on ApiException catch (error) {
       if (error.code == 'not_live') {
