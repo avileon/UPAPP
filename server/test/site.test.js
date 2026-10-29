@@ -40,11 +40,24 @@ test('the web app', async (t) => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  await t.test('the root serves the app', async () => {
+  await t.test('the root is the landing page; the app lives at /app', async () => {
     const res = await fetch(`${base}/`);
     assert.equal(res.status, 200);
     assert.match(res.headers.get('content-type'), /text\/html/);
-    assert.match(await res.text(), /<title>UP<\/title>/);
+    const html = await res.text();
+    assert.match(html, /<h1>UP/);
+    assert.match(html, /application\/ld\+json/);
+
+    const app = await fetch(`${base}/app`);
+    assert.match(await app.text(), /<title>UP<\/title>/);
+  });
+
+  await t.test('stickers and notifications that point at the root still open the app', async () => {
+    for (const path of ['/?venue=BAR12', '/?chat=abc']) {
+      const html = await (await fetch(`${base}${path}`)).text();
+      assert.match(html, /<title>UP<\/title>/, path);
+      assert.match(html, /noindex/, path);
+    }
   });
 
   await t.test('assets get their real content types', async () => {
@@ -60,7 +73,7 @@ test('the web app', async (t) => {
     // Cloudflare's Browser Cache TTL rewrote it to `max-age=14400`, and every
     // phone kept running a four-hour-old build. `no-store` is not cacheable, so
     // there is nothing for a CDN to rewrite.
-    for (const path of ['/', '/index.html', '/main.dart.js']) {
+    for (const path of ['/app', '/?venue=BAR12', '/index.html', '/main.dart.js']) {
       const res = await fetch(`${base}${path}`);
       assert.match(
         res.headers.get('cache-control'),

@@ -345,6 +345,34 @@ export class Store {
     return this.findVenue(code);
   }
 
+  /**
+   * A place that signed itself up from /business. It exists from the first
+   * second — so its owner can see the sticker it will get — but stays
+   * inactive until the operator approves it.
+   */
+  createVenueApplication({ code, name, lat, lng, radiusM, kind, address, contactName, contactPhone, contactEmail, ownerTokenHash }) {
+    this.db
+      .prepare(
+        `INSERT INTO venues (code, name, lat, lng, radius_m, active, created_at,
+           status, kind, address, contact_name, contact_phone, contact_email, owner_token_hash)
+         VALUES (?, ?, ?, ?, ?, 0, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(code, name, lat, lng, radiusM, nowIso(), kind, address, contactName, contactPhone, contactEmail, ownerTokenHash);
+    return this.findVenue(code);
+  }
+
+  findVenueByOwnerToken(hash) {
+    return this.db.prepare(`SELECT * FROM venues WHERE owner_token_hash = ?`).get(hash) ?? null;
+  }
+
+  setVenueStatus(code, status, active) {
+    return (
+      this.db
+        .prepare(`UPDATE venues SET status = ?, active = ? WHERE code = ?`)
+        .run(status, active ? 1 : 0, code).changes > 0
+    );
+  }
+
   updateVenue(code, fields) {
     const current = this.findVenue(code);
     if (!current) return null;

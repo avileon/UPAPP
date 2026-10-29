@@ -28,6 +28,7 @@ import {
   generateOtp,
   hashSecret,
   issueAccessToken,
+  randomToken,
   safeEqual,
   verifyAccessToken,
 } from './lib/crypto.js';
@@ -46,6 +47,8 @@ import {
 import { distanceM, insideVenue, readPosition } from './lib/geo.js';
 import { PhotoStore, readBinaryBody, sniffImage } from './lib/media.js';
 import { adminPage } from './lib/admin_page.js';
+import { Geocoder, RateLimiter, clientIp } from './lib/geocode.js';
+import { siteAsset, sitePages } from './site/pages.js';
 import { StaticSite } from './lib/static.js';
 import {
   notifyIncomingUp,
@@ -143,6 +146,7 @@ export function createApp({
   site,
   face,
   sealer,
+  geocoder,
 } = {}) {
   const db = openDatabase(database);
   const store = new Store(db);
@@ -1185,6 +1189,13 @@ export function createApp({
     // the phone's location is what actually lets you in.
     joinUrl: `${config.publicUrl}/?venue=${v.code}`,
     logo: v.logo_key ?? null,
+    // Self-service sign-ups carry who to call; operator-made places do not.
+    status: v.status ?? 'approved',
+    kind: v.kind ?? null,
+    address: v.address ?? null,
+    contact: v.status
+      ? { name: v.contact_name, phone: v.contact_phone, email: v.contact_email }
+      : null,
     live: ['meet', 'date'].reduce(
       (sum, intent) =>
         sum +
@@ -1287,6 +1298,182 @@ export function createApp({
     return { status: 200, body: { deleted: true } };
   });
 
+  router.post('/admin/venues/:code/approve', async (req, params) => {
+    requireOperator(req);
+    if (!store.setVenueStatus(params.code, 'approved', true)) throw notFound('venue_unknown');
+    return { status: 200, body: venueJson(store.findVenue(params.code)) };
+  });
+
+  router.post('/admin/venues/:code/reject', async (req, params) => {
+    requireOperator(req);
+    if (!store.setVenueStatus(params.code, 'rejected', false)) throw notFound('venue_unknown');
+    return { status: 200, body: venueJson(store.findVenue(params.code)) };
+  });
+
+  // -- businesses (public sign-up) ----------------------------------------------
+
+  const VENUE_KINDS = ['bar', 'pub', 'club', 'cafe', 'restaurant', 'events', 'other'];
+  const applyLimit = new RateLimiter({ limit: 5, windowMs: 60 * 60 * 1000 });
+  const geoLimit = new RateLimiter({ limit: 30, windowMs: 10 * 60 * 1000 });
+  const geo = geocoder ?? new Geocoder();
+
+  /**
+   * A bar signs itself up. It gets a place code and a private link at once;
+   * the place stays switched off until the operator approves it in /admin, so
+   * nobody can mint a "venue" in their living room.
+   */
+  router.post('/business/apply', async (req) => {
+    if (!applyLimit.take(clientIp(req))) throw tooManyRequests('apply_rate_limited');
+    const body = await readJsonBody(req, 20_000);
+    // The honeypot: a field no person sees. Bots fill every field.
+    if (str(body.website, 200)) throw badRequest('rejected');
+    const name = str(body.name, 60);
+    if (name.length < 2) throw badRequest('name_required');
+    const kind = VENUE_KINDS.includes(body.kind) ? body.kind : 'other';
+    const address = str(body.address, 160) || null;
+    const lat = Number(body.lat);
+    const lng = Number(body.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < 29 || lat > 33.6 || lng < 34 || lng > 36) {
+      throw badRequest('invalid_location');
+    }
+    const contactName = str(body.contactName, 60);
+    if (!contactName) throw badRequest('contact_name_required');
+    const contactPhone = normalisePhone(body.contactPhone);
+    if (!contactPhone) throw badRequest('invalid_phone');
+    const contactEmail = str(body.contactEmail, 120) || null;
+    if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) throw badRequest('invalid_email');
+    if (body.terms !== true) throw badRequest('terms_required');
+
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code;
+    do {
+      code = Array.from(randomBytes(6), (b) => alphabet[b % alphabet.length]).join('');
+    } while (store.findVenue(code));
+    const ownerToken = randomToken(24);
+    store.createVenueApplication({
+      code,
+      name,
+      lat,
+      lng,
+      radiusM: config.venues.defaultRadiusM,
+      kind,
+      address,
+      contactName,
+      contactPhone,
+      contactEmail,
+      ownerTokenHash: hashSecret(ownerToken),
+    });
+    console.log(`[business] new application ${code}`);
+    return {
+      status: 201,
+      body: {
+        code,
+        status: 'pending',
+        ownerToken,
+        // A fragment, not a query: it never reaches a log or a Referer header.
+        statusUrl: `${config.publicUrl}/business/status#k=${ownerToken}`,
+      },
+    };
+  });
+
+  /** The owner's own view: status, and the sticker once approved. */
+  router.get('/business/me', async (req) => {
+    const offered = req.headers['x-business-token'];
+    if (typeof offered !== 'string' || offered.length < 16) throw unauthorized();
+    const venue = store.findVenueByOwnerToken(hashSecret(offered));
+    if (!venue) throw unauthorized();
+    const json = venueJson(venue);
+    return {
+      status: 200,
+      body: {
+        code: json.code,
+        name: json.name,
+        kind: json.kind,
+        address: json.address,
+        status: json.status,
+        active: json.active,
+        joinUrl: json.joinUrl,
+        live: json.active ? json.live : 0,
+        sessionMinutes: config.venues.sessionSeconds / 60,
+      },
+    };
+  });
+
+  router.get('/geo/search', async (req, _params, url) => {
+    if (!geoLimit.take(clientIp(req))) throw tooManyRequests('geo_rate_limited');
+    const q = str(url.searchParams.get('q') ?? '', 160);
+    if (q.length < 3) throw badRequest('query_too_short');
+    try {
+      return { status: 200, body: { results: await geo.search(q) } };
+    } catch {
+      throw new HttpError(503, 'geocoder_unavailable');
+    }
+  });
+
+  // -- the public site ------------------------------------------------------------
+
+  const pages = sitePages({ publicUrl: config.publicUrl });
+  const page = (body, type = 'text/html; charset=utf-8', cache = 'public, max-age=600') => ({
+    page: { body, type, cache },
+  });
+
+  /** The app's own entry point, wherever it is asked for. */
+  const appIndex = () => {
+    const file = web.exists ? web.read('/index.html') : null;
+    if (!file) return null;
+    // Flutter's template says "A new Flutter project." — not what a search
+    // result should show, and the app itself is not what should rank: the
+    // landing page is.
+    let html = file.body.toString('utf8').replace(/<title>[^<]*<\/title>/, '<title>UP</title>');
+    const robots = '<meta name="robots" content="noindex">';
+    html = /<head[^>]*>/.test(html)
+      ? html.replace(/<head[^>]*>/, (tag) => `${tag}\n  ${robots}`)
+      : html.replace(/^(<!doctype html>)?/i, (d) => `${d}${robots}`);
+    return { page: { body: html, type: 'text/html; charset=utf-8', cache: file.cacheControl } };
+  };
+
+  router.get('/', async (_req, _params, url) => {
+    // Stickers already on walls point at /?venue=CODE, and notifications at
+    // /?chat=ID. Those are the app, not the landing page.
+    if (url.searchParams.has('venue') || url.searchParams.has('chat')) {
+      const app = appIndex();
+      if (app) return app;
+    }
+    return page(pages.landing());
+  });
+  router.get('/app', async () => appIndex() ?? page(pages.landing()));
+  router.get('/business', async () => page(pages.business()));
+  router.get('/business/status', async () => ({
+    page: { body: pages.status(), type: 'text/html; charset=utf-8', cache: 'no-store', private: true },
+  }));
+  router.get('/robots.txt', async () => page(pages.robots(), 'text/plain; charset=utf-8'));
+  router.get('/sitemap.xml', async () => page(pages.sitemap(), 'application/xml; charset=utf-8'));
+  router.get('/manifest.json', async () =>
+    page(pages.manifest(), 'application/manifest+json; charset=utf-8'),
+  );
+  // Flutter's template ships its own logo under these names; the installed
+  // app should wear UP's.
+  const FLUTTER_ICONS = {
+    'Icon-192.png': 'icon-192.png',
+    'Icon-512.png': 'icon-512.png',
+    'Icon-maskable-192.png': 'icon-192.png',
+    'Icon-maskable-512.png': 'icon-maskable-512.png',
+  };
+  router.get('/icons/:file', async (_req, params) => {
+    const asset = siteAsset(FLUTTER_ICONS[params.file] ?? '');
+    if (!asset) throw notFound('no_such_file');
+    return { page: { body: asset.body, type: asset.type, cache: 'public, max-age=604800' } };
+  });
+  router.get('/favicon.png', async () => {
+    const asset = siteAsset('icon-192.png');
+    return { page: { body: asset.body, type: asset.type, cache: 'public, max-age=604800' } };
+  });
+  router.get('/site/:file', async (_req, params) => {
+    const asset = siteAsset(params.file);
+    if (!asset) throw notFound('no_such_file');
+    return { page: { body: asset.body, type: asset.type, cache: 'public, max-age=2592000' } };
+  });
+
   /**
    * The operator's page: places and their stickers, and the review queue.
    * The page itself is public HTML with nothing in it; every action it takes
@@ -1379,7 +1566,7 @@ export function createApp({
       // Not an API route. If a web build is present, this is the app itself
       // being asked for — every unknown GET is one of its screens.
       if (req.method === 'GET' && web.exists) {
-        const file = web.read(url.pathname);
+        const file = web.read(url.pathname.startsWith('/app/') ? '/index.html' : url.pathname);
         if (file) {
           if (req.headers['if-none-match'] === file.etag) {
             sendBinary(res, 304, { ...file, body: Buffer.alloc(0) });
@@ -1396,6 +1583,23 @@ export function createApp({
       const result = await route.handler(req, route.params, url);
       if (result.binary) {
         sendBinary(res, result.binary.status ?? 200, result.binary);
+        return;
+      }
+      if (result.page) {
+        const body = Buffer.isBuffer(result.page.body)
+          ? result.page.body
+          : Buffer.from(result.page.body, 'utf8');
+        const headers = {
+          'content-type': result.page.type,
+          'content-length': body.length,
+          'cache-control': result.page.cache,
+          'x-content-type-options': 'nosniff',
+          'referrer-policy': result.page.private ? 'no-referrer' : 'strict-origin-when-cross-origin',
+        };
+        if (result.page.type.startsWith('text/html')) headers['x-frame-options'] = 'DENY';
+        if (result.page.private) headers['x-robots-tag'] = 'noindex';
+        res.writeHead(result.page.status ?? 200, headers);
+        res.end(req.method === 'HEAD' ? undefined : body);
         return;
       }
       if (result.html !== undefined) {

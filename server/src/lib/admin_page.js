@@ -103,6 +103,9 @@ const TEMPLATE = String.raw`<!doctype html>
   </div>
 
   <section id="app" hidden>
+    <h2>בקשות הצטרפות של עסקים <span class="muted" id="a-count"></span></h2>
+    <div id="applications"></div>
+
     <h2>מקום חדש</h2>
     <div class="card">
       <div class="row">
@@ -236,9 +239,12 @@ const TEMPLATE = String.raw`<!doctype html>
   function loadVenues() {
     return api('GET', '/admin/venues').then(function (j) {
       var box = $('venues'); box.innerHTML = '';
-      $('v-count').textContent = '(' + j.venues.length + ')';
-      if (!j.venues.length) box.appendChild(el('p', { class: 'muted', text: 'עוד אין מקומות.' }));
-      j.venues.forEach(function (v) {
+      var pending = j.venues.filter(function (v) { return v.status === 'pending'; });
+      var placed = j.venues.filter(function (v) { return v.status !== 'pending'; });
+      renderApplications(pending);
+      $('v-count').textContent = '(' + placed.length + ')';
+      if (!placed.length) box.appendChild(el('p', { class: 'muted', text: 'עוד אין מקומות.' }));
+      placed.forEach(function (v) {
         var maps = 'https://www.google.com/maps?q=' + v.lat + ',' + v.lng;
         var logoBox = el('div', { class: 'logo' });
         if (v.logo) {
@@ -265,7 +271,8 @@ const TEMPLATE = String.raw`<!doctype html>
           file,
           el('div', { class: 'info' }, [
             el('div', {}, [el('b', { text: v.name }), document.createTextNode(' '),
-              el('span', { class: 'pill' + (v.active ? ' on' : ''), text: v.active ? 'פעיל' : 'מושבת' })]),
+              el('span', { class: 'pill' + (v.active ? ' on' : ''), text: v.status === 'rejected' ? 'נדחה' : v.active ? 'פעיל' : 'מושבת' })]),
+            v.contact ? el('div', { class: 'muted', text: 'נרשם לבד · ' + v.contact.name + ' · ' + v.contact.phone + (v.contact.email ? ' · ' + v.contact.email : '') }) : null,
             el('div', { class: 'muted' }, [
               el('span', { class: 'code', text: v.code }),
               document.createTextNode(' · רדיוס ' + v.radiusM + ' מ\' · ' + v.live + ' עכשיו · '),
@@ -286,6 +293,39 @@ const TEMPLATE = String.raw`<!doctype html>
           } })
         ]));
       });
+    });
+  }
+
+  var KINDS = { bar: 'בר', pub: 'פאב', club: 'מועדון', cafe: 'בית קפה', restaurant: 'מסעדה', events: 'אירועים', other: 'אחר' };
+  function renderApplications(list) {
+    var box = $('applications'); box.innerHTML = '';
+    $('a-count').textContent = '(' + list.length + ')';
+    if (!list.length) { box.appendChild(el('p', { class: 'muted', text: 'אין בקשות שממתינות.' })); return; }
+    list.forEach(function (v) {
+      var maps = 'https://www.google.com/maps?q=' + v.lat + ',' + v.lng;
+      var c = v.contact || {};
+      box.appendChild(el('div', { class: 'card venue' }, [
+        el('div', { class: 'info' }, [
+          el('div', {}, [el('b', { text: v.name }), document.createTextNode(' '),
+            el('span', { class: 'pill', text: KINDS[v.kind] || 'אחר' })]),
+          el('div', { class: 'muted', text: (v.address || 'מיקום מהטלפון') + ' · נרשם ' + new Date(v.createdAt).toLocaleString('he-IL') }),
+          el('div', { class: 'muted' }, [
+            document.createTextNode(c.name + ' · '),
+            el('a', { href: 'tel:' + c.phone, style: 'color:var(--mint)', text: c.phone, dir: 'ltr' }),
+            c.email ? document.createTextNode(' · ' + c.email) : null,
+            document.createTextNode(' · '),
+            el('a', { href: maps, target: '_blank', rel: 'noopener', style: 'color:var(--muted)', text: 'מפה' })
+          ])
+        ]),
+        el('button', { class: 'mint', text: 'אישור', onclick: function () {
+          api('POST', '/admin/venues/' + v.code + '/approve').then(function () { say(v.name + ' אושר — ה-QR פעיל'); loadVenues(); })
+            .catch(function (e) { say(e.message); });
+        } }),
+        el('button', { class: 'danger', text: 'דחייה', onclick: function () {
+          if (!confirm('לדחות את ' + v.name + '?')) return;
+          api('POST', '/admin/venues/' + v.code + '/reject').then(loadVenues).catch(function (e) { say(e.message); });
+        } })
+      ]));
     });
   }
 

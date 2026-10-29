@@ -80,13 +80,15 @@ self.addEventListener('notificationclick', (event) => {
       // none by design. A focused tab already shows the banner and the badge,
       // which is one tap from the conversation.
       for (const client of clients) {
-        if (client.url.startsWith(self.location.origin) && 'focus' in client) {
+        // The landing page shares the origin; only a tab running the app counts.
+        const path = new URL(client.url).pathname;
+        if (client.url.startsWith(self.location.origin) && path.startsWith('/app') && 'focus' in client) {
           return client.focus();
         }
       }
       // Nothing open: this is the case the deep link exists for. The app reads
       // `?chat=` once at startup and opens that thread.
-      return self.clients.openWindow(matchId ? `/?chat=${matchId}` : '/');
+      return self.clients.openWindow(matchId ? `/app?chat=${matchId}` : '/app');
     })(),
   );
 });

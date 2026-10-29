@@ -34,6 +34,14 @@ const ADDED_COLUMNS = [
   ['verifications', 'score', 'REAL'],
   ['verifications', 'reason', 'TEXT'],
   ['venues', 'logo_key', 'TEXT'],
+  // Self-service sign-up from /business. NULL status = added by the operator.
+  ['venues', 'status', 'TEXT'],
+  ['venues', 'kind', 'TEXT'],
+  ['venues', 'address', 'TEXT'],
+  ['venues', 'contact_name', 'TEXT'],
+  ['venues', 'contact_phone', 'TEXT'],
+  ['venues', 'contact_email', 'TEXT'],
+  ['venues', 'owner_token_hash', 'TEXT'],
 ];
 
 function migrate(db) {
