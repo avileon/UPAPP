@@ -70,3 +70,49 @@ if "CardHceService" not in text:
 
 manifest.write_text(text, encoding="utf-8")
 print("manifest patched")
+
+# Release signing with UP's own key, when CI provides it. Without a fixed key
+# every build is signed with a fresh debug key, and Android refuses to install
+# it over the previous one ("signatures do not match").
+import os
+keystore = os.environ.get("UP_KEYSTORE_FILE", "")
+if keystore and os.path.isfile(keystore) and os.environ.get("UP_KEYSTORE_PASSWORD"):
+    kts = android / "app/build.gradle.kts"
+    groovy = android / "app/build.gradle"
+    if kts.is_file():
+        g = kts.read_text(encoding="utf-8")
+        block = """    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("UP_KEYSTORE_FILE"))
+            storePassword = System.getenv("UP_KEYSTORE_PASSWORD")
+            keyAlias = "up"
+            keyPassword = System.getenv("UP_KEYSTORE_PASSWORD")
+        }
+    }
+
+    buildTypes {"""
+        if 'create("release")' not in g:
+            g = g.replace("    buildTypes {", block, 1)
+        g = g.replace('signingConfig = signingConfigs.getByName("debug")',
+                      'signingConfig = signingConfigs.getByName("release")')
+        kts.write_text(g, encoding="utf-8")
+        print("release signing: build.gradle.kts")
+    elif groovy.is_file():
+        g = groovy.read_text(encoding="utf-8")
+        block = """    signingConfigs {
+        release {
+            storeFile file(System.getenv("UP_KEYSTORE_FILE"))
+            storePassword System.getenv("UP_KEYSTORE_PASSWORD")
+            keyAlias "up"
+            keyPassword System.getenv("UP_KEYSTORE_PASSWORD")
+        }
+    }
+
+    buildTypes {"""
+        if "signingConfigs {" not in g:
+            g = g.replace("    buildTypes {", block, 1)
+        g = g.replace("signingConfig signingConfigs.debug", "signingConfig signingConfigs.release")
+        groovy.write_text(g, encoding="utf-8")
+        print("release signing: build.gradle")
+else:
+    print("release signing: no keystore, debug key")

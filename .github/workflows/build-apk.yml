@@ -49,7 +49,22 @@ jobs:
 
       # Native code (the NFC business card) lives in android_overlay/ and is
       # copied over the regenerated folder here.
+      # UP's release key, from the repository secrets. Fixed across builds so a
+      # new APK installs over the old one instead of being refused.
+      - name: Release keystore
+        env:
+          UP_KEYSTORE_B64: ${{ secrets.UP_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$UP_KEYSTORE_B64" ]; then
+            echo "$UP_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/up-release.jks"
+            echo "UP_KEYSTORE_FILE=$RUNNER_TEMP/up-release.jks" >> "$GITHUB_ENV"
+          else
+            echo "no UP_KEYSTORE_B64 secret: builds stay debug-signed"
+          fi
+
       - name: Android overlay
+        env:
+          UP_KEYSTORE_PASSWORD: ${{ secrets.UP_KEYSTORE_PASSWORD }}
         run: |
           python3 tool/apply_android_overlay.py
           grep -n "NFC\|nfc\|CardHceService" android/app/src/main/AndroidManifest.xml
@@ -66,8 +81,12 @@ jobs:
       # actually needs.
       # The installed app has no page origin to learn its server from, so the
       # address is baked in. The web build keeps adopting its own origin.
-      - run: flutter build apk --release --dart-define=UP_SERVER=https://up.atar.co
-      - run: flutter build apk --release --split-per-abi --dart-define=UP_SERVER=https://up.atar.co
+      - env:
+          UP_KEYSTORE_PASSWORD: ${{ secrets.UP_KEYSTORE_PASSWORD }}
+        run: flutter build apk --release --dart-define=UP_SERVER=https://up.atar.co
+      - env:
+          UP_KEYSTORE_PASSWORD: ${{ secrets.UP_KEYSTORE_PASSWORD }}
+        run: flutter build apk --release --split-per-abi --dart-define=UP_SERVER=https://up.atar.co
 
       # The browser build. This is what makes the app shareable as a link —
       # no install, and it reaches iPhones, which the APK never will.
