@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -10,6 +12,8 @@ import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/api/api_client.dart';
 import '../../data/api/card_api.dart';
+import '../../data/nfc/nfc_card.dart';
+import '../../domain/entities/match_thread.dart';
 import '../../state/app_scope.dart';
 import '../components/common.dart';
 import '../components/up_buttons.dart';
@@ -33,6 +37,11 @@ class _MyCardScreenState extends State<MyCardScreen> {
   bool _loading = false;
   bool _started = false;
 
+  final NfcCard _nfc = const NfcCard();
+  NfcCardStatus _nfcStatus = NfcCardStatus.none;
+  Timer? _nfcTimer;
+  StreamSubscription<MatchThread>? _matches;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -40,7 +49,34 @@ class _MyCardScreenState extends State<MyCardScreen> {
       return;
     }
     _started = true;
+    // Someone answered the card: that code is spent, the next person gets a
+    // new one without anybody pressing anything.
+    _matches = context.interactions.newMatches.listen((_) => _issue());
     _issue();
+    _refreshNfc();
+    // Picks up NFC being switched on in settings, and every read.
+    _nfcTimer = Timer.periodic(const Duration(seconds: 2), (_) => _refreshNfc());
+  }
+
+  Future<void> _refreshNfc() async {
+    final NfcCardStatus status = await _nfc.status();
+    if (!mounted) {
+      return;
+    }
+    if (status.supported != _nfcStatus.supported ||
+        status.enabled != _nfcStatus.enabled ||
+        status.reads != _nfcStatus.reads) {
+      setState(() => _nfcStatus = status);
+    }
+  }
+
+  @override
+  void dispose() {
+    _nfcTimer?.cancel();
+    _matches?.cancel();
+    // The phone stops being a tag the moment this screen closes.
+    _nfc.stop();
+    super.dispose();
   }
 
   Future<void> _issue() async {
@@ -58,8 +94,14 @@ class _MyCardScreenState extends State<MyCardScreen> {
       _loading = true;
       _error = null;
     });
+    // The old code may already be spent; never send it while a new one loads.
+    await _nfc.stop();
     try {
       final CardShare card = await api.issue();
+      if (!mounted) {
+        return;
+      }
+      await _nfc.start(card.url);
       if (!mounted) {
         return;
       }
@@ -113,6 +155,13 @@ class _MyCardScreenState extends State<MyCardScreen> {
           const SizedBox(height: Insets.sm),
           Text(s.myCardHint, style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: Insets.xl),
+          if (_error == null && _nfcStatus.supported) ...<Widget>[
+            _NfcPanel(
+              status: _nfcStatus,
+              onTurnOn: _nfc.openSettings,
+            ),
+            const SizedBox(height: Insets.lg),
+          ],
           if (_error != null)
             UpCard(
               child: Text(_error!, style: Theme.of(context).textTheme.bodyMedium),
@@ -176,6 +225,63 @@ class _MyCardScreenState extends State<MyCardScreen> {
             onPressed: _revoke,
           ),
           const SizedBox(height: Insets.xl),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Hold the phones together" — or, with NFC off, the way to turn it on.
+class _NfcPanel extends StatelessWidget {
+  const _NfcPanel({required this.status, required this.onTurnOn});
+
+  final NfcCardStatus status;
+  final Future<void> Function() onTurnOn;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final UpPalette p = context.palette;
+    final TextTheme text = Theme.of(context).textTheme;
+    if (!status.enabled) {
+      return UpCard(
+        borderColor: p.amber,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(s.nfcOff, style: text.titleMedium),
+            const SizedBox(height: Insets.xs),
+            Text(s.nfcOffHint, style: text.bodyMedium),
+            const SizedBox(height: Insets.md),
+            UpButton(
+              label: s.nfcTurnOn,
+              icon: Icons.nfc_rounded,
+              style: UpButtonStyle.ghost,
+              onPressed: onTurnOn,
+            ),
+          ],
+        ),
+      );
+    }
+    return UpCard(
+      borderColor: p.cyan,
+      child: Row(
+        children: <Widget>[
+          Icon(Icons.nfc_rounded, size: 40, color: p.cyan),
+          const SizedBox(width: Insets.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  status.reads > 0 ? s.nfcSent(status.reads) : s.nfcReady,
+                  style: text.titleMedium,
+                ),
+                const SizedBox(height: Insets.xs),
+                Text(s.nfcReadyHint, style: text.bodySmall?.copyWith(color: p.muted)),
+              ],
+            ),
+          ),
         ],
       ),
     );

@@ -30,6 +30,21 @@ extension CardStrings on AppStrings {
         'Add a name and a photo to your profile first.',
       );
 
+  // -- NFC -------------------------------------------------------------------
+
+  String get nfcReady => _t('הצמידו גב אל גב', 'Hold the phones back to back');
+  String get nfcReadyHint => _t(
+        'הטלפון שלך משדר עכשיו את הכרטיס. אצל הצד השני המסך צריך להיות פתוח.',
+        'Your phone is sending the card now. The other phone needs its screen unlocked.',
+      );
+  String nfcSent(int n) => _t('נשלח ✓ ($n)', 'Sent ✓ ($n)');
+  String get nfcOff => _t('NFC כבוי', 'NFC is off');
+  String get nfcOffHint => _t(
+        'הפעילו NFC כדי לתת את הכרטיס בנגיעה. בינתיים — ה-QR עובד.',
+        'Turn on NFC to give your card with a tap. Meanwhile, the QR works.',
+      );
+  String get nfcTurnOn => _t('להפעלת NFC', 'Turn on NFC');
+
   // -- a card someone gave me ----------------------------------------------
 
   String cardFrom(String name) =>

@@ -1,6 +1,6 @@
 # כרטיס ביקור UP — מפרט
 
-תאריך: 2026-11-01 · מצב: שלבים 1–2 בנויים
+תאריך: 2026-11-01 · מצב: שלבים 1–3 בנויים (NFC ממתין לבדיקה על שני טלפונים)
 
 ## מטרה
 כל משתמש UP מקבל כרטיס ביקור אישי. נגיעה בטלפון (NFC) או סריקת QR פותחת למקבל/ת דף כרטיס עם כפתור "תן UP". מי שאין לו/ה UP נרשם/ת מהדף, ומקבל/ת כרטיס משלו/ה. זו לולאה ויראלית.
@@ -38,8 +38,13 @@
 - CardAccept: תמונה + שם + תג מאומת → "תן UP" / "לא עכשיו"; בלי אימות → כפתור לאימות וחזרה; Match → קונפטי → "לשיחה"
 - סורק ה-QR בתוך האפליקציה מזהה גם קישורי `/c/<token>`
 
+## NFC באנדרואיד (בנוי)
+- `android/` לא בריפו (CI מריץ `flutter create`), לכן הקוד הנייטיב ב-`android_overlay/` ומוחל ב-`tool/apply_android_overlay.py` — מעתיק קבצים, מזהה את ה-package של MainActivity שנוצר (`co.vibit.up.up`) ומוסיף למניפסט הרשאת NFC, features אופציונליים ו-service
+- `CardHceService` (HostApduService): תגית NFC Forum Type 4, AID `D2760000850101`, CC `E103`, NDEF `E104` (read-only), רשומת URI אחת ל-`/c/<token>`. בלי קישור פעיל — אין קובץ NDEF
+- `MainActivity`: MethodChannel `up/nfc_card` — `status` (supported / enabled / reads), `start(url)`, `stop`, `openSettings`; מעדיף את השירות (setPreferredService) רק כשהמסך פתוח
+- Flutter: `lib/data/nfc/nfc_card.dart` (בווב ובאייפון — "לא נתמך" בשקט). במסך הכרטיס: "הצמידו גב אל גב" + מונה קריאות, או "NFC כבוי" עם כפתור להגדרות. השידור נעצר כשהמסך נסגר, וקוד חדש נוצר אוטומטית אחרי כל Match
+
 ## הבא
-3. NFC באנדרואיד: `HostApduService` (Kotlin) שמדמה NDEF Type 4 — AID `D2760000850101`, CC `E103`, NDEF `E104`, רשומת URI ל-`/c/<token>`. MethodChannel `startBroadcast(url)` / `stopBroadcast()`. במסך הכרטיס: "הצמד/י טלפונים גב אל גב" לצד ה-QR
 4. Google Wallet: Generic Pass, פרויקט Google Cloud של avi@vibit.co.il, Issuer ב-Pay & Wallet Console, JWT חתום בשרת, QR לטוקן `wallet`
 5. צריבת כרטיס פיזי (NTAG215/216) — טוקן `physical`
 

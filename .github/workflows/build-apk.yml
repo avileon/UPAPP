@@ -47,6 +47,13 @@ jobs:
           done
           grep -n "uses-permission" "$M"
 
+      # Native code (the NFC business card) lives in android_overlay/ and is
+      # copied over the regenerated folder here.
+      - name: Android overlay
+        run: |
+          python3 tool/apply_android_overlay.py
+          grep -n "NFC\|nfc\|CardHceService" android/app/src/main/AndroidManifest.xml
+
       - run: flutter pub get
 
       # Captured rather than streamed: the logs ship as release assets so the
