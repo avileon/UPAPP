@@ -44,12 +44,14 @@
 - `MainActivity`: MethodChannel `up/nfc_card` — `status` (supported / enabled / reads), `start(url)`, `stop`, `openSettings`; מעדיף את השירות (setPreferredService) רק כשהמסך פתוח
 - Flutter: `lib/data/nfc/nfc_card.dart` (בווב ובאייפון — "לא נתמך" בשקט). במסך הכרטיס: "הצמידו גב אל גב" + מונה קריאות, או "NFC כבוי" עם כפתור להגדרות. השידור נעצר כשהמסך נסגר, וקוד חדש נוצר אוטומטית אחרי כל Match
 
-## Google Wallet (קוד בנוי, ממתין להגדרת חשבון)
+## Google Wallet (בנוי ומוגדר — במצב הדגמה)
 - `server/src/lib/wallet.js`: הכרטיס כולו (Generic class + object) בתוך JWT חתום RS256 במפתח service account → `https://pay.google.com/gp/v/save/<jwt>`. אין קריאות API ואין pass שמור אצלנו
 - `POST /me/card/wallet` → `{saveUrl, url}`; כרטיס `wallet` אחד לאדם (חדש מבטל את הקודם). 503 `wallet_unavailable` כשלא מוגדר
 - `POST /me/card` מחזיר `wallet: true/false` — האפליקציה מציגה "הוספה ל-Google Wallet" רק כשמוגדר, ולא באייפון
 - הגדרה בשרת: `WALLET_ISSUER_ID` ב-`/etc/up.env`, ומפתח ה-service account ב-`/var/lib/up/.wallet-sa.json` (או `WALLET_SA_FILE`)
-- עד שגוגל מאשרת את ה-Issuer לפרסום, רק חשבונות בדיקה שהוגדרו בקונסולה יכולים לשמור
+- עד שגוגל מאשרת את ה-Issuer לפרסום, רק חשבונות בדיקה שהוגדרו בקונסולה יכולים לשמור (כרגע: avi@vibit.co.il). הכרטיס מסומן TEST ONLY
+- מוגדר 2026-11-01: Issuer `3388000000022821871` (עסק "ויביט פיתוח תוכנה באינטרנט בע"מ"), פרויקט Google Cloud `up-app-513420`, service account `up-wallet@up-app-513420.iam.gserviceaccount.com` (מפתח: תעודה ציבורית הועלתה לגוגל; המפתח הפרטי נוצר בשרת ולא יצא ממנו), ה-SA הוא "מפתח" במסוף Pay & Wallet. נבדק: גוגל מקבלת את ה-JWT ומציגה את הכרטיס
+- לפרסום לכולם: לשלוח שוב "בקשת גישה לפרסום" במסוף (הבקשה הקודמת נדחתה — פרטים במייל מגוגל)
 
 ## הבא
 5. צריבת כרטיס פיזי (NTAG215/216) — טוקן `physical`
