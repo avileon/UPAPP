@@ -176,3 +176,18 @@ CREATE TABLE IF NOT EXISTS face_templates (
   model        TEXT NOT NULL,
   created_at   TEXT NOT NULL
 );
+
+-- Personal business cards (NFC tap, on-screen QR, Wallet pass, sticker).
+-- The token is hashed like every other secret. A `share` card expires and
+-- answers one person; `wallet` and `physical` last until revoked.
+CREATE TABLE IF NOT EXISTS cards (
+  token_hash  TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL,               -- share | wallet | physical
+  expires_at  TEXT,                        -- NULL = until revoked
+  used_by     TEXT REFERENCES users(id) ON DELETE SET NULL,
+  used_at     TEXT,
+  revoked_at  TEXT,
+  created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cards_user ON cards(user_id);

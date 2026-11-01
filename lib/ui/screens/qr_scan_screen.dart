@@ -6,10 +6,12 @@ import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/dating_strings.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/api/backend_config.dart';
 import '../../data/api/venue_api.dart';
 import '../components/common.dart';
 import '../components/up_buttons.dart';
 import '../components/up_scaffold.dart';
+import '../navigation/routes.dart';
 
 /// Scans a venue's QR and returns its code (pops with a `String`).
 ///
@@ -47,6 +49,14 @@ class _QrScanScreenState extends State<QrScanScreen> {
       if (raw == null) {
         continue;
       }
+      // Someone's business card rather than a place: answer it instead.
+      final String? card = _cardFromScan(raw);
+      if (card != null) {
+        _done = true;
+        Navigator.of(context)
+            .pushReplacementNamed(Routes.cardAccept, arguments: card);
+        return;
+      }
       final String? code = VenueApi.codeFromScan(raw);
       if (code != null) {
         _finish(code);
@@ -54,6 +64,19 @@ class _QrScanScreenState extends State<QrScanScreen> {
       }
     }
     setState(() => _error = context.strings.scanInvalid);
+  }
+
+  /// The token of an UP card link (`…/c/<token>`), or null.
+  static String? _cardFromScan(String raw) {
+    final Uri? uri = Uri.tryParse(raw.trim());
+    if (uri == null || !uri.hasScheme) {
+      return null;
+    }
+    final List<String> parts = uri.pathSegments;
+    if (parts.length != 2 || parts.first != 'c') {
+      return null;
+    }
+    return BackendConfig.normaliseCardToken(parts[1]);
   }
 
   void _submitTyped() {

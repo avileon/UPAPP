@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/l10n/card_strings.dart';
 import '../../../core/l10n/dating_strings.dart';
 import '../../../core/theme/palette.dart';
 import '../../../core/theme/tokens.dart';
@@ -92,6 +93,12 @@ class MeTab extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: Insets.xl),
+              UpButton(
+                label: s.myCard,
+                icon: Icons.qr_code_2_rounded,
+                onPressed: () => Navigator.of(context).pushNamed(Routes.myCard),
+              ),
+              const SizedBox(height: Insets.sm),
               UpButton(
                 label: s.editPhotos,
                 style: UpButtonStyle.ghost,

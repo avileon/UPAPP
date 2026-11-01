@@ -1,4 +1,5 @@
 import 'app_strings.dart';
+import 'card_strings.dart';
 import 'dating_strings.dart';
 
 /// Turns a server error code into something a person can act on.
@@ -12,6 +13,10 @@ String errorText(AppStrings strings, String? code) {
   final String? dating = strings.datingError(code);
   if (dating != null) {
     return dating;
+  }
+  final String? card = strings.cardError(code);
+  if (card != null) {
+    return card;
   }
   switch (code) {
     case null:

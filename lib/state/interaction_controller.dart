@@ -145,6 +145,13 @@ class InteractionController extends ChangeNotifier {
     return result;
   }
 
+  /// A match made somewhere other than [sendUp] — answering a business
+  /// card — and already celebrated by the screen that made it. The poll must
+  /// not announce it a second time.
+  void claimMatch(String matchId) {
+    _knownMatchIds.add(matchId);
+  }
+
   /// Hides [personId] until this visit ends (the server is told too).
   void pass(String personId) {
     _unhidden.remove(personId);

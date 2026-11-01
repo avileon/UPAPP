@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../screens/blocked_screen.dart';
+import '../screens/card_accept_screen.dart';
 import '../screens/chat_screen.dart';
 import '../screens/intro_screen.dart';
 import '../screens/main_shell.dart';
 import '../screens/match_screen.dart';
+import '../screens/my_card_screen.dart';
 import '../screens/otp_screen.dart';
 import '../screens/people_viewer_screen.dart';
 import '../screens/permissions_screen.dart';
@@ -39,6 +41,8 @@ abstract final class Routes {
   static const String scan = '/scan';
   static const String venueJoin = '/venue-join';
   static const String blocked = '/blocked';
+  static const String myCard = '/my-card';
+  static const String cardAccept = '/card';
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     Widget page;
@@ -72,6 +76,10 @@ abstract final class Routes {
         page = VenueJoinScreen(code: settings.arguments! as String);
       case blocked:
         page = const BlockedScreen();
+      case myCard:
+        page = const MyCardScreen();
+      case cardAccept:
+        page = CardAcceptScreen(token: settings.arguments! as String);
       case match:
         page = MatchScreen(personId: settings.arguments! as String);
       case chat:

@@ -14,6 +14,8 @@ import {
   TemplateSealer,
 } from './domain/face.js';
 import { normaliseVenue, PresenceStore } from './domain/presence.js';
+import { CardStore } from './domain/cards.js';
+import { cardGonePage, cardPage } from './site/card_page.js';
 import {
   ChallengeStore,
   findPose,
@@ -168,6 +170,11 @@ export function createApp({
         (database === ':memory:' ? '' : join(dirname(database), '.face-key')),
     });
   const liveChallenges = new LiveChallengeStore();
+  const cards = new CardStore(db);
+  // Per giver: a card per tap is fine, a script minting thousands is not.
+  const cardIssue = new RateLimiter({ limit: 120, windowMs: 3600_000 });
+  // Per address, for the public card page and its photo.
+  const cardViews = new RateLimiter({ limit: 120, windowMs: 3600_000 });
 
   const faceUnavailable = () => new HttpError(503, 'face_service_unavailable');
 
@@ -742,6 +749,154 @@ export function createApp({
     }
     store.removeLike(user.id, params.userId);
     return { status: 200, body: { removed: true } };
+  });
+
+  // -- business cards ------------------------------------------------------
+
+  /** The giver's main photo, if other people are allowed to see it. */
+  const cardPhotoKey = (userId) => {
+    const profile = store.findProfile(userId);
+    const key = profile?.photo_primary;
+    if (!key) return null;
+    return visiblePhotos(store, userId, profile).includes(key) ? key : null;
+  };
+
+  const cardOwner = (card) => {
+    const owner = store.findUser(card.user_id);
+    if (!owner || owner.status !== 'active') return null;
+    return owner;
+  };
+
+  const viewAllowed = (req) => {
+    if (!cardViews.take(clientIp(req))) throw tooManyRequests('card_rate_limited');
+  };
+
+  /**
+   * A fresh card to hand over: by NFC, or as a QR on the screen. Every tap
+   * gets its own token, so each one answers one person.
+   */
+  router.post('/me/card', async (req) => {
+    const user = requireUser(req);
+    const body = await readJsonBody(req).catch(() => ({}));
+    if (!cardIssue.take(user.id)) throw tooManyRequests('card_rate_limited');
+    const profile = store.findProfile(user.id);
+    if (!profile?.first_name) throw forbidden('profile_incomplete');
+    const kind = body?.kind === 'physical' || body?.kind === 'wallet' ? body.kind : 'share';
+    const issued = cards.issue(user.id, kind);
+    return {
+      status: 200,
+      body: {
+        token: issued.token,
+        kind: issued.kind,
+        url: `${config.publicUrl}/c/${issued.token}`,
+        expiresAt: issued.expiresAt,
+      },
+    };
+  });
+
+  /** Lost the sticker, regret the Wallet pass: everything handed out stops. */
+  router.delete('/me/cards', async (req) => {
+    const user = requireUser(req);
+    return { status: 200, body: { revoked: cards.revokeAll(user.id) } };
+  });
+
+  /** What the card shows, for the app's own "someone gave you a card" screen. */
+  router.get('/cards/:token', async (req, params) => {
+    viewAllowed(req);
+    const { card, problem } = cards.resolve(params.token);
+    if (problem) throw new HttpError(410, problem);
+    const owner = cardOwner(card);
+    if (!owner) throw new HttpError(410, 'card_unknown');
+    return {
+      status: 200,
+      body: {
+        firstName: store.findProfile(owner.id)?.first_name ?? '',
+        photo: cardPhotoKey(owner.id) !== null,
+        verified: store.isSelfieVerified(owner.id),
+        kind: card.kind,
+      },
+    };
+  });
+
+  /**
+   * Her answer. The card was his UP; this is hers — so this is a match, not a
+   * one-way like, and the chat opens for both.
+   */
+  router.post('/cards/:token/up', async (req, params) => {
+    const user = requireUser(req);
+    const { card, problem } = cards.resolve(params.token, { forUser: user.id });
+    if (problem) throw new HttpError(410, problem);
+    const owner = cardOwner(card);
+    if (!owner) throw new HttpError(410, 'card_unknown');
+    if (owner.id === user.id) throw badRequest('cannot_like_self');
+    if (!isOfAge(user.birth_date)) throw forbidden('profile_incomplete');
+    if (config.live.requireVerification && !store.isSelfieVerified(user.id)) {
+      throw forbidden('verification_required');
+    }
+    if (store.isBlockedEitherWay(user.id, owner.id)) throw forbidden('blocked');
+    if (store.countRecentLikes(user.id, hoursAgo(1)) >= config.likes.maxPerHour) {
+      throw tooManyRequests('like_rate_limited');
+    }
+    if (!cards.claim(card, user.id)) throw new HttpError(410, 'card_used');
+
+    store.sendLike(owner.id, user.id);
+    const result = store.sendLike(user.id, owner.id);
+    const match = result.match;
+    if (match) {
+      notifyMatch(store, {
+        recipientId: owner.id,
+        otherName: store.findProfile(user.id)?.first_name ?? '',
+        matchId: match.id,
+      });
+    }
+    return {
+      status: 200,
+      body: {
+        match: match
+          ? { id: match.id, personId: owner.id, matchedAt: match.matched_at }
+          : null,
+        person: publicProfile(store, owner, store.findProfile(owner.id)),
+      },
+    };
+  });
+
+  /** The card page itself. Public: the person reading it has no account yet. */
+  router.get('/c/:token', async (req, params) => {
+    viewAllowed(req);
+    const { card, problem } = cards.resolve(params.token);
+    const owner = card ? cardOwner(card) : null;
+    const html = owner
+      ? cardPage({
+          token: params.token,
+          firstName: store.findProfile(owner.id)?.first_name ?? '',
+          hasPhoto: cardPhotoKey(owner.id) !== null,
+          verified: store.isSelfieVerified(owner.id),
+        })
+      : cardGonePage(problem ?? 'card_unknown');
+    return {
+      page: {
+        status: owner ? 200 : 410,
+        body: html,
+        type: 'text/html; charset=utf-8',
+        cache: 'no-store',
+        private: true,
+      },
+    };
+  });
+
+  /**
+   * The one photo a card shows, to anyone holding a live card. Only the main
+   * photo, only while the card works: when it expires, so does the picture.
+   */
+  router.get('/c/:token/photo', async (req, params) => {
+    viewAllowed(req);
+    const { card, problem } = cards.resolve(params.token);
+    if (problem) throw notFound('photo_not_found');
+    const owner = cardOwner(card);
+    const key = owner ? cardPhotoKey(owner.id) : null;
+    const file = key ? media.open(key) : null;
+    if (!file) throw notFound('photo_not_found');
+    return { binary: { status: 200, ...file, cacheControl: 'private, no-store' } };
   });
 
   const matchFor = (user, matchId) => {
@@ -1435,7 +1590,7 @@ export function createApp({
   router.get('/', async (_req, _params, url) => {
     // Stickers already on walls point at /?venue=CODE, and notifications at
     // /?chat=ID. Those are the app, not the landing page.
-    if (url.searchParams.has('venue') || url.searchParams.has('chat')) {
+    if (url.searchParams.has('venue') || url.searchParams.has('chat') || url.searchParams.has('card')) {
       const app = appIndex();
       if (app) return app;
     }
@@ -1643,6 +1798,7 @@ export function createApp({
       });
     }
     liveChallenges.sweep();
+    cards.sweep();
   };
 
   return { handle, store, live, media, web, db, router, remindVenueEndings };

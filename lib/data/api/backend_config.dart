@@ -22,12 +22,17 @@ class BackendConfig extends ChangeNotifier {
 
   String _baseUrl;
   String _venueCode;
+  String _cardToken = '';
   String? _accessToken;
   String? _refreshToken;
 
   /// Empty means "no server configured" — the app runs on mock data.
   String get baseUrl => _baseUrl;
   String get venueCode => _venueCode;
+
+  /// A business card someone handed over (`/app?card=TOKEN`), waiting for
+  /// this person to finish signing up and answer it.
+  String get cardToken => _cardToken;
   String? get accessToken => _accessToken;
   String? get refreshToken => _refreshToken;
 
@@ -36,6 +41,7 @@ class BackendConfig extends ChangeNotifier {
 
   static const String _keyBaseUrl = 'up.baseUrl';
   static const String _keyVenue = 'up.venueCode';
+  static const String _keyCard = 'up.cardToken';
   static const String _keyAccess = 'up.accessToken';
   static const String _keyRefresh = 'up.refreshToken';
 
@@ -88,6 +94,7 @@ class BackendConfig extends ChangeNotifier {
           await SharedPreferences.getInstance().timeout(_storeTimeout);
       _baseUrl = _normaliseBaseUrl(prefs.getString(_keyBaseUrl) ?? '');
       _venueCode = prefs.getString(_keyVenue) ?? '';
+      _cardToken = prefs.getString(_keyCard) ?? '';
       _accessToken = prefs.getString(_keyAccess);
       _refreshToken = prefs.getString(_keyRefresh);
     } catch (_) {
@@ -118,6 +125,10 @@ class BackendConfig extends ChangeNotifier {
     if (venue != null) {
       _venueCode = venue;
     }
+    final String? card = normaliseCardToken(url.queryParameters['card'] ?? '');
+    if (card != null) {
+      _cardToken = card;
+    }
     await _persist();
   }
 
@@ -145,6 +156,22 @@ class BackendConfig extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The same shape the server accepts: URL-safe base64, 8 to 32 characters.
+  static String? normaliseCardToken(String raw) {
+    final String token = raw.trim();
+    return RegExp(r'^[A-Za-z0-9_-]{8,32}$').hasMatch(token) ? token : null;
+  }
+
+  Future<void> setCardToken(String raw) async {
+    final String next = normaliseCardToken(raw) ?? '';
+    if (next == _cardToken) {
+      return;
+    }
+    _cardToken = next;
+    await _persist();
+    notifyListeners();
+  }
+
   Future<void> setTokens({String? accessToken, String? refreshToken}) async {
     _accessToken = accessToken;
     _refreshToken = refreshToken;
@@ -159,6 +186,7 @@ class BackendConfig extends ChangeNotifier {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString(_keyBaseUrl, _baseUrl);
       await prefs.setString(_keyVenue, _venueCode);
+      await prefs.setString(_keyCard, _cardToken);
       await _write(prefs, _keyAccess, _accessToken);
       await _write(prefs, _keyRefresh, _refreshToken);
     } catch (_) {

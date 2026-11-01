@@ -8,6 +8,7 @@ import '../data/api/api_interaction_repository.dart';
 import '../data/api/api_presence_repository.dart';
 import '../data/api/api_profile_repository.dart';
 import '../data/api/backend_config.dart';
+import '../data/api/card_api.dart';
 import '../data/api/venue_api.dart';
 import '../data/location/location_service.dart';
 import '../data/mock/mock_auth_repository.dart';
@@ -48,6 +49,7 @@ class AppScope extends InheritedWidget {
     this.verification,
     this.blocks,
     this.venues,
+    this.cards,
     this.location = const LocationService(),
     super.key,
   });
@@ -57,6 +59,9 @@ class AppScope extends InheritedWidget {
 
   /// Null on the mock stack: no registered places to look up.
   final VenueApi? venues;
+
+  /// Null on the mock stack: there is nobody to hand a card to.
+  final CardApi? cards;
 
   final LocationService location;
 
@@ -102,6 +107,7 @@ class AppScope extends InheritedWidget {
       verification != oldWidget.verification ||
       blocks != oldWidget.blocks ||
       venues != oldWidget.venues ||
+      cards != oldWidget.cards ||
       booting != oldWidget.booting;
 }
 
@@ -115,6 +121,7 @@ extension AppScopeAccess on BuildContext {
   VerificationController? get verification => AppScope.of(this).verification;
   BlocksController? get blocks => AppScope.of(this).blocks;
   VenueApi? get venues => AppScope.of(this).venues;
+  CardApi? get cards => AppScope.of(this).cards;
   LocationService get location => AppScope.of(this).location;
   bool get booting => AppScope.of(this).booting;
   BackendConfig get backend => AppScope.of(this).config;
@@ -158,6 +165,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
   VerificationController? _verification;
   BlocksController? _blocks;
   VenueApi? _venues;
+  CardApi? _cards;
   final LocationService _location = const LocationService();
 
   bool _usingApi = false;
@@ -274,6 +282,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
     _verification = null;
     _blocks = null;
     _venues = null;
+    _cards = null;
     // No fetcher: every key resolves to nothing and the aura placeholder
     // stands in, which is exactly what the mock stack is for.
     _photoCache = PhotoCache();
@@ -319,6 +328,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
     _verification = VerificationController(client: client);
     _blocks = BlocksController(client: client);
     _venues = VenueApi(client: client);
+    _cards = CardApi(client: client, baseUrl: () => _config.baseUrl);
     _session = SessionController(
       auth: _auth,
       profiles: _profiles,
@@ -369,6 +379,7 @@ class _AppScopeHostState extends State<AppScopeHost> {
       verification: _verification,
       blocks: _blocks,
       venues: _venues,
+      cards: _cards,
       location: _location,
       booting: _booting,
       child: Builder(builder: widget.builder),

@@ -59,10 +59,27 @@ class MainShellState extends State<MainShell> {
     await navigator.pushNamed(Routes.venueJoin, arguments: code);
   }
 
+  /// A business card someone handed over (`/app?card=TOKEN`). Not cleared
+  /// here: the card screen clears it once it is settled, so a detour through
+  /// the face check — or closing the app — brings the person back to it.
+  Future<void> _openPendingCard() async {
+    if (!mounted) {
+      return;
+    }
+    final String token = context.backend.cardToken;
+    if (token.isEmpty) {
+      return;
+    }
+    await Navigator.of(context).pushNamed(Routes.cardAccept, arguments: token);
+  }
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _openPendingVenue());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _openPendingCard();
+      await _openPendingVenue();
+    });
     final String? requested = Uri.base.queryParameters['chat'];
     if (requested == null || requested.isEmpty) {
       return;
