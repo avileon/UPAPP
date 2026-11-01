@@ -6,7 +6,15 @@ import 'api_mappers.dart';
 /// A card this person can hand over right now.
 @immutable
 class CardShare {
-  const CardShare({required this.token, required this.url, this.expiresAt});
+  const CardShare({
+    required this.token,
+    required this.url,
+    this.expiresAt,
+    this.wallet = false,
+  });
+
+  /// The server can make a Google Wallet pass.
+  final bool wallet;
 
   final String token;
 
@@ -62,7 +70,15 @@ class CardApi {
       token: ApiMappers.string(json['token']),
       url: ApiMappers.string(json['url']),
       expiresAt: expires.isEmpty ? null : DateTime.tryParse(expires),
+      wallet: json['wallet'] == true,
     );
+  }
+
+  /// A "Save to Google Wallet" link for a long-lived card. Replaces the
+  /// previous Wallet pass's QR.
+  Future<String> walletSaveUrl() async {
+    final Map<String, dynamic> json = await _client.post('/me/card/wallet');
+    return ApiMappers.string(json['saveUrl']);
   }
 
   /// Every card ever handed out stops working.

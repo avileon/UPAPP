@@ -49,6 +49,7 @@ import {
 import { distanceM, insideVenue, readPosition } from './lib/geo.js';
 import { PhotoStore, readBinaryBody, sniffImage } from './lib/media.js';
 import { adminPage } from './lib/admin_page.js';
+import { WalletSigner } from './lib/wallet.js';
 import { Geocoder, RateLimiter, clientIp } from './lib/geocode.js';
 import { siteAsset, sitePages } from './site/pages.js';
 import { StaticSite } from './lib/static.js';
@@ -141,6 +142,7 @@ function privateProfile(store, user, profile) {
 }
 
 export function createApp({
+  wallet,
   database = ':memory:',
   presence,
   photos,
@@ -171,6 +173,13 @@ export function createApp({
     });
   const liveChallenges = new LiveChallengeStore();
   const cards = new CardStore(db);
+  const walletSigner =
+    wallet ??
+    new WalletSigner({
+      issuerId: config.wallet.issuerId,
+      serviceAccountFile: config.wallet.serviceAccountFile,
+      publicUrl: config.publicUrl,
+    });
   // Per giver: a card per tap is fine, a script minting thousands is not.
   const cardIssue = new RateLimiter({ limit: 120, windowMs: 3600_000 });
   // Per address, for the public card page and its photo.
@@ -790,8 +799,30 @@ export function createApp({
         kind: issued.kind,
         url: `${config.publicUrl}/c/${issued.token}`,
         expiresAt: issued.expiresAt,
+        wallet: walletSigner.available,
       },
     };
+  });
+
+  /**
+   * "Add to Google Wallet": a long-lived card, as a QR on a pass. One Wallet
+   * card per person — making a new one retires the previous pass's QR.
+   */
+  router.post('/me/card/wallet', async (req) => {
+    const user = requireUser(req);
+    if (!walletSigner.available) throw new HttpError(503, 'wallet_unavailable');
+    if (!cardIssue.take(user.id)) throw tooManyRequests('card_rate_limited');
+    const profile = store.findProfile(user.id);
+    if (!profile?.first_name) throw forbidden('profile_incomplete');
+    cards.revokeKind(user.id, 'wallet');
+    const issued = cards.issue(user.id, 'wallet');
+    const cardUrl = `${config.publicUrl}/c/${issued.token}`;
+    const saveUrl = walletSigner.saveUrl({
+      objectSuffix: `card_${user.id}_${Date.now()}`,
+      firstName: profile.first_name,
+      cardUrl,
+    });
+    return { status: 200, body: { saveUrl, url: cardUrl } };
   });
 
   /** Lost the sticker, regret the Wallet pass: everything handed out stops. */

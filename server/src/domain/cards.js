@@ -94,6 +94,15 @@ export class CardStore {
     return Number(result.changes);
   }
 
+  /** Retires one kind of card, e.g. the previous Wallet pass. */
+  revokeKind(userId, kind) {
+    this.db
+      .prepare(
+        `UPDATE cards SET revoked_at = ? WHERE user_id = ? AND kind = ? AND revoked_at IS NULL`,
+      )
+      .run(nowIso(), userId, kind);
+  }
+
   /** Expired share cards are dead weight; nothing ever reads them again. */
   sweep() {
     this.db

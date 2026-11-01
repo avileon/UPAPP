@@ -134,3 +134,44 @@ test('business cards', async (t) => {
     assert.equal(res.status, 200);
   });
 });
+
+test('google wallet', async (t) => {
+  const { generateKeyPairSync, createVerify } = await import('node:crypto');
+  const { WalletSigner } = await import('../src/lib/wallet.js');
+  const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const signer = new WalletSigner({
+    issuerId: '3388000000012345678',
+    serviceAccount: {
+      client_email: 'up-wallet@test.iam.gserviceaccount.com',
+      private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }),
+    },
+    publicUrl: 'https://up.atar.co',
+  });
+
+  await t.test('the save link is a JWT Google can verify, holding the card QR', () => {
+    const link = signer.saveUrl({ objectSuffix: 'card_u1_1', firstName: 'אבי', cardUrl: 'https://up.atar.co/c/abcdefghijkl' });
+    assert.match(link, /^https:\/\/pay\.google\.com\/gp\/v\/save\//);
+    const jwt = link.split('/').pop();
+    const [h, c, sig] = jwt.split('.');
+    assert.ok(createVerify('RSA-SHA256').update(`${h}.${c}`).verify(publicKey, sig, 'base64url'));
+    const claims = JSON.parse(Buffer.from(c, 'base64url').toString());
+    assert.equal(claims.typ, 'savetowallet');
+    assert.equal(claims.aud, 'google');
+    const obj = claims.payload.genericObjects[0];
+    assert.equal(obj.barcode.type, 'QR_CODE');
+    assert.equal(obj.barcode.value, 'https://up.atar.co/c/abcdefghijkl');
+    assert.equal(obj.header.defaultValue.value, 'אבי');
+    assert.ok(obj.id.startsWith('3388000000012345678.'));
+  });
+
+  await t.test('not configured: no button, and the route says so', async () => {
+    const s = await startTestServer();
+    t.after(() => s.close());
+    const u = await s.signUp('+972589999001', { firstName: 'X' });
+    const card = await s.call('POST', '/me/card', { token: u.token, body: {} });
+    assert.equal(card.body.wallet, false);
+    const res = await s.call('POST', '/me/card/wallet', { token: u.token, body: {} });
+    assert.equal(res.status, 503);
+    assert.equal(res.body.error, 'wallet_unavailable');
+  });
+});

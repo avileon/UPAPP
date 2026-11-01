@@ -30,6 +30,12 @@ extension CardStrings on AppStrings {
         'Add a name and a photo to your profile first.',
       );
 
+  String get walletAdd => _t('הוספה ל-Google Wallet', 'Add to Google Wallet');
+  String get walletHint => _t(
+        'כרטיס קבוע עם QR, נפתח ממסך הנעילה. כרטיס Wallet חדש מבטל את הקודם.',
+        'A lasting card with a QR, opened from the lock screen. A new Wallet card replaces the old one.',
+      );
+
   // -- NFC -------------------------------------------------------------------
 
   String get nfcReady => _t('הצמידו גב אל גב', 'Hold the phones back to back');
@@ -75,6 +81,9 @@ extension CardStrings on AppStrings {
       case 'card_unknown':
         return _t('הכרטיס הזה לא קיים או שבוטל.',
             'This card does not exist or was cancelled.');
+      case 'wallet_unavailable':
+        return _t('Google Wallet עדיין לא מחובר בשרת.',
+            'Google Wallet is not set up on the server yet.');
       case 'card_rate_limited':
         return _t('יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.',
             'Too many tries. Try again in a few minutes.');

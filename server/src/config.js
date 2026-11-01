@@ -173,6 +173,18 @@ export const config = {
     subject: process.env.VAPID_SUBJECT ?? 'mailto:admin@up.atar.co',
   },
 
+  /**
+   * Google Wallet: "add my card to Wallet".
+   *
+   * Nothing is called at Google — the pass travels inside a JWT signed with
+   * the service account's key, in the save link itself. Both values empty =
+   * the button is not offered.
+   */
+  wallet: {
+    issuerId: process.env.WALLET_ISSUER_ID ?? '',
+    serviceAccountFile: process.env.WALLET_SA_FILE ?? '/var/lib/up/.wallet-sa.json',
+  },
+
   /** Where the web app is reached from outside — what a venue QR points at. */
   publicUrl: (process.env.PUBLIC_URL ?? 'https://up.atar.co').replace(/\/+$/, ''),
 

@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
@@ -122,6 +124,28 @@ class _MyCardScreenState extends State<MyCardScreen> {
     }
   }
 
+  /// Google Wallet does not exist on an iPhone, in the app or the browser.
+  bool get _walletPossible => defaultTargetPlatform != TargetPlatform.iOS;
+
+  Future<void> _addToWallet() async {
+    final CardApi? api = context.cards;
+    final AppStrings s = context.strings;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    if (api == null) {
+      return;
+    }
+    try {
+      final String link = await api.walletSaveUrl();
+      final Uri? uri = Uri.tryParse(link);
+      if (uri == null) {
+        return;
+      }
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } on ApiException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(errorText(s, error.code))));
+    }
+  }
+
   Future<void> _revoke() async {
     final CardApi? api = context.cards;
     final AppStrings s = context.strings;
@@ -218,6 +242,23 @@ class _MyCardScreenState extends State<MyCardScreen> {
                     }
                   },
           ),
+          if (card != null && card.wallet && _walletPossible) ...<Widget>[
+            const SizedBox(height: Insets.sm),
+            UpButton(
+              label: s.walletAdd,
+              style: UpButtonStyle.ghost,
+              icon: Icons.wallet_rounded,
+              onPressed: _addToWallet,
+            ),
+            const SizedBox(height: Insets.xs),
+            Text(
+              s.walletHint,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: p.muted),
+            ),
+          ],
           const SizedBox(height: Insets.xl),
           UpButton(
             label: s.myCardRevoke,

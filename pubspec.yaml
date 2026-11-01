@@ -27,6 +27,8 @@ environment:
 #   geolocator          — "am I really in this bar" and "who is around me".
 #                         Web and Android from one API.
 #   mobile_scanner      — scanning a venue's QR from inside the app.
+#   url_launcher        — opens the "Save to Google Wallet" link in the
+#                         Wallet app (Android) or a new tab (web).
 #   web                 — typed bindings for the browser APIs the SDK does not
 #                         wrap: service workers and the Push API. Maintained by
 #                         the Dart team, no transitive dependencies, and
@@ -49,6 +51,7 @@ dependencies:
   camera: ^0.11.0
   geolocator: ^14.0.0
   mobile_scanner: ^7.0.0
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:
