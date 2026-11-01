@@ -64,8 +64,10 @@ jobs:
       # One fat APK for any device, plus a per-architecture set. The arm64 one
       # is a third of the size and is what every phone from the last few years
       # actually needs.
-      - run: flutter build apk --release
-      - run: flutter build apk --release --split-per-abi
+      # The installed app has no page origin to learn its server from, so the
+      # address is baked in. The web build keeps adopting its own origin.
+      - run: flutter build apk --release --dart-define=UP_SERVER=https://up.atar.co
+      - run: flutter build apk --release --split-per-abi --dart-define=UP_SERVER=https://up.atar.co
 
       # The browser build. This is what makes the app shareable as a link —
       # no install, and it reaches iPhones, which the APK never will.

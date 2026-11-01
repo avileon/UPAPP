@@ -15,6 +15,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// here as a convenience: losing it costs one sign-in and one paste of the
 /// server address, never any data. When the app grows a real secure store, the
 /// access and refresh tokens move there first and this keeps only the address.
+/// The server a release build talks to out of the box. Empty unless the build
+/// passes `--dart-define=UP_SERVER=https://…`.
+const String _defaultServer = String.fromEnvironment('UP_SERVER');
+
 class BackendConfig extends ChangeNotifier {
   BackendConfig({String baseUrl = '', String venueCode = ''})
       : _baseUrl = _normaliseBaseUrl(baseUrl),
@@ -101,6 +105,13 @@ class BackendConfig extends ChangeNotifier {
       // A store that will not open is a first run, not an error.
     }
     await _applyUrl(url ?? Uri.base);
+    // The installed app has no page origin to adopt, so a release APK is built
+    // with its server baked in (`--dart-define=UP_SERVER=…`). Without it — tests,
+    // local debug runs — an empty address still means mock data.
+    if (_baseUrl.isEmpty && _defaultServer.isNotEmpty) {
+      _baseUrl = _normaliseBaseUrl(_defaultServer);
+      await _persist();
+    }
     notifyListeners();
   }
 
