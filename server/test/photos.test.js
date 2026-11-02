@@ -184,6 +184,7 @@ test('photos', async (t) => {
         'id',
         'note',
         'photoVerified',
+        'pendingVerification',
         'photos',
         'selfieVerified',
         'sentYouUp',

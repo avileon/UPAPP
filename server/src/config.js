@@ -83,6 +83,13 @@ export const config = {
      * A dating app where anyone can appear as anyone is the thing UP is not.
      */
     requireVerification: bool('REQUIRE_VERIFICATION', true),
+    /**
+     * A new account can use everything for this long before its verification
+     * has to be approved — so nobody waits on a human to start. Photos still
+     * waiting for review are shown in that window; rejected ones never are.
+     * Other people see a "pending verification" tag. 0 = no grace.
+     */
+    verificationGraceHours: int('VERIFICATION_GRACE_HOURS', 24),
   },
 
   /** Registered places: a QR on the wall plus the phone's location. */

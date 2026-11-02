@@ -738,6 +738,35 @@ class _Caption extends StatelessWidget {
             ],
           ],
         ),
+        if (person.isPendingVerification && !person.isSelfieVerified) ...<Widget>[
+          const SizedBox(height: Insets.xs),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Insets.sm,
+              vertical: 2,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0x66000000),
+              borderRadius: BorderRadius.circular(Radii.pill),
+              border: Border.all(color: Colors.white54),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Icon(Icons.hourglass_top_rounded, color: Colors.white70, size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  context.strings.pendingVerificationTag,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         if (person.note.isNotEmpty) ...<Widget>[
           const SizedBox(height: Insets.xs),
           Text(

@@ -21,6 +21,7 @@ class NearbyPerson {
     this.youSentUp = false,
     this.note = '',
     this.isSelfieVerified = false,
+    this.isPendingVerification = false,
   });
 
   final String id;
@@ -67,6 +68,10 @@ class NearbyPerson {
   /// after actually meeting them. Neither substitutes for the other, and a
   /// card can carry both.
   final bool isSelfieVerified;
+
+  /// A new account inside its first 24 hours, using the app before its
+  /// verification has been approved. Shown so nobody mistakes it for checked.
+  final bool isPendingVerification;
 
   String nameFor(String localeCode) =>
       localeCode == 'he' ? firstNameHe : firstNameEn;

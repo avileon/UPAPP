@@ -38,6 +38,7 @@ test('privacy and safety', async (t) => {
         'id',
         'note',
         'photoVerified',
+        'pendingVerification',
         'photos',
         'selfieVerified',
         'sentYouUp',

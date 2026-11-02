@@ -99,7 +99,34 @@ const str = (value, max) =>
 function visiblePhotos(store, userId, profile) {
   const photos = JSON.parse(profile?.photos ?? '[]');
   const checks = store.photoChecks(userId);
-  return photos.filter((key) => checks[key] === undefined || checks[key] === 'ok');
+  // New and not yet approved: what is waiting for a look is shown meanwhile.
+  // A photo the face check rejected stays hidden, grace or not.
+  const grace = graceEndsAt(store, store.findUser(userId)) !== null;
+  return photos.filter(
+    (key) =>
+      checks[key] === undefined ||
+      checks[key] === 'ok' ||
+      (grace && checks[key] !== 'rejected'),
+  );
+}
+
+/**
+ * When a new, not-yet-approved account's grace window closes (ms), or null
+ * when there is none: already approved, too old, or grace switched off.
+ */
+function graceEndsAt(store, user, now = Date.now()) {
+  const hours = config.live.verificationGraceHours;
+  if (!user || !(hours > 0) || store.isSelfieVerified(user.id)) return null;
+  const created = Date.parse(user.created_at);
+  if (Number.isNaN(created)) return null;
+  const ends = created + hours * 3600_000;
+  return ends > now ? ends : null;
+}
+
+/** Verified, or still inside the new-account grace window. */
+function mayUseLive(store, user) {
+  if (!config.live.requireVerification) return true;
+  return store.isSelfieVerified(user.id) || graceEndsAt(store, user) !== null;
 }
 
 function publicProfile(store, user, profile) {
@@ -123,6 +150,8 @@ function publicProfile(store, user, profile) {
     // having looked at a selfie in a pose this person could not have known in
     // advance. Neither substitutes for the other.
     selfieVerified: store.isSelfieVerified(user.id),
+    // New account inside its grace window: using the app, not yet checked.
+    pendingVerification: graceEndsAt(store, user) !== null,
     // 'live' (automatic face check) or 'manual' (a human looked), or null.
     verifiedBy: store.verificationMethod(user.id),
   };
@@ -139,6 +168,10 @@ function privateProfile(store, user, profile) {
     interestedIn: user.interested_in,
     birthDate: user.birth_date,
     termsAcceptedAt: user.terms_accepted_at,
+    verificationGraceEndsAt: (() => {
+      const ends = graceEndsAt(store, user);
+      return ends === null ? null : new Date(ends).toISOString();
+    })(),
   };
 }
 
@@ -499,7 +532,7 @@ export function createApp({
   router.post('/live/start', async (req) => {
     const user = requireUser(req);
     if (!isOfAge(user.birth_date)) throw forbidden('profile_incomplete');
-    if (config.live.requireVerification && !store.isSelfieVerified(user.id)) {
+    if (!mayUseLive(store, user)) {
       throw forbidden('verification_required');
     }
     const body = await readJsonBody(req);
@@ -904,7 +937,7 @@ export function createApp({
     if (!owner) throw new HttpError(410, 'card_unknown');
     if (owner.id === user.id) throw badRequest('cannot_like_self');
     if (!isOfAge(user.birth_date)) throw forbidden('profile_incomplete');
-    if (config.live.requireVerification && !store.isSelfieVerified(user.id)) {
+    if (!mayUseLive(store, user)) {
       throw forbidden('verification_required');
     }
     if (store.isBlockedEitherWay(user.id, owner.id)) throw forbidden('blocked');
@@ -1294,6 +1327,11 @@ export function createApp({
         reason: approved ? null : (latest?.reason ?? null),
         method: store.verificationMethod(user.id),
         consent: Boolean(user.biometric_consent_at),
+        // Until when the app works without approval; null = no grace left.
+        graceEndsAt: (() => {
+          const ends = graceEndsAt(store, user);
+          return ends === null ? null : new Date(ends).toISOString();
+        })(),
         hasTemplate: Boolean(store.findFaceTemplate(user.id)),
         poses: POSES.map((pose) => pose.key),
       },

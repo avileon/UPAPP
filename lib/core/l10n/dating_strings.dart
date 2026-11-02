@@ -215,6 +215,15 @@ extension DatingStrings on AppStrings {
       );
   String get deleteFace => _t('מחיקת נתוני הפנים', 'Delete face data');
   String get deleteFaceDone => _t('נתוני הפנים נמחקו', 'Face data deleted');
+  String get pendingVerificationTag => _t('ממתין לאימות', 'Pending verification');
+  String graceBanner(int hours) => _t(
+        hours <= 1
+            ? 'חשבון חדש: אפשר להשתמש בהכל עוד פחות משעה, עד שהאימות שלך יאושר.'
+            : 'חשבון חדש: אפשר להשתמש בהכל עוד $hours שעות, עד שהאימות שלך יאושר.',
+        hours <= 1
+            ? 'New account: you can use everything for less than an hour more, until your verification is approved.'
+            : 'New account: you can use everything for $hours more hours, until your verification is approved.',
+      );
   String get verifyToGoLive => _t('אימות פנים', 'Verify face');
 
   String faceReason(String? reason) {

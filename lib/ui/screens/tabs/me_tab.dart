@@ -9,6 +9,7 @@ import '../../../core/theme/tokens.dart';
 import '../../../domain/entities/user_profile.dart';
 import '../../../state/app_scope.dart';
 import '../../../state/session_controller.dart';
+import '../../../state/verification_controller.dart';
 import '../../components/up_photo.dart';
 import '../../components/common.dart';
 import '../../components/up_buttons.dart';
@@ -92,6 +93,7 @@ class MeTab extends StatelessWidget {
                 profile.bio.isEmpty ? s.bioHint : profile.bio,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
+              const _GraceBanner(),
               const SizedBox(height: Insets.xl),
               UpButton(
                 label: s.myCard,
@@ -121,6 +123,73 @@ class MeTab extends StatelessWidget {
               ),
               const SizedBox(height: Insets.xl),
             ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// "New account: you can use everything for N more hours" — until the
+/// verification is approved. Nothing when approved or when there is no grace.
+class _GraceBanner extends StatefulWidget {
+  const _GraceBanner();
+
+  @override
+  State<_GraceBanner> createState() => _GraceBannerState();
+}
+
+class _GraceBannerState extends State<_GraceBanner> {
+  bool _asked = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_asked) {
+      _asked = true;
+      context.verification?.refresh();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final VerificationController? verification = context.verification;
+    if (verification == null) {
+      return const SizedBox.shrink();
+    }
+    return ListenableBuilder(
+      listenable: verification,
+      builder: (BuildContext context, Widget? _) {
+        final DateTime? ends = verification.graceEndsAt;
+        if (ends == null || verification.status == VerificationStatus.approved) {
+          return const SizedBox.shrink();
+        }
+        final Duration left = ends.difference(DateTime.now());
+        if (left.isNegative) {
+          return const SizedBox.shrink();
+        }
+        final UpPalette p = context.palette;
+        return Padding(
+          padding: const EdgeInsets.only(top: Insets.lg),
+          child: UpCard(
+            borderColor: p.amber,
+            onTap: () => Navigator.of(context).pushNamed(Routes.verify),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Insets.lg,
+              vertical: Insets.md,
+            ),
+            child: Row(
+              children: <Widget>[
+                Icon(Icons.hourglass_top_rounded, color: p.amber),
+                const SizedBox(width: Insets.md),
+                Expanded(
+                  child: Text(
+                    context.strings.graceBanner(left.inHours + 1),
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

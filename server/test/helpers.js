@@ -110,6 +110,14 @@ export async function startTestServer({ faces = new FakeFaces() } = {}) {
     if (overrides.verified !== false && profile.body.id) {
       app.store.recordLiveVerification(profile.body.id, { status: 'approved' });
     }
+    // An unverified test account is, by default, past its new-account grace
+    // window — that is what the verification tests are about. `fresh: true`
+    // keeps it inside the window.
+    if (overrides.verified === false && !overrides.fresh && profile.body.id) {
+      app.store.db
+        .prepare(`UPDATE users SET created_at = ? WHERE id = ?`)
+        .run(new Date(Date.now() - 72 * 3600_000).toISOString(), profile.body.id);
+    }
     return { token, id: profile.body.id, refreshToken: verified.body.refreshToken };
   };
 

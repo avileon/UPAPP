@@ -87,9 +87,16 @@ class VerificationController extends ChangeNotifier {
   List<String>? _liveSteps;
   String? _liveChallengeId;
 
+  /// Until when a new, not-yet-approved account can use everything. Null
+  /// when approved, or when the grace window is over.
+  DateTime? get graceEndsAt => _graceEndsAt;
+  DateTime? _graceEndsAt;
+
   Future<void> refresh() async {
     try {
       final Map<String, dynamic> result = await _client.get('/me/verification');
+      final Object? grace = result['graceEndsAt'];
+      _graceEndsAt = grace is String ? DateTime.tryParse(grace)?.toLocal() : null;
       _status = _parse(result['status']);
       _method = result['method'] is String ? result['method'] as String : null;
       _consent = result['consent'] == true;
