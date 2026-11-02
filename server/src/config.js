@@ -208,6 +208,15 @@ export const config = {
   minimumAge: 18,
   maxPhotos: 4,
   maxMessageLength: 1000,
+
+  /**
+   * A chat is a bridge to meeting, not a place to stay. Two minutes from the
+   * first message, then the app tells both sides to go and say hello. The
+   * grace covers a message typed in the last second and a phone a few seconds
+   * behind the server's clock.
+   */
+  chatWindowSeconds: Number(process.env.CHAT_WINDOW_SECONDS ?? 120),
+  chatGraceSeconds: 5,
 };
 
 /** Refuses to run a production server with development shortcuts enabled. */

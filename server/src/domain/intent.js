@@ -39,12 +39,13 @@ export function intentsMeet(a, b) {
 /**
  * Whether "who are you interested in" should gate discovery at all.
  *
- * Only for dating. Filtering a professional meetup or a five-a-side game by
- * gender preference is not a privacy feature, it is a bug that makes half the
- * room invisible for no reason anybody could explain.
+ * Always, since November 2026. With only "date" and "meet people" left, UP is
+ * a dating app, and someone who said "show me women" expects to see women in
+ * either mode — a room full of men under "meet people" read as the filter
+ * being broken. Both sides still have to admit each other.
  */
-export function preferencesGateDiscovery(intent) {
-  return normaliseIntent(intent) === 'date';
+export function preferencesGateDiscovery(_intent) {
+  return true;
 }
 
 /**

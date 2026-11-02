@@ -1062,6 +1062,15 @@ export function createApp({
     const body = await readJsonBody(req);
     const text = str(body.body, config.maxMessageLength);
     if (!text) throw badRequest('empty_message');
+    // Two minutes from the first message, then go and meet. The app shows the
+    // countdown; this is what makes it true for a client that ignores it.
+    const first = store.listMessages(match.id)[0];
+    if (first) {
+      const endsAt =
+        Date.parse(first.created_at) +
+        (config.chatWindowSeconds + config.chatGraceSeconds) * 1000;
+      if (Date.now() > endsAt) throw forbidden('chat_time_up');
+    }
     const message = store.addMessage(match.id, user.id, text);
 
     // Not awaited, deliberately: the message is saved, the app polls, and a

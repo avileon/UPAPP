@@ -32,6 +32,23 @@ extension DatingStrings on AppStrings {
   String get nobodyHereYet => _t('עוד אין אף אחד. נשארים — אנשים מגיעים.',
       'Nobody yet. Stay — people arrive.');
 
+  String get youAreAtPrefix => _t('אתם ב-', 'You are at ');
+  String hereCount(int count) => _t(' · $count כאן', ' · $count here');
+
+  // -- the two-minute chat ---------------------------------------------------
+
+  String chatTimeLeft(String clock) =>
+      _t('נשארו $clock לצ\'אט', '$clock left to chat');
+  String get chatTimerIdle => _t(
+        'לצ\'אט יש 2 דקות מההודעה הראשונה — ואז נפגשים',
+        'The chat lasts 2 minutes from the first message — then you meet',
+      );
+  String get chatTimeUpTitle => _t('בואו להיפגש!', 'Go and meet!');
+  String get chatTimeUpBody => _t(
+        'שתי הדקות עברו. אתם באותו מקום — לכו להגיד שלום.',
+        'Your two minutes are up. You are in the same place — go say hi.',
+      );
+
   // -- leaving ---------------------------------------------------------------
 
   String get exitTitle => _t('לצאת מ-UP?', 'Leave UP?');
@@ -254,6 +271,8 @@ extension DatingStrings on AppStrings {
   /// Null for a code this file does not know.
   String? datingError(String? code) {
     switch (code) {
+      case 'chat_time_up':
+        return chatTimeUpBody;
       case 'too_far':
         return _t('נראה שאתם לא במקום. היכנסו פנימה ונסו שוב.',
             'You do not seem to be there. Step inside and try again.');

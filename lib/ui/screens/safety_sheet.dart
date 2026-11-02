@@ -7,16 +7,16 @@ import '../../core/theme/tokens.dart';
 import '../../domain/entities/match_thread.dart';
 import '../../domain/entities/nearby_person.dart';
 import '../../state/app_scope.dart';
-import '../../state/people_directory.dart';
 import '../../state/interaction_controller.dart';
 import '../components/common.dart';
 import '../components/up_buttons.dart';
 
-/// Block, report and unmatch, reachable in two taps from a profile or a chat.
+/// Hide for now, report and unmatch, reachable in two taps from a profile or a
+/// chat.
 ///
-/// Report and block are separate actions on purpose: a report should be cheap
-/// enough that people actually file one, and blocking someone you reported is
-/// a choice, not an automatic side effect.
+/// No permanent block since November 2026: hiding someone for this visit is
+/// the only way to take them off your screen. Report stays separate so it is
+/// cheap enough that people actually file one.
 class SafetySheet extends StatelessWidget {
   const SafetySheet({
     required this.personId,
@@ -26,8 +26,7 @@ class SafetySheet extends StatelessWidget {
 
   final String personId;
 
-  /// Whether blocking also closes the screen underneath. The people viewer
-  /// says no: the blocked person drops out and the next one is already there.
+  /// Kept for callers; hiding never closes the screen underneath.
   final bool closeScreen;
 
   static Future<void> show(
@@ -75,7 +74,7 @@ class SafetySheet extends StatelessWidget {
               ),
               const SizedBox(height: Insets.sm),
             ],
-            if (context.live.isLive && match == null) ...<Widget>[
+            if (match == null) ...<Widget>[
               UpButton(
                 label: s.hideForVisit,
                 icon: Icons.visibility_off_rounded,
@@ -95,21 +94,6 @@ class SafetySheet extends StatelessWidget {
               label: s.report,
               style: UpButtonStyle.ghost,
               onPressed: () => _report(context, s.reportSent),
-            ),
-            const SizedBox(height: Insets.sm),
-            UpButton(
-              label: s.block,
-              icon: Icons.block_rounded,
-              style: UpButtonStyle.danger,
-              onPressed: () => _block(context, s.blockedDone(name)),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: Insets.xs),
-              child: Text(
-                s.blockHint,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
             ),
             const SizedBox(height: Insets.sm),
             UpButton(
@@ -144,21 +128,6 @@ class SafetySheet extends StatelessWidget {
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     await context.interactions.report(personId);
     navigator.pop();
-    messenger.showSnackBar(SnackBar(content: Text(confirmation)));
-  }
-
-  Future<void> _block(BuildContext context, String confirmation) async {
-    final NavigatorState navigator = Navigator.of(context);
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-    final PeopleDirectory people = context.people;
-    await context.interactions.block(personId);
-    // Nothing about someone the user has blocked should survive in the app's
-    // memory either.
-    people.forget(personId);
-    navigator.pop();
-    if (closeScreen && navigator.canPop()) {
-      navigator.pop();
-    }
     messenger.showSnackBar(SnackBar(content: Text(confirmation)));
   }
 }

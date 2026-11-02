@@ -34,28 +34,32 @@ test('intent shapes who you meet', async (t) => {
     });
   };
 
-  await t.test('two men in a room see each other when they came to meet people',
-    async () => {
-      // The exact case that made the app look broken: same room, same moment,
-      // and an empty list because both had said they were interested in women.
-      const a = await s.signUp('+972540000001', {
-        firstName: 'Avi',
-        gender: 'male',
-        interestedIn: 'women',
-      });
-      const b = await s.signUp('+972540000002', {
-        firstName: 'Dan',
-        gender: 'male',
-        interestedIn: 'women',
-      });
-
-      await live(a, { venue: 'MEET01', intent: 'meet' });
-      await live(b, { venue: 'MEET01', intent: 'meet' });
-
-      const seen = await s.nearby(a);
-      assert.equal(seen.body.people.length, 1);
-      assert.equal(seen.body.people[0].firstName, 'Dan');
+  await t.test('"show me women" holds when meeting people too', async () => {
+    // Since November 2026 the preference gates both intents: UP is a dating
+    // app, and a man who asked to see women should not get a room of men.
+    const a = await s.signUp('+972540000001', {
+      firstName: 'Avi',
+      gender: 'male',
+      interestedIn: 'women',
     });
+    const b = await s.signUp('+972540000002', {
+      firstName: 'Dan',
+      gender: 'male',
+      interestedIn: 'women',
+    });
+    const c = await s.signUp('+972540000099', {
+      firstName: 'Noa',
+      gender: 'female',
+      interestedIn: 'men',
+    });
+
+    await live(a, { venue: 'MEET01', intent: 'meet' });
+    await live(b, { venue: 'MEET01', intent: 'meet' });
+    await live(c, { venue: 'MEET01', intent: 'meet' });
+
+    const seen = await s.nearby(a);
+    assert.deepEqual(seen.body.people.map((p) => p.firstName), ['Noa']);
+  });
 
   await t.test('the same two, both there to date, do not', async () => {
     const a = await s.signUp('+972540000003', {
@@ -172,10 +176,10 @@ test('intent shapes who you meet', async (t) => {
 });
 
 test('intent is a small closed set with sane defaults', async (t) => {
-  await t.test('two of them — meet and date — and dating is the one that filters', () => {
+  await t.test('two of them — meet and date — and both honour the preference', () => {
     assert.deepEqual(INTENTS, ['meet', 'date']);
     assert.equal(preferencesGateDiscovery('date'), true);
-    assert.equal(preferencesGateDiscovery('meet'), false);
+    assert.equal(preferencesGateDiscovery('meet'), true);
     // Retired intents from older phones land in "meet", not in an error.
     assert.equal(normaliseIntent('work'), 'meet');
     assert.equal(normaliseIntent('doing'), 'meet');

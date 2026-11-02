@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/l10n/dating_strings.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/entities/match_thread.dart';
@@ -44,6 +47,24 @@ class _ChatScreenState extends State<ChatScreen> {
 
   InteractionController? _interactions;
 
+  /// A chat in UP is two minutes long, counted from the first message. The
+  /// server enforces it; this only keeps the countdown on screen moving.
+  static const Duration chatWindow = Duration(minutes: 2);
+  Timer? _ticker;
+
+  /// The server said the time is up even if this phone's clock disagrees.
+  bool _serverSaysTimeUp = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -85,6 +106,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _ticker?.cancel();
     _interactions?.closeThread(widget.matchId);
     _input.dispose();
     _scroll.dispose();
@@ -97,7 +119,17 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
     _input.clear();
-    await context.interactions.sendMessage(widget.matchId, text);
+    final InteractionController interactions = context.interactions;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final AppStrings s = context.strings;
+    await interactions.sendMessage(widget.matchId, text);
+    if (interactions.lastErrorCode == 'chat_time_up') {
+      messenger.showSnackBar(SnackBar(content: Text(s.chatTimeUpBody)));
+      if (mounted) {
+        setState(() => _serverSaysTimeUp = true);
+      }
+      return;
+    }
     _scrollToEnd(force: true);
   }
 
@@ -169,6 +201,14 @@ class _ChatScreenState extends State<ChatScreen> {
         final NearbyPerson? person = context.people.byId(match.personId);
         _maybeOfferRealityCheck(match);
 
+        final DateTime? firstAt =
+            match.messages.isEmpty ? null : match.messages.first.sentAt;
+        final Duration? left = firstAt == null
+            ? null
+            : firstAt.add(chatWindow).difference(DateTime.now());
+        final bool timeUp = (left != null && left <= Duration.zero) ||
+            _serverSaysTimeUp;
+
         final String? newest = match.lastMessage?.id;
         if (newest != null && newest != _scrolledTo) {
           final bool mine = match.lastMessage!.isMine;
@@ -198,6 +238,10 @@ class _ChatScreenState extends State<ChatScreen> {
                         onPressed: () =>
                             SafetySheet.show(context, person.id),
                       ),
+              ),
+              _ChatClock(
+                left: timeUp ? Duration.zero : left,
+                window: chatWindow,
               ),
               Expanded(
                 child: match.messages.isEmpty
@@ -234,12 +278,15 @@ class _ChatScreenState extends State<ChatScreen> {
                         },
                       ),
               ),
-              _Composer(
-                controller: _input,
-                hint: s.messageHint,
-                onSend: _send,
-                borderColor: p.line,
-              ),
+              if (timeUp)
+                const _MeetNow()
+              else
+                _Composer(
+                  controller: _input,
+                  hint: s.messageHint,
+                  onSend: _send,
+                  borderColor: p.line,
+                ),
               const SizedBox(height: Insets.sm),
             ],
           ),
@@ -472,6 +519,128 @@ class _Openers extends StatelessWidget {
                   ),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/// The two-minute countdown under the top bar.
+class _ChatClock extends StatelessWidget {
+  const _ChatClock({required this.left, required this.window});
+
+  /// Null before the first message; zero once the time is up.
+  final Duration? left;
+  final Duration window;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final UpPalette p = context.palette;
+    final Duration? remaining = left;
+    if (remaining == null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: Insets.sm),
+        child: Text(
+          s.chatTimerIdle,
+          textAlign: TextAlign.center,
+          style: Theme.of(context)
+              .textTheme
+              .labelMedium
+              ?.copyWith(color: p.muted),
+        ),
+      );
+    }
+    if (remaining <= Duration.zero) {
+      return const SizedBox.shrink();
+    }
+    final int secs = remaining.inSeconds + 1;
+    final String clock =
+        '${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}';
+    final bool urgent = secs <= 30;
+    final Color colour = urgent ? p.amber : p.cyan;
+    return Padding(
+      padding: const EdgeInsets.only(top: Insets.sm),
+      child: Column(
+        children: <Widget>[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(Icons.timer_outlined, size: 16, color: colour),
+              const SizedBox(width: Insets.xs),
+              Text(
+                s.chatTimeLeft(clock),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colour,
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: const <FontFeature>[
+                        FontFeature.tabularFigures(),
+                      ],
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Insets.xs),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(Radii.pill),
+            child: LinearProgressIndicator(
+              value: (remaining.inMilliseconds / window.inMilliseconds)
+                  .clamp(0.0, 1.0),
+              minHeight: 3,
+              color: colour,
+              backgroundColor: p.line,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Where the composer was, once the two minutes are over.
+class _MeetNow extends StatelessWidget {
+  const _MeetNow();
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final UpPalette p = context.palette;
+    return Padding(
+      padding: const EdgeInsets.only(top: Insets.md),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Insets.lg,
+          vertical: Insets.lg,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(Radii.lg),
+          border: Border.all(color: p.cyan, width: 1.6),
+          color: p.cyan.withValues(alpha: 0.10),
+          boxShadow: <BoxShadow>[
+            BoxShadow(color: p.cyan.withValues(alpha: 0.30), blurRadius: 24),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(Icons.waving_hand_rounded, color: p.cyan, size: 30),
+            const SizedBox(height: Insets.sm),
+            Text(
+              s.chatTimeUpTitle,
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(color: p.cyan, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: Insets.xs),
+            Text(
+              s.chatTimeUpBody,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
           ],
         ),
       ),
