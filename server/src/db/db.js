@@ -30,6 +30,9 @@ export function openDatabase(file = config.databaseFile) {
  */
 const ADDED_COLUMNS = [
   ['users', 'biometric_consent_at', 'TEXT'],
+  // When this person's verification first went to a human. Set once: the
+  // 24 hours run from here, and a second borderline attempt does not restart them.
+  ['users', 'review_grace_from', 'TEXT'],
   ['verifications', 'method', "TEXT NOT NULL DEFAULT 'manual'"],
   ['verifications', 'score', 'REAL'],
   ['verifications', 'reason', 'TEXT'],

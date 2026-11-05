@@ -282,6 +282,7 @@ export class Store {
     return transaction(this.db, () => {
       let replacedKey = null;
       if (status === 'pending') {
+        this.#startReviewGrace(userId);
         const previous = this.db
           .prepare(
             `SELECT id, storage_key FROM verifications WHERE user_id = ? AND status = 'pending'`,
@@ -775,6 +776,7 @@ export class Store {
    */
   submitVerification(userId, { pose, storageKey }) {
     return transaction(this.db, () => {
+      this.#startReviewGrace(userId);
       const previous = this.db
         .prepare(
           `SELECT id, storage_key FROM verifications
@@ -793,6 +795,18 @@ export class Store {
         .run(id, userId, pose, storageKey, nowIso());
       return { id, replacedKey: previous?.storage_key ?? null };
     });
+  }
+
+  /**
+   * Starts the waiting-for-a-human window, once per person.
+   *
+   * COALESCE rather than overwrite: resubmitting while pending must not buy
+   * another 24 hours.
+   */
+  #startReviewGrace(userId) {
+    this.db
+      .prepare(`UPDATE users SET review_grace_from = COALESCE(review_grace_from, ?) WHERE id = ?`)
+      .run(nowIso(), userId);
   }
 
   /** The most recent attempt, whatever became of it. */

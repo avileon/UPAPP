@@ -560,7 +560,21 @@ Future<void> _toggleLive(BuildContext context) async {
   final String? code = live.lastErrorCode;
   if (code == 'verification_required') {
     messenger.showSnackBar(SnackBar(content: Text(errorText(s, code))));
-    await navigator.pushNamed(Routes.verify);
+    final Object? carryOn = await navigator.pushNamed(Routes.verify);
+    // Approved, or sent to a human (which opens 24 hours): go Live now rather
+    // than make them find the button again.
+    if (carryOn == true && context.mounted && !live.isLive) {
+      await live.start(
+        session.liveDuration,
+        intent: session.liveIntent,
+        note: session.liveNote,
+        fix: fix,
+      );
+      final String? again = live.lastErrorCode;
+      if (again != null) {
+        messenger.showSnackBar(SnackBar(content: Text(errorText(s, again))));
+      }
+    }
   } else if (code != null) {
     messenger.showSnackBar(SnackBar(content: Text(errorText(s, code))));
   }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -156,6 +157,8 @@ class VerificationController extends ChangeNotifier {
       );
       _status = VerificationStatus.pending;
       _challenge = null;
+      // Waiting for a human opens a 24-hour window; fetch its end.
+      unawaited(refresh());
       return true;
     } on ApiException catch (error) {
       _lastErrorCode = error.code;
@@ -232,6 +235,10 @@ class VerificationController extends ChangeNotifier {
       _reason = result['reason'] is String ? result['reason'] as String : null;
       if (_status == VerificationStatus.approved) {
         _method = 'live';
+      }
+      if (_status == VerificationStatus.pending) {
+        // Waiting for a human opens a 24-hour window; fetch its end.
+        unawaited(refresh());
       }
       return _status;
     } on ApiException catch (error) {

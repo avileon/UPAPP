@@ -223,6 +223,29 @@ extension DatingStrings on AppStrings {
         'חלק מהצילומים לא היו חדים מספיק, אז אדם יבדוק. בדרך כלל תוך שעות.',
         'Some frames were not sharp enough, so a person will check. Usually within hours.',
       );
+  /// "Until 21:40" today, "until tomorrow 09:15" otherwise.
+  String pendingGraceUntil(DateTime ends) {
+    final DateTime now = DateTime.now();
+    final String hm =
+        '${ends.hour.toString().padLeft(2, '0')}:${ends.minute.toString().padLeft(2, '0')}';
+    final bool today =
+        ends.year == now.year && ends.month == now.month && ends.day == now.day;
+    return today
+        ? _t('בינתיים הכול פתוח לך — עד היום ב-$hm.',
+            'Meanwhile everything is open to you — until $hm today.')
+        : _t('בינתיים הכול פתוח לך — עד מחר ב-$hm.',
+            'Meanwhile everything is open to you — until tomorrow at $hm.');
+  }
+
+  String get pendingContinue => _t('להמשיך ל-Live', 'Continue to Live');
+  String get pendingNotifyMe =>
+      _t('תודיעו לי לטלפון כשמאשרים', 'Notify my phone when approved');
+  String get pendingWillNotify =>
+      _t('נשלח לך התראה לטלפון ברגע שנאשר.', 'We will notify your phone as soon as it is approved.');
+  String get pendingPushBlocked => _t(
+        'ההתראות חסומות בדפדפן. תראו את התשובה כאן כשתיכנסו.',
+        'Notifications are blocked in this browser. You will see the answer here next time.',
+      );
   String get tryAgain => _t('לנסות שוב', 'Try again');
   String get manualFallback =>
       _t('אימות ידני במקום זה (סלפי בתנוחה)', 'Verify manually instead (pose selfie)');

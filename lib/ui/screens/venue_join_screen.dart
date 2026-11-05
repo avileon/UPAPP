@@ -140,7 +140,11 @@ class _VenueJoinScreenState extends State<VenueJoinScreen> {
     final String? code = live.lastErrorCode;
     if (code == 'verification_required') {
       setState(() => _phase = _Phase.ready);
-      await navigator.pushNamed(Routes.verify);
+      final Object? carryOn = await navigator.pushNamed(Routes.verify);
+      // Approved, or waiting for a human with 24 hours open: check in now.
+      if (carryOn == true && mounted) {
+        await _join();
+      }
       return;
     }
     if (code != null) {

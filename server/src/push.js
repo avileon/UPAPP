@@ -110,3 +110,19 @@ export function notifyVenueEnding(store, { recipientId, venueName }) {
     }),
   );
 }
+
+/**
+ * The reviewer decided. Worth a buzz: the person was told "someone will look"
+ * and has no other way to know when that happened.
+ */
+export function notifyVerificationDecided(store, { recipientId, approved }) {
+  detach(
+    deliver(store, recipientId, {
+      kind: 'verification',
+      title: 'UP',
+      body: approved
+        ? 'האימות שלך אושר ✓ אפשר להמשיך ב-Live בלי הגבלת זמן'
+        : 'לא הצלחנו לאשר את האימות. היכנסו לאפליקציה כדי לנסות שוב',
+    }),
+  );
+}

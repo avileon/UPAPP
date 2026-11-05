@@ -59,6 +59,7 @@ import {
   notifyMatch,
   notifyNewMessage,
   notifyVenueEnding,
+  notifyVerificationDecided,
   pushConfigured,
 } from './push.js';
 import { randomBytes } from 'node:crypto';
@@ -111,15 +112,26 @@ function visiblePhotos(store, userId, profile) {
 }
 
 /**
- * When a new, not-yet-approved account's grace window closes (ms), or null
- * when there is none: already approved, too old, or grace switched off.
+ * Until when a not-yet-approved account may use everything (ms), or null when
+ * there is no window left: already approved, out of time, or grace switched off.
+ *
+ * Two windows, whichever ends later:
+ *  - 24h from sign-up, so nobody waits on a human to start;
+ *  - 24h from the moment their face check went to a human — even an account
+ *    that signed up days ago. A borderline result is our doubt, not theirs.
+ *    That second window ends as soon as the reviewer rejects.
  */
 function graceEndsAt(store, user, now = Date.now()) {
   const hours = config.live.verificationGraceHours;
   if (!user || !(hours > 0) || store.isSelfieVerified(user.id)) return null;
+  const span = hours * 3600_000;
+  let ends = -Infinity;
   const created = Date.parse(user.created_at);
-  if (Number.isNaN(created)) return null;
-  const ends = created + hours * 3600_000;
+  if (!Number.isNaN(created)) ends = created + span;
+  const reviewFrom = Date.parse(user.review_grace_from ?? '');
+  if (!Number.isNaN(reviewFrom) && store.latestVerification(user.id)?.status === 'pending') {
+    ends = Math.max(ends, reviewFrom + span);
+  }
   return ends > now ? ends : null;
 }
 
@@ -1416,6 +1428,8 @@ export function createApp({
     // The photograph has done its job. Keeping a library of face photographs
     // taken on demand is a liability that grows every day and protects nobody.
     if (decided.key) selfieStore.remove(decided.key);
+    // They have been waiting for this; tell the phone, not just the next poll.
+    notifyVerificationDecided(store, { recipientId: decided.userId, approved: status === 'approved' });
     return { status: 200, body: { status } };
   });
 

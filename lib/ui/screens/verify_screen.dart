@@ -12,6 +12,7 @@ import '../../core/l10n/error_text.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
 import '../../state/app_scope.dart';
+import '../../state/push_controller.dart';
 import '../../state/verification_controller.dart';
 import '../components/common.dart';
 import '../components/up_buttons.dart';
@@ -205,9 +206,8 @@ class _Body extends StatelessWidget {
       );
     }
     if (verification.status == VerificationStatus.pending) {
-      return _Result(
-        icon: Icons.hourglass_top_rounded,
-        colour: p.amber,
+      return _Pending(
+        verification: verification,
         title: s.verifyPendingTitle,
         body: s.verifyPendingBody,
       );
@@ -319,6 +319,101 @@ class _Body extends StatelessWidget {
   }
 }
 
+/// Waiting for a human — and not stuck.
+///
+/// A borderline check is our doubt, not theirs, so the app stays open for 24
+/// hours meanwhile. The screen says until when, offers the way back in, and
+/// offers to buzz the phone when the reviewer decides.
+class _Pending extends StatelessWidget {
+  const _Pending({
+    required this.verification,
+    required this.title,
+    required this.body,
+  });
+
+  final VerificationController verification;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final UpPalette p = context.palette;
+    final DateTime? ends = verification.graceEndsAt;
+    final PushController? push = context.push;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _Result(
+          icon: Icons.hourglass_top_rounded,
+          colour: p.amber,
+          title: title,
+          body: body,
+        ),
+        if (ends != null) ...<Widget>[
+          UpCard(
+            borderColor: p.cyan,
+            child: Text(
+              s.pendingGraceUntil(ends),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          const SizedBox(height: Insets.lg),
+          UpButton(
+            label: s.pendingContinue,
+            icon: Icons.bolt_rounded,
+            // `true` tells whoever opened this screen to carry on: the Go Live
+            // button tries again, the venue join retries the check-in.
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+        ],
+        if (push != null)
+          ListenableBuilder(
+            listenable: push,
+            builder: (BuildContext context, Widget? _) {
+              if (!push.available) {
+                return const SizedBox.shrink();
+              }
+              final Widget content;
+              if (push.enabled) {
+                content = Text(
+                  s.pendingWillNotify,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: p.muted),
+                );
+              } else if (push.blocked) {
+                content = Text(
+                  s.pendingPushBlocked,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: p.muted),
+                );
+              } else {
+                content = UpButton(
+                  label: s.pendingNotifyMe,
+                  icon: Icons.notifications_active_rounded,
+                  style: UpButtonStyle.ghost,
+                  onPressed: push.busy ? null : () => unawaited(push.enable()),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.only(top: Insets.md),
+                child: content,
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
 class _Result extends StatelessWidget {
   const _Result({
     required this.icon,
@@ -389,6 +484,12 @@ class _LiveBody extends StatelessWidget {
             title: s.faceApproved,
             body: s.faceApprovedBody,
           ),
+          UpButton(
+            label: s.pendingContinue,
+            icon: Icons.bolt_rounded,
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+          const SizedBox(height: Insets.sm),
           if (verification.method == 'live')
             UpButton(
               label: s.deleteFace,
@@ -404,9 +505,8 @@ class _LiveBody extends StatelessWidget {
       );
     }
     if (verification.status == VerificationStatus.pending) {
-      return _Result(
-        icon: Icons.hourglass_top_rounded,
-        colour: p.amber,
+      return _Pending(
+        verification: verification,
         title: s.facePending,
         body: s.facePendingBody,
       );
