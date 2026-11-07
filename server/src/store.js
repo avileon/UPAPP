@@ -1169,4 +1169,40 @@ export class Store {
       )
       .all(limit);
   }
+
+  // -- in-app notices ----------------------------------------------------------
+
+  /** One unseen notice per kind: a second decision replaces the first. */
+  addNotice(userId, kind) {
+    return transaction(this.db, () => {
+      this.db
+        .prepare(
+          `DELETE FROM user_notices WHERE user_id = ? AND seen_at IS NULL
+             AND kind LIKE ?`,
+        )
+        .run(userId, `${kind.split('_')[0]}_%`);
+      const id = newId();
+      this.db
+        .prepare(`INSERT INTO user_notices (id, user_id, kind, created_at) VALUES (?, ?, ?, ?)`)
+        .run(id, userId, kind, nowIso());
+      return id;
+    });
+  }
+
+  unseenNotices(userId) {
+    return this.db
+      .prepare(
+        `SELECT id, kind, created_at FROM user_notices
+          WHERE user_id = ? AND seen_at IS NULL ORDER BY created_at ASC`,
+      )
+      .all(userId);
+  }
+
+  markNoticeSeen(userId, id) {
+    return (
+      this.db
+        .prepare(`UPDATE user_notices SET seen_at = ? WHERE id = ? AND user_id = ? AND seen_at IS NULL`)
+        .run(nowIso(), id, userId).changes > 0
+    );
+  }
 }

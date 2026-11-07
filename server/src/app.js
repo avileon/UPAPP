@@ -534,6 +534,27 @@ export function createApp({
     return { status: 200, body: { photos: result.photos } };
   });
 
+  /** What the operator decided about you since you last looked. */
+  router.get('/me/notices', async (req) => {
+    const user = requireUser(req);
+    return {
+      status: 200,
+      body: {
+        notices: store.unseenNotices(user.id).map((n) => ({
+          id: n.id,
+          kind: n.kind,
+          createdAt: n.created_at,
+        })),
+      },
+    };
+  });
+
+  router.post('/me/notices/:id/seen', async (req, params) => {
+    const user = requireUser(req);
+    store.markNoticeSeen(user.id, params.id);
+    return { status: 200, body: { seen: true } };
+  });
+
   router.delete('/me', async (req) => {
     const user = requireUser(req);
     live.stopLive(user.id);

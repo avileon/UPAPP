@@ -116,6 +116,12 @@ export function notifyVenueEnding(store, { recipientId, venueName }) {
  * and has no other way to know when that happened.
  */
 export function notifyVerificationDecided(store, { recipientId, approved }) {
+  // In the app as well: the next time it is open, a full-screen card says so.
+  try {
+    store.addNotice?.(recipientId, approved ? 'verification_approved' : 'verification_rejected');
+  } catch {
+    // A notice that failed to save must not stop the decision itself.
+  }
   detach(
     deliver(store, recipientId, {
       kind: 'verification',

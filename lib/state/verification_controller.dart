@@ -109,6 +109,36 @@ class VerificationController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Decisions the operator made about this person that they have not seen
+  /// yet: `verification_approved` or `verification_rejected`, oldest first.
+  Future<List<AdminNotice>> unseenNotices() async {
+    try {
+      final Map<String, dynamic> result = await _client.get('/me/notices');
+      final Object? raw = result['notices'];
+      if (raw is! List) {
+        return const <AdminNotice>[];
+      }
+      return raw
+          .whereType<Map<String, dynamic>>()
+          .map((Map<String, dynamic> n) =>
+              AdminNotice(id: _string(n['id']), kind: _string(n['kind'])))
+          .where((AdminNotice n) => n.id.isNotEmpty)
+          .toList();
+    } on ApiException {
+      return const <AdminNotice>[];
+    }
+  }
+
+  /// Marks a notice as seen and picks up the new status with it.
+  Future<void> markNoticeSeen(String id) async {
+    try {
+      await _client.post('/me/notices/$id/seen');
+    } on ApiException {
+      // Shown again next time is a better failure than never shown.
+    }
+    await refresh();
+  }
+
   /// Asks for a pose. Nothing before this point involves the camera.
   Future<bool> startChallenge() async {
     if (_busy) {
@@ -289,4 +319,14 @@ class VerificationController extends ChangeNotifier {
     if (error != null || busy == true) _lastErrorCode = error;
     notifyListeners();
   }
+}
+
+/// Something the operator decided, waiting to be shown once.
+class AdminNotice {
+  const AdminNotice({required this.id, required this.kind});
+
+  final String id;
+  final String kind;
+
+  bool get approved => kind == 'verification_approved';
 }

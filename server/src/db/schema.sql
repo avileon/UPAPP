@@ -228,3 +228,14 @@ CREATE TABLE IF NOT EXISTS admin_log (
   at           TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_admin_log_at ON admin_log(at);
+
+-- Things the operator decided that the person should hear about inside the
+-- app, not only by push: push is opt-in and many never allow it.
+CREATE TABLE IF NOT EXISTS user_notices (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL,              -- verification_approved | verification_rejected
+  created_at  TEXT NOT NULL,
+  seen_at     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_user_notices_user ON user_notices(user_id, seen_at);

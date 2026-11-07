@@ -44,6 +44,21 @@ extension DatingStrings on AppStrings {
         'The chat lasts 2 minutes from the first message — then you meet',
       );
   String get chatTimeUpTitle => _t('בואו להיפגש!', 'Go and meet!');
+  // -- decisions from the operator ------------------------------------------
+
+  String get noticeApprovedTitle => _t('אושרת! ✓', 'You are verified! ✓');
+  String get noticeApprovedBody => _t(
+        'בדקנו את התמונות שלך ואישרנו. מעכשיו יש לך תג מאומת ואפשר להיכנס ל-Live בלי הגבלת זמן.',
+        'We checked your photos and approved them. You now have the verified badge and Live has no time limit.',
+      );
+  String get noticeApprovedAction => _t('יאללה', "Let's go");
+  String get noticeRejectedTitle => _t('האימות לא אושר', 'Verification not approved');
+  String get noticeRejectedBody => _t(
+        'לא הצלחנו לאשר שהתמונות שלך תואמות לך. אפשר לנסות שוב — זה לוקח חצי דקה.',
+        'We could not confirm your photos match you. You can try again — it takes half a minute.',
+      );
+  String get noticeRetryAction => _t('לנסות שוב', 'Try again');
+
   String get chatTimeUpBody => _t(
         'שתי הדקות עברו. אתם באותו מקום — לכו להגיד שלום.',
         'Your two minutes are up. You are in the same place — go say hi.',

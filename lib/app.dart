@@ -5,6 +5,7 @@ import 'core/l10n/app_localizations.dart';
 import 'core/theme/app_theme.dart';
 import 'state/app_scope.dart';
 import 'state/session_controller.dart';
+import 'ui/components/admin_notices.dart';
 import 'ui/components/arrival_alerts.dart';
 import 'ui/components/celebrations.dart';
 import 'ui/navigation/routes.dart';
@@ -112,7 +113,10 @@ class _UpMaterialAppState extends State<_UpMaterialApp> {
               navigator: _navigator,
               child: ArrivalAlerts(
                 navigator: _navigator,
-                child: child ?? const SizedBox.shrink(),
+                child: AdminNotices(
+                  navigator: _navigator,
+                  child: child ?? const SizedBox.shrink(),
+                ),
               ),
             );
           },

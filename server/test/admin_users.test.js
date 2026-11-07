@@ -165,3 +165,27 @@ test('operator: a second person with a key of their own', async (t) => {
   assert.equal((await erez('GET', '/admin/users')).status, 401);
   assert.equal((await as('wrong-key-0123456789')('GET', '/admin/users')).status, 401);
 });
+
+test('an approval from /admin waits inside the app until it is seen', async (t) => {
+  const s = await startTestServer();
+  t.after(() => s.close());
+  const previous = config.adminToken;
+  config.adminToken = 'op-key';
+  t.after(() => {
+    config.adminToken = previous;
+  });
+  const op = (method, path, body) =>
+    s.call(method, path, { body, headers: { 'x-admin-token': 'op-key' } });
+  const lee = await s.signUp('+972501110021', { firstName: 'Lee', verified: false, fresh: true });
+
+  assert.deepEqual((await s.call('GET', '/me/notices', { token: lee.token })).body.notices, []);
+  await op('POST', `/admin/users/${lee.id}/verification`, { approve: false });
+  await op('POST', `/admin/users/${lee.id}/verification`, { approve: true });
+  const { notices } = (await s.call('GET', '/me/notices', { token: lee.token })).body;
+  // The later decision replaces the earlier one: no "rejected" then "approved".
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0].kind, 'verification_approved');
+
+  await s.call('POST', `/me/notices/${notices[0].id}/seen`, { token: lee.token });
+  assert.deepEqual((await s.call('GET', '/me/notices', { token: lee.token })).body.notices, []);
+});
