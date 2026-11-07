@@ -204,3 +204,27 @@ CREATE TABLE IF NOT EXISTS cards (
   created_at  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_cards_user ON cards(user_id);
+
+-- People besides the owner who may open /admin, each with a key of their own.
+-- The owner's key is ADMIN_TOKEN and is not a row here: it cannot be revoked
+-- from the page it protects.
+CREATE TABLE IF NOT EXISTS operators (
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  email         TEXT NOT NULL DEFAULT '',
+  key_hash      TEXT NOT NULL UNIQUE,
+  created_at    TEXT NOT NULL,
+  last_used_at  TEXT,
+  revoked_at    TEXT
+);
+
+-- Every change made through /admin, and by whom.
+CREATE TABLE IF NOT EXISTS admin_log (
+  id           TEXT PRIMARY KEY,
+  operator_id  TEXT NOT NULL,              -- 'owner' or operators.id
+  operator     TEXT NOT NULL,              -- the name, kept after a revoke
+  method       TEXT NOT NULL,
+  path         TEXT NOT NULL,
+  at           TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_admin_log_at ON admin_log(at);

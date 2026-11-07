@@ -1393,13 +1393,90 @@ export function createApp({
    * these routes entirely — a deployment that forgot to configure one has no
    * review queue rather than an open one.
    */
-  const requireOperator = (req) => {
+  const OWNER = { id: 'owner', name: 'בעלים', owner: true };
+  const requireOperator = (req, { ownerOnly = false } = {}) => {
     if (!config.adminToken) throw notFound('no_such_route');
     const offered = req.headers['x-admin-token'];
-    if (typeof offered !== 'string' || !safeEqual(offered, config.adminToken)) {
-      throw unauthorized();
+    if (typeof offered !== 'string' || !offered) throw unauthorized();
+    let who = null;
+    if (safeEqual(offered, config.adminToken)) {
+      who = OWNER;
+    } else {
+      const row = store.findOperatorByKeyHash(hashSecret(offered));
+      if (row) {
+        store.touchOperator(row.id);
+        who = { id: row.id, name: row.name, email: row.email, owner: false };
+      }
     }
+    if (!who) throw unauthorized();
+    if (ownerOnly && !who.owner) throw forbidden('owner_only');
+    // Every change is written down with a name on it. Reads are not: looking
+    // is the job, and a log of every list refresh would bury the changes.
+    if (req.method !== 'GET') {
+      store.logAdminAction({
+        operatorId: who.id,
+        operator: who.name,
+        method: req.method,
+        path: (req.url ?? '').split('?')[0],
+      });
+    }
+    return who;
   };
+
+  // -- operators (owner only) --------------------------------------------------
+
+  router.get('/admin/me', async (req) => {
+    const who = requireOperator(req);
+    return { status: 200, body: { name: who.name, owner: who.owner } };
+  });
+
+  const operatorJson = (o) => ({
+    id: o.id,
+    name: o.name,
+    email: o.email,
+    createdAt: o.created_at,
+    lastUsedAt: o.last_used_at,
+    revokedAt: o.revoked_at,
+  });
+
+  router.get('/admin/operators', async (req) => {
+    requireOperator(req, { ownerOnly: true });
+    return { status: 200, body: { operators: store.listOperators().map(operatorJson) } };
+  });
+
+  /** A new person with a key of their own. The key is shown once and stored hashed. */
+  router.post('/admin/operators', async (req) => {
+    requireOperator(req, { ownerOnly: true });
+    const body = await readJsonBody(req);
+    const name = str(body.name, 60);
+    if (!name) throw badRequest('name_required');
+    const key = `upk_${randomToken(24)}`;
+    const row = store.createOperator({ name, email: str(body.email, 120), keyHash: hashSecret(key) });
+    return { status: 201, body: { ...operatorJson(row), key } };
+  });
+
+  router.delete('/admin/operators/:id', async (req, params) => {
+    requireOperator(req, { ownerOnly: true });
+    if (!store.revokeOperator(params.id)) throw notFound('operator_unknown');
+    return { status: 200, body: { revoked: true } };
+  });
+
+  router.get('/admin/log', async (req) => {
+    requireOperator(req, { ownerOnly: true });
+    return {
+      status: 200,
+      body: {
+        log: store.adminLog().map((l) => ({
+          operator: l.operator,
+          operatorId: l.operator_id,
+          method: l.method,
+          path: l.path,
+          targetName: l.target_name ?? null,
+          at: l.at,
+        })),
+      },
+    };
+  });
 
   router.get('/admin/verifications', async (req) => {
     requireOperator(req);
@@ -1459,12 +1536,12 @@ export function createApp({
   // -- operator email ----------------------------------------------------------
 
   router.get('/admin/mail', async (req) => {
-    requireOperator(req);
+    requireOperator(req, { ownerOnly: true });
     return { status: 200, body: mailSettings.describe() };
   });
 
   router.post('/admin/mail', async (req) => {
-    requireOperator(req);
+    requireOperator(req, { ownerOnly: true });
     const body = await readJsonBody(req);
     const next = {
       host: str(body.host, 200),
@@ -1481,7 +1558,7 @@ export function createApp({
   });
 
   router.post('/admin/mail/test', async (req) => {
-    requireOperator(req);
+    requireOperator(req, { ownerOnly: true });
     if (!mail.configured) throw badRequest('mail_not_configured');
     try {
       await mail.deliver({
@@ -1915,7 +1992,7 @@ export function createApp({
   /** The owner's own view: status, and the sticker once approved. */
   router.get('/business/me', async (req) => {
     const offered = req.headers['x-business-token'];
-    if (typeof offered !== 'string' || offered.length < 16) throw unauthorized();
+    if (typeof offered !== 'string' || !offered) throw unauthorized();
     const venue = store.findVenueByOwnerToken(hashSecret(offered));
     if (!venue) throw unauthorized();
     const json = venueJson(venue);

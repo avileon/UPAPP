@@ -95,7 +95,7 @@ const TEMPLATE = String.raw`<!doctype html>
   .urow { display: flex; gap: 12px; align-items: center; padding: 10px 12px; cursor: pointer;
     background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; }
   .urow:hover { border-color: var(--pink); }
-  .urow.dim { opacity: .55; }
+  .urow.dim, .mini.dim { opacity: .55; }
   .av { width: 48px; height: 48px; border-radius: 50%; background: #0f0b16 center/cover no-repeat;
     flex: 0 0 48px; display: flex; align-items: center; justify-content: center; color: var(--muted);
     font-weight: 800; border: 2px solid var(--line); }
@@ -150,13 +150,14 @@ const TEMPLATE = String.raw`<!doctype html>
 </head>
 <body>
 <main>
-  <h1><b>UP</b> · ניהול</h1>
+  <h1><b>UP</b> · ניהול <span class="muted" id="me" style="font-size:14px;font-weight:400"></span>
+    <button class="ghost" id="logout" style="float:inline-end;padding:6px 10px;font-size:13px" hidden>יציאה</button></h1>
   <p class="muted">משתמשים, דיווחים, אימותים ומקומות.</p>
 
   <div class="card" id="auth">
-    <label for="token">מפתח ניהול (x-admin-token)</label>
+    <label for="token">מפתח ניהול</label>
     <div class="row">
-      <input id="token" type="password" autocomplete="off" placeholder="המפתח מ-/var/lib/up/.admin-token">
+      <input id="token" type="password" autocomplete="off" placeholder="המפתח האישי שקיבלתם">
       <button id="save-token" style="flex:0 0 auto">כניסה</button>
     </div>
   </div>
@@ -169,6 +170,7 @@ const TEMPLATE = String.raw`<!doctype html>
       <button data-tab="reports">דיווחים <span class="badge" id="b-reports" hidden></span></button>
       <button data-tab="reviews">אימותים <span class="badge" id="b-reviews" hidden></span></button>
       <button data-tab="venues">מקומות <span class="badge" id="b-venues" hidden></span></button>
+      <button data-tab="team" id="tab-team" hidden>צוות</button>
       <button class="ghost" id="refresh" style="margin-inline-start:auto">↻ רענון</button>
     </nav>
 
@@ -200,6 +202,7 @@ const TEMPLATE = String.raw`<!doctype html>
       <h2>תמונות פרופיל לבדיקה <span class="muted" id="p-count"></span></h2>
       <div id="photos"></div>
 
+      <div id="mail-box">
       <h2>מייל להתראות</h2>
       <div class="card">
         <p class="muted" id="m-status">כשאימות פנים עובר לבדיקה ידנית, נשלח מייל לכתובת הזו.</p>
@@ -215,6 +218,23 @@ const TEMPLATE = String.raw`<!doctype html>
           <button class="ghost" id="m-test">שליחת מייל בדיקה</button>
         </div>
       </div>
+      </div>
+    </div>
+
+    <div data-panel="team" hidden>
+      <h2>מנהלים נוספים</h2>
+      <div class="card">
+        <p class="muted">לכל אחד מפתח משלו. המפתח מוצג פעם אחת בלבד — העבירו אותו לאדם, והוא נכנס איתו לדף הזה. אפשר לבטל בכל רגע. מנהל נוסף רואה ועושה הכל, חוץ מניהול צוות והגדרות מייל.</p>
+        <div class="row">
+          <div><label for="o-name">שם</label><input id="o-name" placeholder="ארז"></div>
+          <div><label for="o-email">מייל (לזיהוי בלבד)</label><input id="o-email" dir="ltr" placeholder="name@example.com"></div>
+          <button id="o-add" style="flex:0 0 auto">יצירת מפתח</button>
+        </div>
+        <div id="o-new"></div>
+      </div>
+      <div id="operators"></div>
+      <h2>יומן פעולות</h2>
+      <div id="log"></div>
     </div>
 
     <div data-panel="venues" hidden>
@@ -936,15 +956,95 @@ const TEMPLATE = String.raw`<!doctype html>
   });
   try { var t0 = localStorage.getItem(TAB_KEY); if (t0) showTab(t0); } catch (e) {}
 
+  // -- team (owner) ---------------------------------------------------------------
+
+  var me = { owner: false, name: '' };
+  var ACTIONS = [
+    [/^DELETE \/admin\/users\//, 'מחק משתמש'],
+    [/\/suspend$/, 'השעה משתמש'], [/\/unsuspend$/, 'ביטל השעיה'],
+    [/^POST \/admin\/users\/[^/]+\/verification$/, 'שינה אימות'],
+    [/\/verifications\/[^/]+\/decide$/, 'החליט על אימות'],
+    [/\/photo-reviews\//, 'החליט על תמונה'],
+    [/\/reports\/[^/]+\/resolve$/, 'טיפל בדיווח'],
+    [/\/approve$/, 'אישר מקום'], [/\/reject$/, 'דחה מקום'],
+    [/^DELETE \/admin\/venues\/[^/]+$/, 'מחק מקום'],
+    [/\/logo$/, 'עדכן לוגו'], [/^PATCH \/admin\/venues/, 'עדכן מקום'], [/^POST \/admin\/venues$/, 'הוסיף מקום'],
+    [/^POST \/admin\/operators$/, 'יצר מפתח מנהל'], [/^DELETE \/admin\/operators/, 'ביטל מפתח מנהל'],
+    [/\/admin\/mail/, 'הגדרות מייל']
+  ];
+  function actionLabel(l) {
+    var line = l.method + ' ' + l.path;
+    for (var i = 0; i < ACTIONS.length; i++) if (ACTIONS[i][0].test(line)) return ACTIONS[i][1];
+    return line;
+  }
+
+  function loadTeam() {
+    if (!me.owner) return Promise.resolve();
+    return Promise.all([api('GET', '/admin/operators'), api('GET', '/admin/log')]).then(function (r) {
+      var box = $('operators'); box.innerHTML = '';
+      if (!r[0].operators.length) box.appendChild(el('p', { class: 'muted', text: 'אין עדיין מנהלים נוספים.' }));
+      r[0].operators.forEach(function (o) {
+        box.appendChild(el('div', { class: 'mini' + (o.revokedAt ? ' dim' : '') }, [
+          el('span', {}, [el('b', { text: o.name }), document.createTextNode(o.email ? ' · ' + o.email : ''),
+            document.createTextNode(' · ' + (o.revokedAt ? 'בוטל ' + ago(o.revokedAt) : 'נכנס ' + ago(o.lastUsedAt)))]),
+          o.revokedAt ? el('span', { class: 'muted', text: 'בוטל' }) : el('button', { class: 'danger', style: 'padding:4px 10px', text: 'ביטול גישה', onclick: function () {
+            if (!confirm('לבטל את הגישה של ' + o.name + '? המפתח שלו יפסיק לעבוד מיד.')) return;
+            api('DELETE', '/admin/operators/' + o.id).then(function () { say('הגישה בוטלה'); loadTeam(); }).catch(function (e) { say(e.message); });
+          } })
+        ]));
+      });
+      var log = $('log'); log.innerHTML = '';
+      if (!r[1].log.length) log.appendChild(el('p', { class: 'muted', text: 'עוד אין פעולות.' }));
+      r[1].log.slice(0, 100).forEach(function (l) {
+        log.appendChild(el('div', { class: 'mini' }, [
+          el('span', { text: l.operator + ' · ' + actionLabel(l) + (l.targetName ? ' · ' + l.targetName : '') }),
+          el('span', { class: 'muted', text: when(l.at) })
+        ]));
+      });
+    });
+  }
+
+  $('o-add').onclick = function () {
+    var name = $('o-name').value.trim();
+    if (!name) return say('חסר שם');
+    api('POST', '/admin/operators', { name: name, email: $('o-email').value.trim() }).then(function (o) {
+      $('o-name').value = ''; $('o-email').value = '';
+      var link = location.origin + '/admin';
+      var text = 'כניסה לניהול UP: ' + link + '\nהמפתח שלך: ' + o.key;
+      var box = $('o-new'); box.innerHTML = '';
+      box.appendChild(el('div', { class: 'card', style: 'border-color:var(--mint);margin-top:12px' }, [
+        el('div', { text: 'המפתח של ' + o.name + ' (מוצג רק עכשיו):' }),
+        el('code', { dir: 'ltr', style: 'display:block;margin:8px 0;font-size:15px;color:var(--mint);word-break:break-all', text: o.key }),
+        el('button', { class: 'mint', text: 'העתקת הודעה לשליחה', onclick: function () {
+          (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { say('הועתק — הדביקו בוואטסאפ'); })
+            .catch(function () { prompt('העתיקו:', text); });
+        } })
+      ]));
+      loadTeam();
+    }).catch(function (e) { say('שגיאה: ' + e.message); });
+  };
+
+  $('logout').onclick = function () {
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    location.reload();
+  };
+
   function refreshAll() {
-    return Promise.all([loadStats(), loadUsers(), loadReports(), loadVenues(), loadQueue(), loadPhotoReviews(), loadMail()]);
+    return Promise.all([loadStats(), loadUsers(), loadReports(), loadVenues(), loadQueue(), loadPhotoReviews(), me.owner ? loadMail() : null, loadTeam()]);
   }
   $('refresh').onclick = function () { refreshAll().then(function () { say('עודכן'); }).catch(function (e) { say(e.message); }); };
 
   // -- boot ---------------------------------------------------------------------
 
   function boot() {
-    refreshAll().then(function () {
+    api('GET', '/admin/me').then(function (who) {
+      me = who;
+      $('me').textContent = '· ' + who.name;
+      $('logout').hidden = false;
+      $('tab-team').hidden = !who.owner;
+      $('mail-box').hidden = !who.owner;
+      return refreshAll();
+    }).then(function () {
       $('app').hidden = false;
       $('auth').style.display = 'none';
       // Live status moves on its own; keep the list honest while the page is open.

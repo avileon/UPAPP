@@ -1109,4 +1109,64 @@ export class Store {
       return { photos, selfies };
     });
   }
+
+  // -- operators -------------------------------------------------------------
+
+  createOperator({ name, email, keyHash }) {
+    const id = newId();
+    this.db
+      .prepare(`INSERT INTO operators (id, name, email, key_hash, created_at) VALUES (?, ?, ?, ?, ?)`)
+      .run(id, name, email ?? '', keyHash, nowIso());
+    return this.db.prepare(`SELECT * FROM operators WHERE id = ?`).get(id);
+  }
+
+  findOperatorByKeyHash(keyHash) {
+    return (
+      this.db
+        .prepare(`SELECT * FROM operators WHERE key_hash = ? AND revoked_at IS NULL`)
+        .get(keyHash) ?? null
+    );
+  }
+
+  listOperators() {
+    return this.db.prepare(`SELECT * FROM operators ORDER BY created_at DESC`).all();
+  }
+
+  touchOperator(id) {
+    const at = nowIso();
+    this.db
+      .prepare(
+        `UPDATE operators SET last_used_at = ?
+          WHERE id = ? AND (last_used_at IS NULL OR last_used_at < ?)`,
+      )
+      .run(at, id, new Date(Date.now() - 60_000).toISOString());
+  }
+
+  revokeOperator(id) {
+    return (
+      this.db
+        .prepare(`UPDATE operators SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL`)
+        .run(nowIso(), id).changes > 0
+    );
+  }
+
+  logAdminAction({ operatorId, operator, method, path }) {
+    this.db
+      .prepare(
+        `INSERT INTO admin_log (id, operator_id, operator, method, path, at) VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(newId(), operatorId, operator, method, path, nowIso());
+  }
+
+  adminLog(limit = 200) {
+    return this.db
+      .prepare(
+        `SELECT l.*, p.first_name AS target_name
+           FROM admin_log l
+           LEFT JOIN profiles p
+             ON l.path LIKE '/admin/users/%' AND p.user_id = substr(l.path, 14, 36)
+          ORDER BY l.at DESC LIMIT ?`,
+      )
+      .all(limit);
+  }
 }

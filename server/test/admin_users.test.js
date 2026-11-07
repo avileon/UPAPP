@@ -126,3 +126,42 @@ test('operator: users, suspension, verification, reports, delete', async (t) => 
     assert.equal((await op('DELETE', '/admin/users/nope')).status, 404);
   });
 });
+
+test('operator: a second person with a key of their own', async (t) => {
+  const s = await startTestServer();
+  t.after(() => s.close());
+  const previous = config.adminToken;
+  config.adminToken = 'owner-key-0123456789';
+  t.after(() => {
+    config.adminToken = previous;
+  });
+  const as = (key) => (method, path, body) =>
+    s.call(method, path, { body, headers: { 'x-admin-token': key } });
+  const owner = as('owner-key-0123456789');
+
+  assert.deepEqual((await owner('GET', '/admin/me')).body, { name: 'בעלים', owner: true });
+  const made = await owner('POST', '/admin/operators', { name: 'ארז', email: 'erez@example.com' });
+  assert.equal(made.status, 201);
+  assert.match(made.body.key, /^upk_/);
+  const erez = as(made.body.key);
+
+  assert.deepEqual((await erez('GET', '/admin/me')).body, { name: 'ארז', owner: false });
+  assert.equal((await erez('GET', '/admin/users')).status, 200);
+  assert.equal((await erez('GET', '/admin/operators')).status, 403);
+  assert.equal((await erez('POST', '/admin/operators', { name: 'x' })).status, 403);
+  assert.equal((await erez('GET', '/admin/mail')).status, 403);
+  assert.equal((await owner('GET', '/admin/operators')).body.operators[0].name, 'ארז');
+  // The key is never stored or listed in the clear.
+  assert.equal(JSON.stringify((await owner('GET', '/admin/operators')).body).includes(made.body.key), false);
+
+  const dana = await s.signUp('+972501110009', { firstName: 'Dana' });
+  await erez('POST', `/admin/users/${dana.id}/suspend`, { reason: 'test' });
+  const log = (await owner('GET', '/admin/log')).body.log;
+  const entry = log.find((l) => l.path.endsWith('/suspend'));
+  assert.equal(entry.operator, 'ארז');
+  assert.equal(entry.targetName, 'Dana');
+
+  await owner('DELETE', `/admin/operators/${made.body.id}`);
+  assert.equal((await erez('GET', '/admin/users')).status, 401);
+  assert.equal((await as('wrong-key-0123456789')('GET', '/admin/users')).status, 401);
+});
