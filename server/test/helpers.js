@@ -59,7 +59,10 @@ export async function startTestServer({ faces = new FakeFaces() } = {}) {
   // Verification selfies live somewhere else entirely — that separation is a
   // property the tests check, so the fixture has to honour it too.
   const selfieDir = mkdtempSync(join(tmpdir(), 'up-selfies-'));
+  // Mail that would have gone to the operator, captured instead of sent.
+  const mailbox = [];
   const app = createApp({
+    mailer: { configured: true, notify: (m) => mailbox.push(m), deliver: async (m) => { mailbox.push(m); return true; } },
     database: ':memory:',
     photos: new PhotoStore(photoDir),
     selfies: new PhotoStore(selfieDir),
@@ -197,6 +200,7 @@ export async function startTestServer({ faces = new FakeFaces() } = {}) {
   return {
     app,
     faces,
+    mailbox,
     // The store itself, for the handful of assertions that are about a row
     // existing rather than about a response. Reaching for it is a smell
     // everywhere the HTTP surface can answer the question instead.

@@ -175,6 +175,14 @@ export const config = {
   adminToken: process.env.ADMIN_TOKEN ?? '',
 
   /**
+   * Where the admin page keeps the SMTP settings (0600). Empty = no email.
+   * Default: next to the database.
+   */
+  mailSettingsFile:
+    process.env.MAIL_SETTINGS_FILE ??
+    join(dirname(process.env.DATABASE_FILE ?? 'up.db'), '.mail.json'),
+
+  /**
    * Web Push signing identity.
    *
    * Absent means notifications are off, and everything else still works — the

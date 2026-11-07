@@ -54,6 +54,7 @@ import { WalletSigner } from './lib/wallet.js';
 import { Geocoder, RateLimiter, clientIp } from './lib/geocode.js';
 import { siteAsset, sitePages } from './site/pages.js';
 import { StaticSite } from './lib/static.js';
+import { Mailer, MailSettings } from './lib/mailer.js';
 import {
   notifyIncomingUp,
   notifyMatch,
@@ -112,26 +113,20 @@ function visiblePhotos(store, userId, profile) {
 }
 
 /**
- * Until when a not-yet-approved account may use everything (ms), or null when
- * there is no window left: already approved, out of time, or grace switched off.
+ * Until when a not-yet-approved account may use everything (ms), or null.
  *
- * Two windows, whichever ends later:
- *  - 24h from sign-up, so nobody waits on a human to start;
- *  - 24h from the moment their face check went to a human — even an account
- *    that signed up days ago. A borderline result is our doubt, not theirs.
- *    That second window ends as soon as the reviewer rejects.
+ * There is no window just for signing up: going Live needs the face check
+ * first. The window opens only when that check was borderline and went to a
+ * human — 24 hours from then, because the doubt is ours, not theirs. It closes
+ * the moment the reviewer decides.
  */
 function graceEndsAt(store, user, now = Date.now()) {
   const hours = config.live.verificationGraceHours;
   if (!user || !(hours > 0) || store.isSelfieVerified(user.id)) return null;
-  const span = hours * 3600_000;
-  let ends = -Infinity;
-  const created = Date.parse(user.created_at);
-  if (!Number.isNaN(created)) ends = created + span;
   const reviewFrom = Date.parse(user.review_grace_from ?? '');
-  if (!Number.isNaN(reviewFrom) && store.latestVerification(user.id)?.status === 'pending') {
-    ends = Math.max(ends, reviewFrom + span);
-  }
+  if (Number.isNaN(reviewFrom)) return null;
+  if (store.latestVerification(user.id)?.status !== 'pending') return null;
+  const ends = reviewFrom + hours * 3600_000;
   return ends > now ? ends : null;
 }
 
@@ -197,6 +192,7 @@ export function createApp({
   face,
   sealer,
   geocoder,
+  mailer,
 } = {}) {
   const db = openDatabase(database);
   const store = new Store(db);
@@ -210,6 +206,26 @@ export function createApp({
   });
   const web = site ?? new StaticSite(config.siteDirectory);
   const faces = face ?? new FaceClient();
+  const mailSettings = new MailSettings(config.mailSettingsFile);
+  const mail = mailer ?? new Mailer(mailSettings);
+
+  /** Someone is waiting on a human. Tell the human. */
+  const notifyReviewer = (userId, { method, reason }) => {
+    const name = store.findProfile(userId)?.first_name || '(ללא שם)';
+    const hours = config.live.verificationGraceHours;
+    mail.notify({
+      subject: `UP · אימות פנים ממתין לאישור — ${name}`,
+      text: [
+        `${name} עבר/ה לבדיקה ידנית.`,
+        method === 'live'
+          ? `בדיקת הפנים האוטומטית הייתה גבולית${reason ? ` (${reason})` : ''}.`
+          : 'נשלח סלפי בתנוחה לבדיקה ידנית.',
+        '',
+        `בינתיים האפליקציה פתוחה לו/לה ל-${hours} שעות.`,
+        `לאישור או דחייה: ${config.publicUrl}/admin`,
+      ].join('\n'),
+    });
+  };
   const templates =
     sealer ??
     new TemplateSealer({
@@ -1293,6 +1309,7 @@ export function createApp({
         storageKey: saved.key,
       });
       if (result.replacedKey) selfieStore.remove(result.replacedKey);
+      notifyReviewer(user.id, { method: 'live', reason: verdict.reason });
       return { status: 200, body: { status: 'pending' } };
     }
 
@@ -1326,6 +1343,7 @@ export function createApp({
     // An attempt this person has already replaced should not sit on disk
     // waiting for a review that will never come.
     if (result.replacedKey) selfieStore.remove(result.replacedKey);
+    notifyReviewer(user.id, { method: 'manual' });
 
     return { status: 201, body: { status: 'pending' } };
   });
@@ -1431,6 +1449,44 @@ export function createApp({
     // They have been waiting for this; tell the phone, not just the next poll.
     notifyVerificationDecided(store, { recipientId: decided.userId, approved: status === 'approved' });
     return { status: 200, body: { status } };
+  });
+
+  // -- operator email ----------------------------------------------------------
+
+  router.get('/admin/mail', async (req) => {
+    requireOperator(req);
+    return { status: 200, body: mailSettings.describe() };
+  });
+
+  router.post('/admin/mail', async (req) => {
+    requireOperator(req);
+    const body = await readJsonBody(req);
+    const next = {
+      host: str(body.host, 200),
+      port: Number(body.port) || undefined,
+      user: str(body.user, 200),
+      pass: str(body.pass, 200),
+      to: str(body.to, 200),
+    };
+    for (const k of ['user', 'to']) {
+      if (next[k] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next[k])) throw badRequest(`bad_${k}`);
+    }
+    mailSettings.write(next);
+    return { status: 200, body: mailSettings.describe() };
+  });
+
+  router.post('/admin/mail/test', async (req) => {
+    requireOperator(req);
+    if (!mail.configured) throw badRequest('mail_not_configured');
+    try {
+      await mail.deliver({
+        subject: 'UP · בדיקת מייל',
+        text: 'אם הגיע אליך המייל הזה, התראות על אימות פנים יגיעו לכאן.',
+      });
+    } catch (error) {
+      return { status: 502, body: { error: 'mail_failed', detail: error.message } };
+    }
+    return { status: 200, body: { sent: true } };
   });
 
   router.get('/admin/photo-reviews', async (req) => {

@@ -124,6 +124,22 @@ const TEMPLATE = String.raw`<!doctype html>
     <h2>מקומות <span class="muted" id="v-count"></span></h2>
     <div id="venues"></div>
 
+    <h2>מייל להתראות</h2>
+    <div class="card">
+      <p class="muted" id="m-status">כשאימות פנים עובר לבדיקה ידנית, נשלח מייל לכתובת הזו.</p>
+      <div class="row">
+        <div><label for="m-to">לשלוח אל</label><input id="m-to" dir="ltr" value="avi@vibit.co.il"></div>
+        <div><label for="m-user">חשבון Gmail ששולח</label><input id="m-user" dir="ltr" value="avi@vibit.co.il"></div>
+      </div>
+      <div class="row">
+        <div><label for="m-pass">סיסמת אפליקציה של Google (16 אותיות)</label><input id="m-pass" type="password" dir="ltr" autocomplete="off" placeholder="נשאר כמו שהוא אם ריק"></div>
+      </div>
+      <div class="row">
+        <button id="m-save">שמירה</button>
+        <button class="ghost" id="m-test">שליחת מייל בדיקה</button>
+      </div>
+    </div>
+
     <h2>תור אימות פנים <span class="muted" id="q-count"></span></h2>
     <div id="queue"></div>
 
@@ -167,7 +183,7 @@ const TEMPLATE = String.raw`<!doctype html>
       body: body === undefined ? undefined : JSON.stringify(body)
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
-        if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+        if (!r.ok) throw new Error((j.error || ('HTTP ' + r.status)) + (j.detail ? ' — ' + j.detail : ''));
         return j;
       });
     });
@@ -427,10 +443,36 @@ const TEMPLATE = String.raw`<!doctype html>
       .catch(function (e) { say(e.message); });
   }
 
+  // -- operator email -----------------------------------------------------------
+
+  function loadMail() {
+    return api('GET', '/admin/mail').then(function (j) {
+      if (j.configured) {
+        $('m-to').value = j.to; $('m-user').value = j.user;
+        $('m-status').textContent = '✓ מוגדר — התראות נשלחות אל ' + j.to;
+      } else {
+        $('m-status').textContent = 'עוד לא מוגדר: צריך סיסמת אפליקציה של Google לחשבון ששולח.';
+      }
+    });
+  }
+
+  $('m-save').onclick = function () {
+    api('POST', '/admin/mail', { to: $('m-to').value, user: $('m-user').value, pass: $('m-pass').value })
+      .then(function () { $('m-pass').value = ''; say('נשמר'); return loadMail(); })
+      .catch(function (e) { say('שגיאה: ' + e.message); });
+  };
+
+  $('m-test').onclick = function () {
+    say('שולח…');
+    api('POST', '/admin/mail/test')
+      .then(function () { say('נשלח — בדוק את תיבת הדואר'); })
+      .catch(function (e) { say('לא נשלח: ' + e.message); });
+  };
+
   // -- boot ---------------------------------------------------------------------
 
   function boot() {
-    Promise.all([loadVenues(), loadQueue(), loadPhotoReviews()]).then(function () {
+    Promise.all([loadVenues(), loadQueue(), loadPhotoReviews(), loadMail()]).then(function () {
       $('app').hidden = false;
       $('auth').style.display = 'none';
     }).catch(function (e) {
