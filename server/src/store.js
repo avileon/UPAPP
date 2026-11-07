@@ -887,4 +887,226 @@ export class Store {
     const positive = row?.positive ?? 0;
     return RealityBadge.qualifies(total, positive);
   }
+
+  // -- operator ------------------------------------------------------------
+
+  /** Cheap heartbeat: written at most once a minute per person. */
+  touchLastSeen(userId, at = nowIso()) {
+    this.db
+      .prepare(
+        `UPDATE users SET last_seen_at = ?
+          WHERE id = ? AND (last_seen_at IS NULL OR last_seen_at < ?)`,
+      )
+      .run(at, userId, new Date(Date.parse(at) - 60_000).toISOString());
+  }
+
+  /**
+   * Every account with the numbers the operator scans for.
+   *
+   * One query with correlated counts, all of it on indexed columns. Fine for
+   * thousands of accounts; at real scale this becomes a paged, filtered query.
+   */
+  adminUsers() {
+    return this.db
+      .prepare(
+        `SELECT u.id, u.phone, u.birth_date, u.gender, u.interested_in, u.status,
+                u.created_at, u.last_seen_at, u.suspended_at, u.suspended_reason,
+                u.review_grace_from, u.terms_accepted_at,
+                p.first_name, p.bio_short, p.photo_primary, p.photos,
+                (SELECT COUNT(*) FROM likes WHERE from_user = u.id) AS ups_sent,
+                (SELECT COUNT(*) FROM likes WHERE to_user = u.id) AS ups_received,
+                (SELECT COUNT(*) FROM matches
+                  WHERE (user_a = u.id OR user_b = u.id) AND status = 'active') AS matches,
+                (SELECT COUNT(*) FROM messages WHERE sender_id = u.id) AS messages_sent,
+                (SELECT COUNT(*) FROM reports WHERE reported_id = u.id) AS reports_against,
+                (SELECT COUNT(*) FROM reports
+                  WHERE reported_id = u.id AND resolved_at IS NULL) AS reports_open,
+                (SELECT COUNT(*) FROM blocks WHERE blocked_id = u.id) AS blocked_by,
+                (SELECT COUNT(*) FROM push_subscriptions WHERE user_id = u.id) AS devices,
+                (SELECT status FROM verifications WHERE user_id = u.id
+                  ORDER BY created_at DESC LIMIT 1) AS latest_verification,
+                EXISTS (SELECT 1 FROM verifications
+                  WHERE user_id = u.id AND status = 'approved') AS verified
+           FROM users u
+           LEFT JOIN profiles p ON p.user_id = u.id
+          ORDER BY u.created_at DESC`,
+      )
+      .all();
+  }
+
+  adminUser(userId) {
+    return this.adminUsers().find((u) => u.id === userId) ?? null;
+  }
+
+  adminStats() {
+    const day = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const week = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
+    const one = (sql, ...args) => this.db.prepare(sql).get(...args)?.n ?? 0;
+    return {
+      users: one(`SELECT COUNT(*) AS n FROM users WHERE status = 'active'`),
+      newDay: one(`SELECT COUNT(*) AS n FROM users WHERE status = 'active' AND created_at >= ?`, day),
+      newWeek: one(`SELECT COUNT(*) AS n FROM users WHERE status = 'active' AND created_at >= ?`, week),
+      activeDay: one(`SELECT COUNT(*) AS n FROM users WHERE status = 'active' AND last_seen_at >= ?`, day),
+      verified: one(
+        `SELECT COUNT(DISTINCT v.user_id) AS n FROM verifications v
+           JOIN users u ON u.id = v.user_id AND u.status = 'active'
+          WHERE v.status = 'approved'`,
+      ),
+      pendingVerifications: one(`SELECT COUNT(*) AS n FROM verifications WHERE status = 'pending'`),
+      suspended: one(`SELECT COUNT(*) AS n FROM users WHERE status = 'active' AND suspended_at IS NOT NULL`),
+      matches: one(`SELECT COUNT(*) AS n FROM matches WHERE status = 'active'`),
+      matchesWeek: one(`SELECT COUNT(*) AS n FROM matches WHERE matched_at >= ?`, week),
+      upsDay: one(`SELECT COUNT(*) AS n FROM likes WHERE created_at >= ?`, day),
+      messagesDay: one(`SELECT COUNT(*) AS n FROM messages WHERE created_at >= ?`, day),
+      openReports: one(`SELECT COUNT(*) AS n FROM reports WHERE resolved_at IS NULL`),
+      pendingVenues: one(`SELECT COUNT(*) AS n FROM venues WHERE status = 'pending'`),
+    };
+  }
+
+  /** Who they matched with and how much was said — never what was said. */
+  adminMatches(userId) {
+    return this.db
+      .prepare(
+        `SELECT m.id, m.matched_at, m.status,
+                CASE WHEN m.user_a = ? THEN m.user_b ELSE m.user_a END AS other_id,
+                p.first_name AS other_name,
+                (SELECT COUNT(*) FROM messages WHERE match_id = m.id AND sender_id = ?) AS mine,
+                (SELECT COUNT(*) FROM messages WHERE match_id = m.id AND sender_id != ?) AS theirs,
+                (SELECT MAX(created_at) FROM messages WHERE match_id = m.id) AS last_message_at
+           FROM matches m
+           LEFT JOIN profiles p
+             ON p.user_id = CASE WHEN m.user_a = ? THEN m.user_b ELSE m.user_a END
+          WHERE m.user_a = ? OR m.user_b = ?
+          ORDER BY m.matched_at DESC`,
+      )
+      .all(userId, userId, userId, userId, userId, userId);
+  }
+
+  adminVerifications(userId) {
+    return this.db
+      .prepare(
+        `SELECT id, status, method, pose, score, reason, created_at, decided_at,
+                storage_key IS NOT NULL AS has_selfie
+           FROM verifications WHERE user_id = ? ORDER BY created_at DESC`,
+      )
+      .all(userId);
+  }
+
+  listReports({ userId = null, includeResolved = false } = {}) {
+    return this.db
+      .prepare(
+        `SELECT r.*, a.first_name AS reporter_name, b.first_name AS reported_name
+           FROM reports r
+           LEFT JOIN profiles a ON a.user_id = r.reporter_id
+           LEFT JOIN profiles b ON b.user_id = r.reported_id
+          WHERE (? IS NULL OR r.reported_id = ? OR r.reporter_id = ?)
+            AND (? = 1 OR r.resolved_at IS NULL)
+          ORDER BY r.created_at DESC
+          LIMIT 500`,
+      )
+      .all(userId, userId, userId, includeResolved ? 1 : 0);
+  }
+
+  resolveReport(id, resolved = true) {
+    return (
+      this.db
+        .prepare(`UPDATE reports SET resolved_at = ? WHERE id = ?`)
+        .run(resolved ? nowIso() : null, id).changes > 0
+    );
+  }
+
+  /** Locks the account and signs every device out. Reversible. */
+  suspendUser(userId, reason = '') {
+    return transaction(this.db, () => {
+      const changed = this.db
+        .prepare(
+          `UPDATE users SET suspended_at = ?, suspended_reason = ?
+            WHERE id = ? AND status = 'active'`,
+        )
+        .run(nowIso(), reason, userId).changes;
+      if (!changed) return false;
+      this.db.prepare(`DELETE FROM refresh_tokens WHERE user_id = ?`).run(userId);
+      return true;
+    });
+  }
+
+  unsuspendUser(userId) {
+    return (
+      this.db
+        .prepare(`UPDATE users SET suspended_at = NULL, suspended_reason = NULL WHERE id = ?`)
+        .run(userId).changes > 0
+    );
+  }
+
+  /**
+   * The operator vouches for this person. Closes whatever is waiting and
+   * leaves an approved manual row, which is what the badge reads.
+   * Returns the selfie keys that no longer need to exist.
+   */
+  approveVerificationManually(userId) {
+    return transaction(this.db, () => {
+      const at = nowIso();
+      const waiting = this.db
+        .prepare(`SELECT id, storage_key FROM verifications WHERE user_id = ? AND status = 'pending'`)
+        .all(userId);
+      this.db
+        .prepare(
+          `UPDATE verifications SET status = 'approved', decided_at = ?, storage_key = NULL
+            WHERE user_id = ? AND status = 'pending'`,
+        )
+        .run(at, userId);
+      if (!waiting.length) {
+        this.db
+          .prepare(
+            `INSERT INTO verifications (id, user_id, status, pose, created_at, decided_at, method, reason)
+             VALUES (?, ?, 'approved', 'operator', ?, ?, 'manual', 'operator')`,
+          )
+          .run(newId(), userId, at, at);
+      }
+      return waiting.map((w) => w.storage_key).filter(Boolean);
+    });
+  }
+
+  /** Takes the badge away. They are back to "not verified", grace over. */
+  revokeVerification(userId) {
+    return transaction(this.db, () => {
+      const waiting = this.db
+        .prepare(`SELECT storage_key FROM verifications WHERE user_id = ? AND status = 'pending'`)
+        .all(userId);
+      this.db
+        .prepare(
+          `UPDATE verifications SET status = 'revoked', decided_at = COALESCE(decided_at, ?),
+                  storage_key = NULL
+            WHERE user_id = ? AND status IN ('approved', 'pending')`,
+        )
+        .run(nowIso(), userId);
+      this.db.prepare(`DELETE FROM face_templates WHERE user_id = ?`).run(userId);
+      return waiting.map((w) => w.storage_key).filter(Boolean);
+    });
+  }
+
+  /**
+   * Gone for good: the row and, through ON DELETE CASCADE, every UP, match,
+   * message, report, card, device and verification that names them.
+   * Returns the files the caller must remove from disk.
+   */
+  hardDeleteUser(userId) {
+    return transaction(this.db, () => {
+      const user = this.db.prepare(`SELECT * FROM users WHERE id = ?`).get(userId);
+      if (!user) return null;
+      const profile = this.findProfile(userId);
+      const photos = JSON.parse(profile?.photos ?? '[]');
+      if (profile?.photo_primary && !photos.includes(profile.photo_primary)) {
+        photos.push(profile.photo_primary);
+      }
+      const selfies = this.db
+        .prepare(`SELECT storage_key FROM verifications WHERE user_id = ? AND storage_key IS NOT NULL`)
+        .all(userId)
+        .map((r) => r.storage_key);
+      this.db.prepare(`DELETE FROM otp_codes WHERE phone = ?`).run(user.phone);
+      this.db.prepare(`DELETE FROM otp_requests WHERE phone = ?`).run(user.phone);
+      this.db.prepare(`DELETE FROM users WHERE id = ?`).run(userId);
+      return { photos, selfies };
+    });
+  }
 }

@@ -295,6 +295,9 @@ export function createApp({
     if (!userId) throw unauthorized();
     const user = store.findUser(userId);
     if (!user) throw unauthorized('account_gone');
+    // Suspended by the operator: every device is out until it is lifted.
+    if (user.suspended_at) throw unauthorized('account_suspended');
+    store.touchLastSeen(user.id);
     return user;
   };
 
@@ -365,6 +368,7 @@ export function createApp({
     }
 
     store.clearOtp(phone);
+    if (store.findUserByPhone(phone)?.suspended_at) throw forbidden('account_suspended');
     const user = store.findUserByPhone(phone) ?? store.createUser(phone);
     if (body.acceptedTerms === true) store.acceptTerms(user.id);
 
@@ -382,6 +386,7 @@ export function createApp({
     const body = await readJsonBody(req);
     const userId = store.consumeRefreshToken(str(body.refreshToken, 200));
     if (!userId || !store.findUser(userId)) throw unauthorized('refresh_invalid');
+    if (store.findUser(userId).suspended_at) throw unauthorized('account_suspended');
     return {
       status: 200,
       body: {
@@ -1519,6 +1524,191 @@ export function createApp({
     if (!check || check.face_match !== 'review') throw notFound('review_not_found');
     store.setPhotoCheck(check.user_id, params.key, body.approve === true ? 'ok' : 'rejected', check.score);
     return { status: 200, body: { status: body.approve === true ? 'ok' : 'rejected' } };
+  });
+
+  // -- users (operator) --------------------------------------------------------
+
+  const ageOf = (birth) => {
+    const born = birth ? new Date(birth) : null;
+    if (!born || Number.isNaN(born.getTime())) return null;
+    const now = new Date();
+    let age = now.getUTCFullYear() - born.getUTCFullYear();
+    const m = now.getUTCMonth() - born.getUTCMonth();
+    if (m < 0 || (m === 0 && now.getUTCDate() < born.getUTCDate())) age -= 1;
+    return age;
+  };
+
+  const liveJson = (session) =>
+    session
+      ? {
+          mode: session.venue ? 'venue' : 'area',
+          venue: session.venue,
+          venueName: session.venueName,
+          intent: session.intent,
+          note: session.note,
+          startedAt: new Date(session.startedAt).toISOString(),
+          endsAt: new Date(session.expiresAt).toISOString(),
+        }
+      : null;
+
+  /** One line of the list. The phone is shown: the operator is the one person who may call. */
+  const adminUserJson = (row) => {
+    const grace = row.status === 'active' ? graceEndsAt(store, row) : null;
+    const verification = row.verified
+      ? 'approved'
+      : row.latest_verification === 'pending'
+        ? 'pending'
+        : row.latest_verification === 'rejected'
+          ? 'rejected'
+          : 'none';
+    return {
+      id: row.id,
+      firstName: row.first_name ?? '',
+      phone: row.status === 'deleted' ? null : row.phone,
+      age: ageOf(row.birth_date),
+      gender: row.gender,
+      interestedIn: row.interested_in,
+      bio: row.bio_short ?? '',
+      status: row.suspended_at ? 'suspended' : row.status, // active | suspended | deleted
+      suspendedAt: row.suspended_at,
+      suspendedReason: row.suspended_reason,
+      createdAt: row.created_at,
+      lastSeenAt: row.last_seen_at,
+      profileComplete: Boolean(row.birth_date && row.first_name),
+      mainPhoto: row.photo_primary ?? JSON.parse(row.photos ?? '[]')[0] ?? null,
+      photoCount: JSON.parse(row.photos ?? '[]').length,
+      verification,
+      graceEndsAt: grace === null ? null : new Date(grace).toISOString(),
+      live: liveJson(live.activeSession(row.id)),
+      counts: {
+        upsSent: row.ups_sent,
+        upsReceived: row.ups_received,
+        matches: row.matches,
+        messagesSent: row.messages_sent,
+        reports: row.reports_against,
+        reportsOpen: row.reports_open,
+        blockedBy: row.blocked_by,
+        devices: row.devices,
+      },
+    };
+  };
+
+  const reportJson = (r) => ({
+    id: r.id,
+    category: r.category,
+    notes: r.notes,
+    createdAt: r.created_at,
+    resolvedAt: r.resolved_at ?? null,
+    reporter: { id: r.reporter_id, firstName: r.reporter_name ?? '' },
+    reported: { id: r.reported_id, firstName: r.reported_name ?? '' },
+  });
+
+  router.get('/admin/stats', async (req) => {
+    requireOperator(req);
+    return {
+      status: 200,
+      body: { ...store.adminStats(), liveNow: live.liveSessions().length },
+    };
+  });
+
+  router.get('/admin/users', async (req) => {
+    requireOperator(req);
+    return { status: 200, body: { users: store.adminUsers().map(adminUserJson) } };
+  });
+
+  /** Everything about one person — except what they wrote to anybody. */
+  router.get('/admin/users/:id', async (req, params) => {
+    requireOperator(req);
+    const row = store.adminUser(params.id);
+    if (!row) throw notFound('user_unknown');
+    const checks = store.photoChecks(row.id);
+    return {
+      status: 200,
+      body: {
+        ...adminUserJson(row),
+        birthDate: row.birth_date,
+        termsAcceptedAt: row.terms_accepted_at,
+        photos: JSON.parse(row.photos ?? '[]').map((key) => ({ key, check: checks[key] ?? null })),
+        realityVerified: store.realityBadge(row.id),
+        verifications: store.adminVerifications(row.id).map((v) => ({
+          id: v.id,
+          status: v.status,
+          method: v.method,
+          score: v.score,
+          reason: v.reason,
+          createdAt: v.created_at,
+          decidedAt: v.decided_at,
+          hasSelfie: Boolean(v.has_selfie),
+        })),
+        matches: store.adminMatches(row.id).map((m) => ({
+          id: m.id,
+          status: m.status,
+          matchedAt: m.matched_at,
+          other: { id: m.other_id, firstName: m.other_name ?? '' },
+          messages: { mine: m.mine, theirs: m.theirs },
+          lastMessageAt: m.last_message_at,
+        })),
+        reports: store.listReports({ userId: row.id, includeResolved: true }).map(reportJson),
+      },
+    };
+  });
+
+  router.post('/admin/users/:id/suspend', async (req, params) => {
+    requireOperator(req);
+    const body = await readJsonBody(req);
+    if (!store.suspendUser(params.id, str(body.reason, 200) ?? '')) throw notFound('user_unknown');
+    live.stopLive(params.id);
+    return { status: 200, body: adminUserJson(store.adminUser(params.id)) };
+  });
+
+  router.post('/admin/users/:id/unsuspend', async (req, params) => {
+    requireOperator(req);
+    if (!store.unsuspendUser(params.id)) throw notFound('user_unknown');
+    return { status: 200, body: adminUserJson(store.adminUser(params.id)) };
+  });
+
+  /** Approve (or take back) the verification straight from the person's card. */
+  router.post('/admin/users/:id/verification', async (req, params) => {
+    requireOperator(req);
+    const body = await readJsonBody(req);
+    if (!store.findUser(params.id)) throw notFound('user_unknown');
+    const approve = body.approve === true;
+    const leftovers = approve
+      ? store.approveVerificationManually(params.id)
+      : store.revokeVerification(params.id);
+    for (const key of leftovers) selfieStore.remove(key);
+    if (approve) recheckLater(params.id);
+    if (body.notify !== false) {
+      notifyVerificationDecided(store, { recipientId: params.id, approved: approve });
+    }
+    return { status: 200, body: adminUserJson(store.adminUser(params.id)) };
+  });
+
+  /** Gone for good — the account, its photos, its face, and every trace in others' lists. */
+  router.delete('/admin/users/:id', async (req, params) => {
+    requireOperator(req);
+    live.stopLive(params.id);
+    const removed = store.hardDeleteUser(params.id);
+    if (!removed) throw notFound('user_unknown');
+    for (const key of removed.photos) media.remove(key);
+    for (const key of removed.selfies) selfieStore.remove(key);
+    return { status: 200, body: { deleted: true } };
+  });
+
+  router.get('/admin/reports', async (req, _params, url) => {
+    requireOperator(req);
+    const all = url.searchParams.get('all') === '1';
+    return {
+      status: 200,
+      body: { reports: store.listReports({ includeResolved: all }).map(reportJson) },
+    };
+  });
+
+  router.post('/admin/reports/:id/resolve', async (req, params) => {
+    requireOperator(req);
+    const body = await readJsonBody(req);
+    if (!store.resolveReport(params.id, body.resolved !== false)) throw notFound('report_unknown');
+    return { status: 200, body: { resolved: body.resolved !== false } };
   });
 
   // -- venues (operator) -------------------------------------------------------

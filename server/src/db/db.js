@@ -45,6 +45,11 @@ const ADDED_COLUMNS = [
   ['venues', 'contact_phone', 'TEXT'],
   ['venues', 'contact_email', 'TEXT'],
   ['venues', 'owner_token_hash', 'TEXT'],
+  // Operator tools: suspension, last activity, handled reports.
+  ['users', 'suspended_at', 'TEXT'],
+  ['users', 'suspended_reason', 'TEXT'],
+  ['users', 'last_seen_at', 'TEXT'],
+  ['reports', 'resolved_at', 'TEXT'],
 ];
 
 function migrate(db) {

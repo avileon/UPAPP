@@ -238,6 +238,12 @@ export class PresenceStore {
     return this.activeSession(userId) !== null;
   }
 
+  /** Every session still running, for the operator's user list. */
+  liveSessions() {
+    const now = this._now();
+    return [...this._sessionsByUser.values()].filter((s) => s.expiresAt > now);
+  }
+
   /**
    * Issues a fresh batch of tokens for the caller's live session.
    *

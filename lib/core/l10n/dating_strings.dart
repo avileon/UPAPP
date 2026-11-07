@@ -296,6 +296,9 @@ extension DatingStrings on AppStrings {
     switch (code) {
       case 'chat_time_up':
         return chatTimeUpBody;
+      case 'account_suspended':
+        return _t('החשבון הושעה. לבירור — פנו לצוות UP.',
+            'This account is suspended. Contact the UP team.');
       case 'too_far':
         return _t('נראה שאתם לא במקום. היכנסו פנימה ונסו שוב.',
             'You do not seem to be there. Step inside and try again.');
