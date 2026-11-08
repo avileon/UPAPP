@@ -14,6 +14,7 @@ import {
   TemplateSealer,
 } from './domain/face.js';
 import { nightKey } from './domain/night.js';
+import { DATE_CHOICES, dateState } from './domain/date_flow.js';
 import { normaliseVenue, PresenceStore } from './domain/presence.js';
 import { CardStore } from './domain/cards.js';
 import { cardGonePage, cardPage } from './site/card_page.js';
@@ -711,6 +712,8 @@ export function createApp({
     const profile = store.findProfile(user.id);
     const seen = new Set([user.id]);
     const people = [];
+    // On a match: the room is closed. Only the person you matched with.
+    const hold = roomHold(user.id);
 
     /** One gate, whichever channel found them. */
     const admit = (otherId) => {
@@ -719,6 +722,8 @@ export function createApp({
 
       const other = store.findUser(otherId);
       if (!other) return;
+      if (hold && otherId !== hold.partnerId) return;
+      if (!hold && roomHold(otherId)) return;
       if (store.isBlockedEitherWay(user.id, otherId)) return;
       // Hidden for this visit. Back next time.
       if (live.hasHidden(user.id, otherId)) return;
@@ -788,6 +793,16 @@ export function createApp({
         roomPeers: peers.length,
         // How many UPs are left here tonight. Null = no limit (area mode).
         upQuota: upQuota(user.id),
+        // The match holding this room closed, if any — the app shows its chat
+        // instead of the faces.
+        inDate: hold
+          ? {
+              matchId: hold.match.id,
+              personId: hold.partnerId,
+              phase: hold.state.phase,
+              firstName: store.findProfile(hold.partnerId)?.first_name ?? '',
+            }
+          : null,
         // Echoed so a phone that reconnected mid-session knows which room it
         // is actually in — the answer to "why is this list empty" is usually
         // one of these two fields.
@@ -826,6 +841,14 @@ export function createApp({
     const target = store.findUser(targetId);
     if (!target) throw notFound('user_not_found');
     if (store.isBlockedEitherWay(user.id, targetId)) throw forbidden('blocked');
+    // Same gate as Live: no face check, no UP. Otherwise an UP from a link or
+    // an old screen is a way around the verification everyone else did.
+    if (!mayUseLive(store, user)) throw forbidden('verification_required');
+    // One match at a time.
+    const myHold = roomHold(user.id);
+    if (myHold && myHold.partnerId !== targetId) throw forbidden('in_a_date');
+    const theirHold = roomHold(targetId);
+    if (theirHold && theirHold.partnerId !== user.id) throw forbidden('person_unavailable');
 
     if (store.countRecentLikes(user.id, hoursAgo(1)) >= config.likes.maxPerHour) {
       throw tooManyRequests('like_rate_limited');
@@ -1071,6 +1094,55 @@ export function createApp({
   const otherSide = (match, user) =>
     match.user_a === user.id ? match.user_b : match.user_a;
 
+  const dateOf = (match) =>
+    dateState({
+      match,
+      messages: store.listMessages(match.id),
+      choices: store.matchChoices(match.id),
+      config,
+    });
+
+  /**
+   * The match that is holding [userId]'s room right now, or null.
+   *
+   * From the moment of a match until "not a match" (or silence past the
+   * deadlines), both people are out of the room for everyone else, and
+   * everyone else is out of it for them. Newest first, so a fresh match wins
+   * over an old one that has not timed out yet.
+   */
+  const roomHold = (userId) => {
+    const since = new Date(Date.now() - config.date.lockHours * 3600_000).toISOString();
+    for (const match of store.recentActiveMatches(userId, since)) {
+      const state = dateOf(match);
+      if (state.holdsRoom) {
+        const partnerId = match.user_a === userId ? match.user_b : match.user_a;
+        return { match, partnerId, state };
+      }
+    }
+    return null;
+  };
+
+  /** The `date` block a phone renders under a chat. */
+  const dateView = (match, user) => {
+    const state = dateOf(match);
+    const choices = store.matchChoices(match.id);
+    const partnerId = otherSide(match, user);
+    return {
+      phase: state.phase,
+      holdsRoom: state.holdsRoom,
+      canWrite: state.canWrite,
+      chatStartedAt: state.replyAt === null ? null : new Date(state.replyAt).toISOString(),
+      chatEndsAt: state.chatEndsAt === null ? null : new Date(state.chatEndsAt).toISOString(),
+      decideBy: state.decideBy === null ? null : new Date(state.decideBy).toISOString(),
+      myChoice: choices[user.id] ?? null,
+      // Whether they have chosen, never what — until both have.
+      theyChose: choices[partnerId] !== undefined,
+      outcome: state.outcome,
+      // Only when both asked for the phone.
+      theirPhone: state.outcome === 'phone' ? store.findUser(partnerId)?.phone ?? null : null,
+    };
+  };
+
   router.get('/matches', async (req) => {
     const user = requireUser(req);
     const matches = store.listMatches(user.id).map((match) => {
@@ -1086,6 +1158,7 @@ export function createApp({
         lastMessage: messages.at(-1)?.body ?? null,
         messageCount: messages.length,
         realityAnswered: store.hasRealityAnswer(match.id, user.id),
+        date: dateView(match, user),
       };
     });
     return { status: 200, body: { matches } };
@@ -1117,15 +1190,9 @@ export function createApp({
     const body = await readJsonBody(req);
     const text = str(body.body, config.maxMessageLength);
     if (!text) throw badRequest('empty_message');
-    // Two minutes from the first message, then go and meet. The app shows the
+    // Seven minutes from the first reply, then decide. The app shows the
     // countdown; this is what makes it true for a client that ignores it.
-    const first = store.listMessages(match.id)[0];
-    if (first) {
-      const endsAt =
-        Date.parse(first.created_at) +
-        (config.chatWindowSeconds + config.chatGraceSeconds) * 1000;
-      if (Date.now() > endsAt) throw forbidden('chat_time_up');
-    }
+    if (!dateOf(match).canWrite) throw forbidden('chat_time_up');
     const message = store.addMessage(match.id, user.id, text);
 
     // Not awaited, deliberately: the message is saved, the app polls, and a
@@ -1143,6 +1210,32 @@ export function createApp({
       status: 201,
       body: { id: message.id, body: message.body, mine: true, sentAt: message.created_at },
     };
+  });
+
+  /**
+   * After the chat: meet now, talk on the phone, or not a match.
+   *
+   * "No" works at any moment and ends it for both: the room opens again and
+   * the two are hidden from each other for the rest of the visit. The other
+   * two need the chat to have started (someone replied).
+   */
+  router.post('/matches/:id/decision', async (req, params) => {
+    const user = requireUser(req);
+    const match = matchFor(user, params.id);
+    if (match.status !== 'active') throw forbidden('match_closed');
+    const body = await readJsonBody(req);
+    const choice = str(body.choice, 8);
+    if (!DATE_CHOICES.includes(choice)) throw badRequest('invalid_choice');
+    const before = dateOf(match);
+    if (before.phase === 'ended') throw forbidden('match_closed');
+    if (choice !== 'no' && before.replyAt === null) throw badRequest('chat_not_started');
+    store.setMatchChoice(match.id, user.id, choice);
+    const partnerId = otherSide(match, user);
+    if (choice === 'no') {
+      live.hide(user.id, partnerId);
+      live.hide(partnerId, user.id);
+    }
+    return { status: 200, body: { date: dateView(store.findMatch(match.id), user) } };
   });
 
   /**

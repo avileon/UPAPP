@@ -38,7 +38,7 @@ class MockPresenceRepository implements PresenceRepository {
   @override
   Future<LiveSession> startLive(
     Duration duration, {
-    LiveIntent intent = LiveIntent.meet,
+    LiveIntent intent = LiveIntent.date,
     String note = '',
     String venue = '',
     GeoFix? fix,

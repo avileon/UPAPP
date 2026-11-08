@@ -26,8 +26,10 @@ test('operator: users, suspension, verification, reports, delete', async (t) => 
 
   const dana = await s.signUp('+972501110001', { firstName: 'Dana', gender: 'female' });
   const omer = await s.signUp('+972501110002', { firstName: 'Omer', verified: false, fresh: true });
-  await s.call('POST', `/likes/${omer.id}`, { token: dana.token });
-  await s.call('POST', `/likes/${dana.id}`, { token: omer.token });
+  // Straight into the store: Omer has no face check, so the API would refuse
+  // his UP — which is not what this test is about.
+  s.store.sendLike(dana.id, omer.id);
+  s.store.sendLike(omer.id, dana.id);
   await s.call('POST', `/users/${omer.id}/report`, {
     token: dana.token,
     body: { category: 'fake', notes: 'not him' },

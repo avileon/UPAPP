@@ -7,21 +7,18 @@ import 'package:up/domain/entities/live_intent.dart';
 /// on the screen where the choice is made. Two implementations of one rule
 /// stay honest only if both are stated plainly and tested.
 void main() {
-  test('gender preference gates dating and nothing else', () {
-    // The whole difference between an app for meeting people and a dating app.
-    // Before this, the filter ran on every discovery, so two men who had both
-    // said "interested in women" could stand in the same room all evening and
-    // never see each other — correct for dating, absurd for a five-a-side game.
+  test('gender preference always applies — UP is a dating app', () {
     expect(LiveIntent.date.preferencesApply, isTrue);
-    expect(LiveIntent.meet.preferencesApply, isFalse);
+    expect(LiveIntent.meet.preferencesApply, isTrue);
   });
 
   test('an intent this build does not know about is not an error', () {
     // A phone one version behind must still be able to go Live. Falling to the
     // most permissive intent is safe in exactly one direction: it can show you
     // people, never hide the ones dating would have hidden.
+    // Since November 2026 everything that is not a known name is dating.
     for (final String? raw in <String?>[null, '', 'DATE', 'romance', 'meet ', 'work', 'doing']) {
-      expect(LiveIntent.fromWire(raw), LiveIntent.meet, reason: '$raw');
+      expect(LiveIntent.fromWire(raw), LiveIntent.date, reason: '$raw');
     }
   });
 

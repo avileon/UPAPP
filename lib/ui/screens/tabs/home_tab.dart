@@ -11,13 +11,13 @@ import '../../../core/theme/tokens.dart';
 import '../../../data/location/location_service.dart';
 import '../../../domain/entities/geo_fix.dart';
 import '../../../domain/entities/live_session.dart';
+import '../../../domain/entities/match_thread.dart';
 import '../../../domain/entities/nearby_person.dart';
 import '../../../state/app_scope.dart';
 import '../../../state/interaction_controller.dart';
 import '../../../state/live_controller.dart';
 import '../../../state/session_controller.dart';
 import '../../components/common.dart';
-import '../../components/intent_picker.dart';
 import '../../components/note_field.dart';
 import '../../components/radar_view.dart';
 import '../../components/up_buttons.dart';
@@ -94,14 +94,9 @@ class HomeTab extends StatelessWidget {
                         ),
                         const SizedBox(height: Insets.md),
                       ],
+                      // Dating only since November 2026 — no "why are you
+                      // here" question any more, just where.
                       if (!live.isLive) ...<Widget>[
-                        IntentPicker(
-                          selected: session.liveIntent,
-                          onSelect: session.setLiveIntent,
-                          strings: s,
-                          enabled: true,
-                        ),
-                        const SizedBox(height: Insets.md),
                         _PlacePicker(
                           venueMode: session.venueMode,
                           onSelect: session.setVenueMode,
@@ -293,7 +288,14 @@ class _LiveRoom extends StatelessWidget {
             ),
           ],
           const SizedBox(height: Insets.md),
-          if (ordered.isNotEmpty)
+          if (_roomHold(interactions) case final MatchThread held)
+            _InDateCard(
+              match: held,
+              name: context.people.byId(held.personId)?.nameFor(session.localeCode) ?? '',
+              onOpen: () => Navigator.of(context)
+                  .pushNamed(Routes.chat, arguments: held.id),
+            )
+          else if (ordered.isNotEmpty)
             _PhotoGrid(
               people: ordered,
               localeCode: session.localeCode,
@@ -485,6 +487,65 @@ List<NearbyPerson> _upFirst(
   ];
 }
 
+/// The match keeping this person's room closed, if any. The server already
+/// shows nobody else; this is what explains the empty room.
+MatchThread? _roomHold(InteractionController interactions) {
+  for (final MatchThread m in interactions.matches) {
+    if (m.date?.holdsRoom ?? false) {
+      return m;
+    }
+  }
+  return null;
+}
+
+/// "You matched with Dana — the room is paused until you decide."
+class _InDateCard extends StatelessWidget {
+  const _InDateCard({
+    required this.match,
+    required this.name,
+    required this.onOpen,
+  });
+
+  final MatchThread match;
+  final String name;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final UpPalette p = context.palette;
+    return Container(
+      padding: const EdgeInsets.all(Insets.lg),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(Radii.lg),
+        border: Border.all(color: p.amber, width: 1.6),
+        color: p.amber.withValues(alpha: 0.10),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(Icons.favorite_rounded, color: p.amber, size: 30),
+          const SizedBox(height: Insets.sm),
+          Text(
+            s.inDateBanner(name),
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: Insets.md),
+          UpButton(
+            label: s.inDateOpenChat,
+            icon: Icons.chat_bubble_rounded,
+            onPressed: onOpen,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Opens the full-screen people viewer on [people], starting with the first
 /// person who sent an UP when [firstUp] is set.
 void _openViewer(
@@ -561,19 +622,11 @@ Future<void> _toggleLive(BuildContext context) async {
   if (code == 'verification_required') {
     messenger.showSnackBar(SnackBar(content: Text(errorText(s, code))));
     final Object? carryOn = await navigator.pushNamed(Routes.verify);
-    // Approved, or sent to a human (which opens 24 hours): go Live now rather
-    // than make them find the button again.
-    if (carryOn == true && context.mounted && !live.isLive) {
-      await live.start(
-        session.liveDuration,
-        intent: session.liveIntent,
-        note: session.liveNote,
-        fix: fix,
-      );
-      final String? again = live.lastErrorCode;
-      if (again != null) {
-        messenger.showSnackBar(SnackBar(content: Text(errorText(s, again))));
-      }
+    // Back home, not Live: the person decides when to start (test night,
+    // November 2026 — going Live on its own after the face check surprised
+    // everyone). The button is right there.
+    if (carryOn == true) {
+      messenger.showSnackBar(SnackBar(content: Text(s.readyWhenYouAre)));
     }
   } else if (code != null) {
     messenger.showSnackBar(SnackBar(content: Text(errorText(s, code))));
@@ -719,6 +772,56 @@ class _EndedVenueBanner extends StatelessWidget {
   }
 }
 
+/// Red when nobody can see you, mint when you are Live — the first thing on
+/// the screen, so the state is never a guess.
+class _LiveStatusChip extends StatelessWidget {
+  const _LiveStatusChip({required this.isLive});
+
+  final bool isLive;
+
+  static const Color _red = Color(0xFFFF3B3B);
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final Color colour = isLive ? context.palette.cyan : _red;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: 6),
+      decoration: BoxDecoration(
+        color: colour.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(Radii.pill),
+        border: Border.all(color: colour.withValues(alpha: 0.7)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(
+              color: colour,
+              shape: BoxShape.circle,
+              boxShadow: <BoxShadow>[
+                BoxShadow(color: colour.withValues(alpha: 0.7), blurRadius: 8),
+              ],
+            ),
+          ),
+          const SizedBox(width: Insets.sm),
+          Text(
+            isLive ? s.liveOnStatus : s.liveOffStatus,
+            style: TextStyle(
+              color: colour,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _StatusRow extends StatelessWidget {
   const _StatusRow({required this.isLive});
 
@@ -732,10 +835,7 @@ class _StatusRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: <Widget>[
-          SectionLabel(
-            isLive ? s.bluetoothOn : s.bluetoothOff,
-            color: isLive ? context.palette.cyan : context.palette.dim,
-          ),
+          _LiveStatusChip(isLive: isLive),
           Row(
             children: <Widget>[
               if (kDemoControlsEnabled)

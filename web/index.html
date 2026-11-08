@@ -62,6 +62,24 @@
     @media (prefers-reduced-motion: reduce) {
       #up-splash .logo, #up-splash .bar i { animation: none; }
     }
+    #up-install {
+      position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+      z-index: 9998; display: none; gap: 12px; align-items: center;
+      background: #1c1526; border: 1px solid #ff3d8b; border-radius: 18px; padding: 14px 16px;
+      box-shadow: 0 10px 40px #000a, 0 0 24px #ff3d8b44; color: #f6f0fc;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    #up-install.show { display: flex; }
+    #up-install .ic { flex: none; width: 44px; height: 44px; border-radius: 12px; background: #ff3d8b;
+      color: #fff; font-weight: 900; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+    #up-install .tx { flex: 1; min-width: 0; }
+    #up-install b { display: block; font-size: 15px; margin-bottom: 2px; }
+    #up-install span { font-size: 13px; color: #ad9fc2; }
+    #up-install .act { display: flex; flex-direction: column; gap: 6px; }
+    #up-install button { border: 0; border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 14px;
+      font-weight: 700; cursor: pointer; }
+    #up-install .yes { background: #ff3d8b; color: #fff; }
+    #up-install .no { background: transparent; color: #ad9fc2; }
   </style>
 </head>
 <body>
@@ -100,6 +118,69 @@
         el.classList.add('slow');
         msg.textContent = 'משהו השתבש בטעינה. נסו שוב.';
       };
+    })();
+  </script>
+  <!--
+    "Install UP on your phone": a home-screen icon, full screen, notifications.
+    Android/Chrome gets the real install prompt; iPhone gets the two taps it
+    needs in Safari. Never inside the installed app, and "later" means a few
+    days of quiet.
+  -->
+  <div id="up-install" role="dialog" aria-labelledby="up-install-t">
+    <div class="ic" aria-hidden="true">UP</div>
+    <div class="tx">
+      <b id="up-install-t">להתקין את UP בטלפון?</b>
+      <span id="up-install-b">אייקון במסך הבית, מסך מלא והתראות — בלי חנות אפליקציות.</span>
+    </div>
+    <div class="act">
+      <button type="button" class="yes" id="up-install-yes">להתקין</button>
+      <button type="button" class="no" id="up-install-no">אחר כך</button>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var KEY = 'up-install-later';
+      var box = document.getElementById('up-install');
+      var yes = document.getElementById('up-install-yes');
+      var no = document.getElementById('up-install-no');
+      var body = document.getElementById('up-install-b');
+      var deferred = null;
+      var standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+      var ua = navigator.userAgent || '';
+      var ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var mobile = ios || /Android/i.test(ua);
+      function snoozed() {
+        try { return Date.now() < Number(localStorage.getItem(KEY) || 0); } catch (e) { return false; }
+      }
+      function snooze() {
+        try { localStorage.setItem(KEY, String(Date.now() + 3 * 24 * 3600 * 1000)); } catch (e) {}
+      }
+      function show() {
+        if (standalone || !mobile || snoozed()) return;
+        if (!ios && !deferred) return;
+        if (ios) {
+          body.textContent = 'בספארי: לוחצים על כפתור השיתוף ⬆ ואז "הוסף למסך הבית".';
+          yes.textContent = 'הבנתי';
+        }
+        box.classList.add('show');
+      }
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferred = e;
+      });
+      window.addEventListener('appinstalled', function () { box.classList.remove('show'); snooze(); });
+      yes.addEventListener('click', function () {
+        box.classList.remove('show');
+        if (deferred) {
+          deferred.prompt();
+          deferred.userChoice.finally(function () { deferred = null; });
+        } else {
+          snooze();
+        }
+      });
+      no.addEventListener('click', function () { box.classList.remove('show'); snooze(); });
+      // A few seconds after the app is up, not over the loading screen.
+      setTimeout(show, 6000);
     })();
   </script>
   <script src="flutter_bootstrap.js" async></script>

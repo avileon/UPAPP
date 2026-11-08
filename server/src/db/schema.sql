@@ -73,6 +73,15 @@ CREATE TABLE IF NOT EXISTS matches (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_matches_pair ON matches(user_a, user_b);
 
+-- After the chat: meet, phone, or not a match. One choice per person per match.
+CREATE TABLE IF NOT EXISTS match_decisions (
+  match_id    TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  choice      TEXT NOT NULL,              -- meet | phone | no
+  created_at  TEXT NOT NULL,
+  PRIMARY KEY (match_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS messages (
   id          TEXT PRIMARY KEY,
   match_id    TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,

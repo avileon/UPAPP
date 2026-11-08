@@ -80,15 +80,15 @@ test('intent shapes who you meet', async (t) => {
     assert.equal((await s.nearby(a)).body.roomPeers, 1);
   });
 
-  await t.test('different intents in one room are different rooms', async () => {
+  await t.test('an old phone sending "meet" is in the same room as everyone', async () => {
     const a = await s.signUp('+972540000005');
     const b = await s.signUp('+972540000006');
 
     await live(a, { venue: 'MIX01', intent: 'meet' });
     await live(b, { venue: 'MIX01', intent: 'date' });
 
-    assert.deepEqual((await s.nearby(a)).body.people, []);
-    assert.equal((await s.nearby(a)).body.roomPeers, 0);
+    assert.equal((await s.nearby(a)).body.roomPeers, 1);
+    assert.equal((await s.nearby(a)).body.intent, 'date');
   });
 
   await t.test('a blocked person stays hidden whatever the intent', async () => {
@@ -166,7 +166,8 @@ test('intent shapes who you meet', async (t) => {
       (await s.call(`GET`, `/rooms?intent=${intent}`, { token: c.token })).body.rooms
         .map((room) => room.code);
 
-    assert.ok(!(await codesFor('meet')).includes('WORK01'));
+    // One intent now: whatever an old phone asks for, it gets the date rooms.
+    assert.ok((await codesFor('meet')).includes('WORK01'));
     assert.ok((await codesFor('date')).includes('WORK01'));
   });
 
@@ -176,21 +177,20 @@ test('intent shapes who you meet', async (t) => {
 });
 
 test('intent is a small closed set with sane defaults', async (t) => {
-  await t.test('two of them — meet and date — and both honour the preference', () => {
-    assert.deepEqual(INTENTS, ['meet', 'date']);
+  await t.test('dating only — and it honours the preference', () => {
+    assert.deepEqual(INTENTS, ['date']);
+    assert.equal(DEFAULT_INTENT, 'date');
     assert.equal(preferencesGateDiscovery('date'), true);
-    assert.equal(preferencesGateDiscovery('meet'), true);
-    // Retired intents from older phones land in "meet", not in an error.
-    assert.equal(normaliseIntent('work'), 'meet');
-    assert.equal(normaliseIntent('doing'), 'meet');
+    // Retired intents from older phones land in "date", not in an error.
+    for (const old of ['meet', 'work', 'doing']) assert.equal(normaliseIntent(old), 'date');
   });
 
-  await t.test('anything unrecognised falls to meeting people', () => {
+  await t.test('anything unrecognised falls to dating', () => {
     for (const raw of [null, undefined, '', 'DATE', 'romance', 42, {}]) {
-      assert.equal(normaliseIntent(raw), 'meet');
+      assert.equal(normaliseIntent(raw), 'date');
     }
     assert.equal(intentsMeet('meet', undefined), true);
-    assert.equal(intentsMeet('date', 'meet'), false);
+    assert.equal(intentsMeet('date', 'meet'), true);
   });
 
   await t.test('a note is one short line of whatever they typed', () => {

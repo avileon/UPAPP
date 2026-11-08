@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/l10n/dating_strings.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../state/app_scope.dart';
@@ -23,12 +24,15 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final TextEditingController _name = TextEditingController();
   final TextEditingController _bio = TextEditingController();
-  final TextEditingController _day = TextEditingController();
-  final TextEditingController _month = TextEditingController();
-  final TextEditingController _year = TextEditingController();
+  /// One box, typed: "15/03/1994". Slashes appear on their own.
+  final TextEditingController _date = TextEditingController();
   Gender _gender = Gender.male;
   InterestedIn _interestedIn = InterestedIn.women;
   bool _loadedDraft = false;
+
+  /// Set once the person picks "interested in" themselves; from then on
+  /// choosing a gender no longer changes it for them.
+  bool _interestTouched = false;
 
   @override
   void didChangeDependencies() {
@@ -41,9 +45,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     final UserProfile draft = context.session.draftProfile;
     _name.text = draft.firstName;
     _bio.text = draft.bio;
-    _day.text = '${draft.birthDate.day}';
-    _month.text = '${draft.birthDate.month}';
-    _year.text = '${draft.birthDate.year}';
+    // A new profile starts with an empty date rather than a placeholder
+    // birthday that has to be deleted first.
+    if (draft.firstName.isNotEmpty) {
+      _date.text = _BirthDateFormatter.format(draft.birthDate);
+      _interestTouched = true;
+    }
     _gender = draft.gender;
     _interestedIn = draft.interestedIn;
     _name.addListener(() => setState(() {}));
@@ -53,9 +60,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   void dispose() {
     _name.dispose();
     _bio.dispose();
-    _day.dispose();
-    _month.dispose();
-    _year.dispose();
+    _date.dispose();
     super.dispose();
   }
 
@@ -65,9 +70,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   /// out-of-range day would quietly turn into a different birthday. Round-trip
   /// the parts and reject anything that did not survive.
   DateTime? get _birthDate {
-    final int? day = int.tryParse(_day.text);
-    final int? month = int.tryParse(_month.text);
-    final int? year = int.tryParse(_year.text);
+    final List<String> parts = _date.text.split('/');
+    if (parts.length != 3) {
+      return null;
+    }
+    final int? day = int.tryParse(parts[0]);
+    final int? month = int.tryParse(parts[1]);
+    final int? year = parts[2].length == 4 ? int.tryParse(parts[2]) : null;
     if (day == null || month == null || year == null) {
       return null;
     }
@@ -102,6 +111,28 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   bool get _showAgeGate => _birthDate != null && !_isOfAge;
   bool get _canContinue =>
       _name.text.trim().isNotEmpty && _birthDate != null && _isOfAge;
+
+  /// A man looks for women and a woman for men, unless they say otherwise.
+  void _pickGender(Gender gender) {
+    setState(() {
+      _gender = gender;
+      if (_interestTouched) {
+        return;
+      }
+      _interestedIn = switch (gender) {
+        Gender.male => InterestedIn.women,
+        Gender.female => InterestedIn.men,
+        _ => _interestedIn,
+      };
+    });
+  }
+
+  void _pickInterest(InterestedIn value) {
+    setState(() {
+      _interestTouched = true;
+      _interestedIn = value;
+    });
+  }
 
   Future<void> _save() async {
     final UserProfile updated = context.session.draftProfile.copyWith(
@@ -155,47 +186,30 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       : '${s.birthDate} · ${s.ageYears(_age!)}',
                 ),
                 const SizedBox(height: Insets.xs + 2),
-                // Always day / month / year in that order, LTR, in both
-                // languages: a date typed into boxes is read positionally, and
-                // mirroring it in Hebrew would silently swap day and month.
+                // Typed, not picked: "15031994" becomes 15/03/1994. Always
+                // day / month / year, LTR, in both languages.
                 Directionality(
                   textDirection: TextDirection.ltr,
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _DatePart(
-                          controller: _day,
-                          hint: s.birthDayHint,
-                          maxLength: 2,
-                          onChanged: () => setState(() {}),
-                        ),
-                      ),
-                      const SizedBox(width: Insets.sm),
-                      Expanded(
-                        child: _DatePart(
-                          controller: _month,
-                          hint: s.birthMonthHint,
-                          maxLength: 2,
-                          onChanged: () => setState(() {}),
-                        ),
-                      ),
-                      const SizedBox(width: Insets.sm),
-                      Expanded(
-                        flex: 2,
-                        child: _DatePart(
-                          controller: _year,
-                          hint: s.birthYearHint,
-                          maxLength: 4,
-                          onChanged: () => setState(() {}),
-                        ),
-                      ),
+                  child: TextField(
+                    controller: _date,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    inputFormatters: <TextInputFormatter>[
+                      _BirthDateFormatter(),
                     ],
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 2,
+                    ),
+                    decoration: InputDecoration(hintText: s.birthDateTypeHint),
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
                 if (_showAgeGate) ...<Widget>[
                   const SizedBox(height: Insets.sm),
                   Text(
-                    s.ageGate,
+                    s.errorUnderAge,
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall
@@ -212,20 +226,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     UpChip(
                       label: s.genderMale,
                       selected: _gender == Gender.male,
-                      onSelected: () =>
-                          setState(() => _gender = Gender.male),
+                      onSelected: () => _pickGender(Gender.male),
                     ),
                     UpChip(
                       label: s.genderFemale,
                       selected: _gender == Gender.female,
-                      onSelected: () =>
-                          setState(() => _gender = Gender.female),
+                      onSelected: () => _pickGender(Gender.female),
                     ),
                     UpChip(
                       label: s.genderOther,
                       selected: _gender == Gender.other,
-                      onSelected: () =>
-                          setState(() => _gender = Gender.other),
+                      onSelected: () => _pickGender(Gender.other),
                     ),
                   ],
                 ),
@@ -239,21 +250,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     UpChip(
                       label: s.prefMen,
                       selected: _interestedIn == InterestedIn.men,
-                      onSelected: () =>
-                          setState(() => _interestedIn = InterestedIn.men),
+                      onSelected: () => _pickInterest(InterestedIn.men),
                     ),
                     UpChip(
                       label: s.prefWomen,
                       selected: _interestedIn == InterestedIn.women,
-                      onSelected: () =>
-                          setState(() => _interestedIn = InterestedIn.women),
+                      onSelected: () => _pickInterest(InterestedIn.women),
                     ),
                     UpChip(
                       label: s.prefEveryone,
                       selected: _interestedIn == InterestedIn.everyone,
-                      onSelected: () => setState(
-                        () => _interestedIn = InterestedIn.everyone,
-                      ),
+                      onSelected: () =>
+                          _pickInterest(InterestedIn.everyone),
                     ),
                   ],
                 ),
@@ -269,47 +277,61 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   ),
                 ),
                 const SizedBox(height: Insets.xl),
+                // At the end of the form, where the scroll ends — not pinned
+                // under the keyboard where nobody found it.
+                if (!_canContinue && !_showAgeGate)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Insets.sm),
+                    child: Text(
+                      s.fillNameAndDate,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                UpButton(
+                  label: s.saveAndContinue,
+                  icon: Icons.check_rounded,
+                  onPressed: _canContinue ? _save : null,
+                ),
+                const SizedBox(height: Insets.xl),
               ],
             ),
           ),
-          UpButton(
-            label: s.cont,
-            onPressed: _canContinue ? _save : null,
-          ),
-          const SizedBox(height: Insets.lg),
         ],
       ),
     );
   }
 }
 
-/// One box of a date. Digits only, centred, and capped at its own width.
-class _DatePart extends StatelessWidget {
-  const _DatePart({
-    required this.controller,
-    required this.hint,
-    required this.maxLength,
-    required this.onChanged,
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final int maxLength;
-  final VoidCallback onChanged;
+/// Digits in, "DD/MM/YYYY" out — the slashes are typed for you.
+class _BirthDateFormatter extends TextInputFormatter {
+  static String format(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      keyboardType: TextInputType.number,
-      textAlign: TextAlign.center,
-      maxLength: maxLength,
-      inputFormatters: <TextInputFormatter>[
-        FilteringTextInputFormatter.digitsOnly,
-        LengthLimitingTextInputFormatter(maxLength),
-      ],
-      decoration: InputDecoration(hintText: hint, counterText: ''),
-      onChanged: (_) => onChanged(),
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    // While deleting, no trailing slash is added back — so backspace on
+    // "15/" leaves "15" instead of getting stuck.
+    final bool deleting = newValue.text.length < oldValue.text.length;
+    if (digits.length > 8) {
+      digits = digits.substring(0, 8);
+    }
+    final StringBuffer out = StringBuffer();
+    for (int i = 0; i < digits.length; i++) {
+      out.write(digits[i]);
+      final bool more = i < digits.length - 1;
+      if ((i == 1 || i == 3) && (more || !deleting)) {
+        out.write('/');
+      }
+    }
+    final String text = out.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
     );
   }
 }

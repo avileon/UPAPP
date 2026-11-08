@@ -69,7 +69,7 @@ class LiveController extends ChangeNotifier {
 
   Future<void> start(
     Duration duration, {
-    LiveIntent intent = LiveIntent.meet,
+    LiveIntent intent = LiveIntent.date,
     String note = '',
     String venue = '',
     GeoFix? fix,
@@ -133,7 +133,7 @@ class LiveController extends ChangeNotifier {
 
   Future<void> toggle(
     Duration duration, {
-    LiveIntent intent = LiveIntent.meet,
+    LiveIntent intent = LiveIntent.date,
     String note = '',
     GeoFix? fix,
   }) =>

@@ -141,9 +141,12 @@ class _VenueJoinScreenState extends State<VenueJoinScreen> {
     if (code == 'verification_required') {
       setState(() => _phase = _Phase.ready);
       final Object? carryOn = await navigator.pushNamed(Routes.verify);
-      // Approved, or waiting for a human with 24 hours open: check in now.
+      // Back to this screen, not into the room: the person presses "join"
+      // when they are ready (test night, November 2026).
       if (carryOn == true && mounted) {
-        await _join();
+        setState(() => _error = null);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(s.readyWhenYouAre)));
       }
       return;
     }

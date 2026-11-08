@@ -122,42 +122,79 @@ class _PhotosSetupScreenState extends State<PhotosSetupScreen> {
     final PhotoCache cache = context.photos;
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     final AppStrings s = context.strings;
+    final int room =
+        UserProfile.maxPhotos - session.draftProfile.photoKeys.length;
+    if (room <= 0) {
+      return;
+    }
 
-    XFile? file;
+    List<XFile> files = const <XFile>[];
     try {
-      file = await _picker.pickImage(
-        source: source,
-        preferredCameraDevice: CameraDevice.front,
-        maxWidth: 1440,
-        maxHeight: 1440,
-        imageQuality: 85,
-      );
+      if (source == ImageSource.gallery && room > 1) {
+        // Several at once: choosing four photos used to upload only the last
+        // one ticked (test night, November 2026).
+        files = await _picker.pickMultiImage(
+          maxWidth: 1440,
+          maxHeight: 1440,
+          imageQuality: 85,
+          limit: room,
+        );
+      } else {
+        final XFile? one = await _picker.pickImage(
+          source: source,
+          preferredCameraDevice: CameraDevice.front,
+          maxWidth: 1440,
+          maxHeight: 1440,
+          imageQuality: 85,
+        );
+        files = one == null ? const <XFile>[] : <XFile>[one];
+      }
     } on Exception {
       // A picker that will not open (no gallery app, permission withdrawn) is
       // not a crash — it is a photo that did not get added.
-      file = null;
+      files = const <XFile>[];
     }
-    if (file == null || !mounted) {
+    if (files.isEmpty || !mounted) {
       return;
     }
 
     setState(() => _busy = true);
-    final Uint8List bytes = await file.readAsBytes();
-    final String? key = await session.addPhoto(bytes);
+    String? failure;
+    // One after another, in the order chosen: the server keeps the order and
+    // the first becomes the main photo on an empty profile.
+    for (final XFile file in files.take(room)) {
+      final Uint8List bytes = await file.readAsBytes();
+      final String? key = await session.addPhoto(bytes);
+      if (!mounted) {
+        return;
+      }
+      if (key == null) {
+        failure = session.errorMessage(s);
+        continue;
+      }
+      // Show it from the bytes already in hand rather than downloading back
+      // the picture the person just chose.
+      cache.remember(key, bytes);
+    }
+    setState(() => _busy = false);
+    if (failure != null) {
+      messenger.showSnackBar(SnackBar(content: Text(failure)));
+    }
+  }
+
+  Future<void> _makeMain(String key) async {
+    final SessionController session = context.session;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final AppStrings s = context.strings;
+    setState(() => _busy = true);
+    final bool ok = await session.setPrimaryPhoto(key);
     if (!mounted) {
       return;
     }
     setState(() => _busy = false);
-
-    if (key == null) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(session.errorMessage(s))),
-      );
-      return;
+    if (!ok) {
+      messenger.showSnackBar(SnackBar(content: Text(session.errorMessage(s))));
     }
-    // Show it from the bytes already in hand rather than downloading back the
-    // picture the person just chose.
-    cache.remember(key, bytes);
   }
 
   Future<void> _remove(String key) async {
@@ -225,6 +262,11 @@ class _PhotosSetupScreenState extends State<PhotosSetupScreen> {
                             ? null
                             : () => _photoOptions(keys[index], index == 0),
                         onRemove: _busy ? null : () => _remove(keys[index]),
+                        onMakeMain: _busy ||
+                                index == 0 ||
+                                profile.isPhotoHidden(keys[index])
+                            ? null
+                            : () => _makeMain(keys[index]),
                       );
                     }
                     if (index > keys.length) {
@@ -239,6 +281,14 @@ class _PhotosSetupScreenState extends State<PhotosSetupScreen> {
                   },
                 ),
               ),
+              if (keys.length > 1)
+                Padding(
+                  padding: const EdgeInsets.only(top: Insets.sm),
+                  child: Text(
+                    s.addPhotosHint,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
               const SizedBox(height: Insets.lg),
               if (keys.isEmpty)
                 Padding(
@@ -273,7 +323,11 @@ class _FilledSlot extends StatelessWidget {
     required this.onRemove,
     this.status,
     this.onTap,
+    this.onMakeMain,
   });
+
+  /// The star on a photo that is not the main one. Null hides it.
+  final VoidCallback? onMakeMain;
 
   /// "In review" / "No match · hidden", when the face check said so.
   final String? status;
@@ -311,7 +365,23 @@ class _FilledSlot extends StatelessWidget {
           PositionedDirectional(
             top: Insets.sm,
             start: Insets.sm,
-            child: UpTag(label: mainLabel, emphasized: true),
+            child: UpTag(label: '⭐ $mainLabel', emphasized: true),
+          )
+        else if (onMakeMain != null)
+          PositionedDirectional(
+            top: Insets.xs,
+            start: Insets.xs,
+            child: IconButton(
+              onPressed: onMakeMain,
+              tooltip: mainLabel,
+              iconSize: 20,
+              visualDensity: VisualDensity.compact,
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0x99000000),
+                foregroundColor: const Color(0xFFFFD54F),
+              ),
+              icon: const Icon(Icons.star_border_rounded),
+            ),
           ),
         PositionedDirectional(
           top: Insets.xs,

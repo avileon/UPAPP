@@ -175,6 +175,9 @@ class InteractionController extends ChangeNotifier {
   Future<void> submitReality(String matchId, RealityAnswer answer) =>
       _guard(() => _interactions.submitRealityAnswer(matchId, answer));
 
+  Future<void> decide(String matchId, String choice) =>
+      _guard(() => _interactions.decide(matchId, choice));
+
   Future<void> unmatch(String matchId) =>
       _guard(() => _interactions.unmatch(matchId));
 

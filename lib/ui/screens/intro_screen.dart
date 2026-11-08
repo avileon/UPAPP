@@ -49,7 +49,7 @@ class IntroScreen extends StatelessWidget {
               ),
               const SizedBox(height: Insets.lg),
               _Point(
-                icon: Icons.bluetooth_rounded,
+                icon: Icons.place_outlined,
                 title: s.introPoint3Title,
                 body: s.introPoint3Body,
               ),
@@ -139,17 +139,25 @@ class _AgeGate extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Checkbox(
-              value: accepted,
-              onChanged: (bool? value) => onChanged(value ?? false),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
+            Transform.scale(
+              scale: 1.25,
+              child: Checkbox(
+                value: accepted,
+                onChanged: (bool? value) => onChanged(value ?? false),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
             const SizedBox(width: Insets.sm),
+            // Bigger since the first test night: the one sentence on this
+            // screen that is a legal statement should not be the smallest.
             Expanded(
               child: Text(
                 label,
-                style: Theme.of(context).textTheme.bodySmall,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                    ),
               ),
             ),
           ],

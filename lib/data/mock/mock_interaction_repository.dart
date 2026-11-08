@@ -173,6 +173,14 @@ class MockInteractionRepository implements InteractionRepository {
     _emitMatches();
   }
 
+  /// The mock has no clock or second phone; "no" closes the thread.
+  @override
+  Future<void> decide(String matchId, String choice) async {
+    if (choice == 'no') {
+      await unmatch(matchId);
+    }
+  }
+
   @override
   Future<void> unmatch(String matchId) async {
     _matches.removeWhere((MatchThread m) => m.id == matchId);

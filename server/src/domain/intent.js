@@ -16,9 +16,14 @@
  * and nothing else. "work" and "doing" were retired — a phone one version
  * behind that still sends them lands in "meet" rather than in an error.
  */
-export const INTENTS = Object.freeze(['meet', 'date']);
+export const INTENTS = Object.freeze(['date']);
 
-export const DEFAULT_INTENT = 'meet';
+/**
+ * November 2026: dating only. "meet people" was retired after the first test
+ * night — a phone that still sends it simply lands in "date", so everyone in
+ * a room is in the same room again.
+ */
+export const DEFAULT_INTENT = 'date';
 
 export function normaliseIntent(raw) {
   return INTENTS.includes(raw) ? raw : DEFAULT_INTENT;

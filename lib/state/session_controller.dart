@@ -43,7 +43,7 @@ class SessionController extends ChangeNotifier {
   bool _isBusy = false;
   UserProfile? _profile;
   Duration _liveDuration = const Duration(minutes: 60);
-  LiveIntent _liveIntent = LiveIntent.meet;
+  LiveIntent _liveIntent = LiveIntent.date;
   String _liveNote = '';
   bool _hideFromContacts = true;
   bool _venueMode = false;
@@ -344,7 +344,7 @@ class SessionController extends ChangeNotifier {
     _acceptedTerms = false;
     _phoneNumber = '';
     _liveDuration = const Duration(minutes: 60);
-    _liveIntent = LiveIntent.meet;
+    _liveIntent = LiveIntent.date;
     _liveNote = '';
     if (_profiles is MockProfileRepository) {
       _profiles.clear();

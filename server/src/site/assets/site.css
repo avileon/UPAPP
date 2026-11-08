@@ -33,6 +33,8 @@ p { margin: 0 0 1em; }
 .top .wrap { display: flex; align-items: center; gap: 16px; height: 64px; }
 .logo { font-family: "Rubik", sans-serif; font-weight: 800; font-size: 28px; color: var(--pink);
   text-decoration: none; letter-spacing: 1px; text-shadow: 0 0 18px #ff3d8b99; }
+.logo-tag { display: inline-block; margin-inline-start: 8px; font-size: 11px; font-weight: 800;
+  letter-spacing: 0.18em; color: var(--mint, #4df2b0); vertical-align: middle; direction: ltr; }
 .top nav { display: flex; gap: 22px; margin-inline-start: auto; align-items: center; }
 .top nav a { color: var(--fg); text-decoration: none; font-weight: 600; font-size: 15px; opacity: .85; }
 .top nav a:hover { opacity: 1; }

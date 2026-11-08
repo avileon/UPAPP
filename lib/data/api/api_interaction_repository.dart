@@ -172,6 +172,15 @@ class ApiInteractionRepository implements InteractionRepository {
   }
 
   @override
+  Future<void> decide(String matchId, String choice) async {
+    await _client.post(
+      '/matches/$matchId/decision',
+      <String, dynamic>{'choice': choice},
+    );
+    await refresh();
+  }
+
+  @override
   Future<void> unmatch(String matchId) async {
     await _client.post('/matches/$matchId/unmatch');
     await refresh();

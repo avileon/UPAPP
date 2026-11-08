@@ -31,9 +31,9 @@ enum LiveIntent {
         return intent;
       }
     }
-    // An intent this build does not know about is not an error. A phone one
-    // version behind must still be able to go Live.
-    return LiveIntent.meet;
+    // An intent this build does not know about is not an error. Since
+    // November 2026 everything is dating.
+    return LiveIntent.date;
   }
 
   /// Whether gender preference decides who you see.
@@ -42,5 +42,5 @@ enum LiveIntent {
   /// the one that enforces it — this exists so the app can *explain* the rule
   /// on the screen where it is chosen, which is the only place a person can
   /// act on knowing it.
-  bool get preferencesApply => this == LiveIntent.date;
+  bool get preferencesApply => true;
 }

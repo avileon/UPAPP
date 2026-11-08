@@ -58,6 +58,9 @@ abstract interface class InteractionRepository {
   /// Maps to `POST /matches/:id/reality-feedback`.
   Future<void> submitRealityAnswer(String matchId, RealityAnswer answer);
 
+  /// Maps to `POST /matches/:id/decision` — 'meet', 'phone' or 'no'.
+  Future<void> decide(String matchId, String choice);
+
   /// Maps to `POST /matches/:id/unmatch`.
   Future<void> unmatch(String matchId);
 

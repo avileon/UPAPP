@@ -54,7 +54,7 @@ class ApiPresenceRepository implements PresenceRepository {
   /// What every re-issue of the session has to carry: a server restart drops
   /// sessions from memory, and the one silent re-arm below must put the person
   /// back where they were, not in a different room or intent.
-  LiveIntent _intent = LiveIntent.meet;
+  LiveIntent _intent = LiveIntent.date;
   String _note = '';
   String _venue = '';
   GeoFix? _fix;
@@ -73,7 +73,7 @@ class ApiPresenceRepository implements PresenceRepository {
   @override
   Future<LiveSession> startLive(
     Duration duration, {
-    LiveIntent intent = LiveIntent.meet,
+    LiveIntent intent = LiveIntent.date,
     String note = '',
     String venue = '',
     GeoFix? fix,

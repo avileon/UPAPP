@@ -180,6 +180,25 @@ abstract final class ApiMappers {
       realityAnswer:
           json['realityAnswered'] == true ? RealityAnswer.somewhat : null,
       isUnread: isUnread,
+      date: json['date'] is Map ? dateInfo(map(json['date'])) : null,
+    );
+  }
+
+  static DateInfo dateInfo(Map<String, dynamic> json) {
+    DateTime? at(Object? raw) =>
+        raw is String && raw.isNotEmpty ? DateTime.tryParse(raw)?.toLocal() : null;
+    final Object? phone = json['theirPhone'];
+    final Object? mine = json['myChoice'];
+    return DateInfo(
+      phase: DatePhase.fromWire(json['phase'] as String?),
+      canWrite: json['canWrite'] != false,
+      holdsRoom: json['holdsRoom'] == true,
+      chatStartedAt: at(json['chatStartedAt']),
+      chatEndsAt: at(json['chatEndsAt']),
+      decideBy: at(json['decideBy']),
+      myChoice: mine is String ? mine : null,
+      theyChose: json['theyChose'] == true,
+      theirPhone: phone is String && phone.isNotEmpty ? phone : null,
     );
   }
 }

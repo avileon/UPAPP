@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/dating_strings.dart';
+import '../../core/l10n/error_text.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/entities/match_thread.dart';
@@ -47,9 +50,42 @@ class _ChatScreenState extends State<ChatScreen> {
 
   InteractionController? _interactions;
 
-  /// A chat in UP is two minutes long, counted from the first message. The
-  /// server enforces it; this only keeps the countdown on screen moving.
-  static const Duration chatWindow = Duration(minutes: 2);
+  /// A chat in UP is seven minutes long, counted from the first *reply*. The
+  /// server enforces it and sends the exact end; this only keeps the
+  /// countdown on screen moving (and is the fallback on an older server).
+  static const Duration chatWindow = Duration(minutes: 7);
+
+  bool _deciding = false;
+
+  Future<void> _decide(String choice) async {
+    final InteractionController interactions = context.interactions;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final AppStrings s = context.strings;
+    setState(() => _deciding = true);
+    await interactions.decide(widget.matchId, choice);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _deciding = false);
+    final String? code = interactions.lastErrorCode;
+    if (code != null) {
+      messenger.showSnackBar(SnackBar(content: Text(errorText(s, code))));
+    }
+  }
+
+  /// The first message from the side that did not open — when the clock starts.
+  static DateTime? _firstReplyAt(List<Message> messages) {
+    if (messages.isEmpty) {
+      return null;
+    }
+    final bool openerMine = messages.first.isMine;
+    for (final Message m in messages) {
+      if (m.isMine != openerMine) {
+        return m.sentAt;
+      }
+    }
+    return null;
+  }
   Timer? _ticker;
 
   /// The server said the time is up even if this phone's clock disagrees.
@@ -201,13 +237,22 @@ class _ChatScreenState extends State<ChatScreen> {
         final NearbyPerson? person = context.people.byId(match.personId);
         _maybeOfferRealityCheck(match);
 
-        final DateTime? firstAt =
-            match.messages.isEmpty ? null : match.messages.first.sentAt;
-        final Duration? left = firstAt == null
-            ? null
-            : firstAt.add(chatWindow).difference(DateTime.now());
-        final bool timeUp = (left != null && left <= Duration.zero) ||
-            _serverSaysTimeUp;
+        final DateInfo? date = match.date;
+        final DateTime? endsAt = date?.chatEndsAt ??
+            _firstReplyAt(match.messages)?.add(chatWindow);
+        final Duration? left = endsAt?.difference(DateTime.now());
+        final DatePhase phase = date?.phase ??
+            (left == null
+                ? DatePhase.waiting
+                : (left <= Duration.zero ? DatePhase.deciding : DatePhase.chatting));
+        final bool agreed = phase == DatePhase.meet || phase == DatePhase.phone;
+        final bool timeUp = !agreed &&
+            ((left != null && left <= Duration.zero) ||
+                _serverSaysTimeUp ||
+                phase == DatePhase.deciding ||
+                phase == DatePhase.ended ||
+                (date != null && !date.canWrite));
+        final String otherName = person?.nameFor(localeCode) ?? '';
 
         final String? newest = match.lastMessage?.id;
         if (newest != null && newest != _scrolledTo) {
@@ -239,10 +284,21 @@ class _ChatScreenState extends State<ChatScreen> {
                             SafetySheet.show(context, person.id),
                       ),
               ),
-              _ChatClock(
-                left: timeUp ? Duration.zero : left,
-                window: chatWindow,
-              ),
+              if (!agreed && phase != DatePhase.ended)
+                _ChatClock(
+                  left: timeUp ? Duration.zero : left,
+                  window: chatWindow,
+                ),
+              if (phase == DatePhase.waiting || phase == DatePhase.chatting)
+                Center(
+                  child: TextButton(
+                    onPressed: _deciding ? null : () => _decide('no'),
+                    child: Text(
+                      s.dateNotForMe,
+                      style: TextStyle(color: p.muted, fontSize: 12.5),
+                    ),
+                  ),
+                ),
               Expanded(
                 child: match.messages.isEmpty
                     ? _Openers(
@@ -278,8 +334,28 @@ class _ChatScreenState extends State<ChatScreen> {
                         },
                       ),
               ),
-              if (timeUp)
-                const _MeetNow()
+              if (phase == DatePhase.ended)
+                _ClosedNote(text: s.dateEndedBody)
+              else if (agreed) ...<Widget>[
+                _Agreed(
+                  phone: phase == DatePhase.phone,
+                  name: otherName,
+                  theirPhone: date?.theirPhone,
+                ),
+                _Composer(
+                  controller: _input,
+                  hint: s.messageHint,
+                  onSend: _send,
+                  borderColor: p.line,
+                ),
+              ] else if (timeUp)
+                _Decision(
+                  name: otherName,
+                  myChoice: date?.myChoice,
+                  theyChose: date?.theyChose ?? false,
+                  busy: _deciding,
+                  onChoose: _decide,
+                )
               else
                 _Composer(
                   controller: _input,
@@ -527,7 +603,7 @@ class _Openers extends StatelessWidget {
 }
 
 
-/// The two-minute countdown under the top bar.
+/// The seven-minute countdown under the top bar.
 class _ChatClock extends StatelessWidget {
   const _ChatClock({required this.left, required this.window});
 
@@ -599,50 +675,194 @@ class _ChatClock extends StatelessWidget {
   }
 }
 
-/// Where the composer was, once the two minutes are over.
-class _MeetNow extends StatelessWidget {
-  const _MeetNow();
+/// Time is up: meet now, talk on the phone, or not a match.
+class _Decision extends StatelessWidget {
+  const _Decision({
+    required this.name,
+    required this.myChoice,
+    required this.theyChose,
+    required this.busy,
+    required this.onChoose,
+  });
+
+  final String name;
+  final String? myChoice;
+  final bool theyChose;
+  final bool busy;
+  final ValueChanged<String> onChoose;
 
   @override
   Widget build(BuildContext context) {
     final AppStrings s = context.strings;
     final UpPalette p = context.palette;
+
+    Widget option(String choice, IconData icon, String label, Color colour) {
+      final bool picked = myChoice == choice;
+      return Padding(
+        padding: const EdgeInsets.only(top: Insets.sm),
+        child: Material(
+          color: picked ? colour.withValues(alpha: 0.22) : p.surfaceHigh,
+          borderRadius: BorderRadius.circular(Radii.md),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(Radii.md),
+            onTap: busy || picked ? null : () => onChoose(choice),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Insets.lg,
+                vertical: Insets.md,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(Radii.md),
+                border: Border.all(color: picked ? colour : p.line, width: 1.4),
+              ),
+              child: Row(
+                children: <Widget>[
+                  Icon(icon, color: colour, size: 22),
+                  const SizedBox(width: Insets.md),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                  if (picked) Icon(Icons.check_rounded, color: colour),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: Insets.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            s.dateDecideTitle,
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall
+                ?.copyWith(color: p.cyan, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: Insets.xs),
+          Text(
+            myChoice == null
+                ? s.dateDecideBody
+                : (theyChose ? s.dateDecideBody : s.dateWaitingFor(name)),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          option('meet', Icons.waving_hand_rounded, s.dateChoiceMeet, p.cyan),
+          option('phone', Icons.call_rounded, s.dateChoicePhone, p.amber),
+          option('no', Icons.close_rounded, s.dateChoiceNo, p.muted),
+        ],
+      ),
+    );
+  }
+}
+
+/// Both said yes.
+class _Agreed extends StatelessWidget {
+  const _Agreed({required this.phone, required this.name, this.theirPhone});
+
+  final bool phone;
+  final String name;
+  final String? theirPhone;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.strings;
+    final UpPalette p = context.palette;
+    final Color colour = phone ? p.amber : p.cyan;
+    final String? number = theirPhone;
     return Padding(
       padding: const EdgeInsets.only(top: Insets.md),
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: Insets.lg,
-          vertical: Insets.lg,
-        ),
+        padding: const EdgeInsets.all(Insets.lg),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(Radii.lg),
-          border: Border.all(color: p.cyan, width: 1.6),
-          color: p.cyan.withValues(alpha: 0.10),
-          boxShadow: <BoxShadow>[
-            BoxShadow(color: p.cyan.withValues(alpha: 0.30), blurRadius: 24),
-          ],
+          border: Border.all(color: colour, width: 1.6),
+          color: colour.withValues(alpha: 0.10),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(Icons.waving_hand_rounded, color: p.cyan, size: 30),
+            Icon(phone ? Icons.call_rounded : Icons.waving_hand_rounded,
+                color: colour, size: 30),
             const SizedBox(height: Insets.sm),
             Text(
-              s.chatTimeUpTitle,
+              phone ? s.datePhoneTitle(name) : s.chatTimeUpTitle,
               textAlign: TextAlign.center,
               style: Theme.of(context)
                   .textTheme
                   .headlineSmall
-                  ?.copyWith(color: p.cyan, fontWeight: FontWeight.w800),
+                  ?.copyWith(color: colour, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: Insets.xs),
-            Text(
-              s.chatTimeUpBody,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            if (phone && number != null) ...<Widget>[
+              SelectableText(
+                number,
+                textAlign: TextAlign.center,
+                textDirection: TextDirection.ltr,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: Insets.sm),
+              Wrap(
+                spacing: Insets.sm,
+                alignment: WrapAlignment.center,
+                children: <Widget>[
+                  FilledButton.icon(
+                    onPressed: () => launchUrl(Uri(scheme: 'tel', path: number)),
+                    icon: const Icon(Icons.call_rounded, size: 18),
+                    label: Text(s.dateCallNow),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        Clipboard.setData(ClipboardData(text: number)),
+                    icon: const Icon(Icons.copy_rounded, size: 18),
+                    label: Text(s.dateCopy),
+                  ),
+                ],
+              ),
+            ] else
+              Text(
+                s.dateMeetBody,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Where the composer was, once someone said "not a match".
+class _ClosedNote extends StatelessWidget {
+  const _ClosedNote({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Insets.lg),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: Theme.of(context)
+            .textTheme
+            .bodyMedium
+            ?.copyWith(color: context.palette.muted),
       ),
     );
   }

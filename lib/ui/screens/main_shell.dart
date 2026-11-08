@@ -170,7 +170,29 @@ class MainShellState extends State<MainShell> {
 
   bool _asking = false;
 
+  /// When a screen on top of this one (the photo viewer, a chat) last closed.
+  ///
+  /// Some phones deliver one back gesture twice: the first closes the photo,
+  /// the second landed here and offered to leave the app — "closing the photo
+  /// throws me out" (test night, November 2026). A back that arrives right
+  /// after returning here is that echo, and is ignored.
+  DateTime _returnedAt = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _wasCurrent = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final bool current = ModalRoute.of(context)?.isCurrent ?? true;
+    if (current && !_wasCurrent) {
+      _returnedAt = DateTime.now();
+    }
+    _wasCurrent = current;
+  }
+
   Future<void> _onBack() async {
+    if (DateTime.now().difference(_returnedAt) < const Duration(milliseconds: 900)) {
+      return;
+    }
     if (_tab != UpTab.home) {
       select(UpTab.home);
       return;

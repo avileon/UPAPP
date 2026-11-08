@@ -30,9 +30,9 @@ class PeopleViewerArgs {
 /// Everyone in the room, one at a time, full screen.
 ///
 /// Swipe sideways for the next person; swipe up and down for their other
-/// photos. Tapping the photo is the UP — the one decision on this screen,
-/// where the eye already is — with three seconds to take it back, because at a
-/// place there are only four of them a night. There is no X: not sending an UP
+/// photos. The UP button is the UP — with three seconds to take it back,
+/// because at a place there are only four of them a night. Tapping the photo
+/// itself sends nothing. There is no X: not sending an UP
 /// is what happens when you swipe on. Hiding and blocking live behind the
 /// three dots.
 class PeopleViewerScreen extends StatefulWidget {
@@ -390,8 +390,10 @@ class _PersonPageState extends State<_PersonPage> {
         return Stack(
           fit: StackFit.expand,
           children: <Widget>[
+            // A tap on the photo does nothing any more: only the UP button
+            // sends an UP (test night, November 2026 — people sent UPs while
+            // just looking).
             GestureDetector(
-              onTap: () => _up(sent: sent, locked: locked),
               child: PageView.builder(
                 controller: _photos,
                 scrollDirection: Axis.vertical,
@@ -460,7 +462,7 @@ class _PersonPageState extends State<_PersonPage> {
                           icon: Icons.close_rounded,
                           label: MaterialLocalizations.of(context)
                               .closeButtonTooltip,
-                          onTap: () => Navigator.of(context).pop(),
+                          onTap: () => Navigator.of(context).maybePop(),
                         ),
                         const Spacer(),
                         if (quota != null) _QuotaDots(quota: quota),

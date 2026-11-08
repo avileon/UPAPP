@@ -60,6 +60,15 @@ test('four UPs per place per night', async (t) => {
     assert.equal(res.status, 200);
     assert.equal(res.body.outcome, 'matched');
     assert.equal(res.body.upQuota.remaining, 0);
+    // A match closes the room for both until one of them says "not a match".
+    const blocked = await up(me, others[4]);
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.body.error, 'in_a_date');
+    const no = await s.call('POST', `/matches/${res.body.match.id}/decision`, {
+      token: me.token,
+      body: { choice: 'no' },
+    });
+    assert.equal(no.status, 200);
   });
 
   await t.test('taking one back does not hand the slot back', async () => {

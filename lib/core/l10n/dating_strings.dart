@@ -27,7 +27,7 @@ extension DatingStrings on AppStrings {
       );
   String upPendingTo(String name) => _t('UP ל$name', 'UP to $name');
   String get upUndo => _t('ביטול', 'Undo');
-  String get upTapHint => _t('לחיצה על התמונה = UP', 'Tap the photo to send UP');
+  String get upTapHint => _t('לוחצים על כפתור ה-UP כדי לשלוח', 'Press the UP button to send');
   String get peopleHereTitle => _t('מי כאן', 'Who is here');
   String get nobodyHereYet => _t('עוד אין אף אחד. נשארים — אנשים מגיעים.',
       'Nobody yet. Stay — people arrive.');
@@ -35,14 +35,58 @@ extension DatingStrings on AppStrings {
   String get youAreAtPrefix => _t('אתם ב-', 'You are at ');
   String hereCount(int count) => _t(' · $count כאן', ' · $count here');
 
-  // -- the two-minute chat ---------------------------------------------------
+  // -- the chat, then the decision ---------------------------------------------
 
   String chatTimeLeft(String clock) =>
       _t('נשארו $clock לצ\'אט', '$clock left to chat');
   String get chatTimerIdle => _t(
-        'לצ\'אט יש 2 דקות מההודעה הראשונה — ואז נפגשים',
-        'The chat lasts 2 minutes from the first message — then you meet',
+        'יש לכם 7 דקות לצ\'אט — השעון מתחיל מהתשובה הראשונה',
+        'You get 7 minutes to chat — the clock starts at the first reply',
       );
+  String get dateNotForMe => _t('לא מתאים לי', 'Not for me');
+  String get dateDecideTitle => _t('הזמן נגמר — מה עכשיו?', 'Time is up — what now?');
+  String get dateDecideBody => _t(
+        'כל אחד בוחר. רק אם שניכם בוחרים "טלפון" — המספרים נחשפים.',
+        'You each choose. Numbers are shown only if you both pick the phone.',
+      );
+  String dateWaitingFor(String name) => _t(
+        name.isEmpty ? 'מחכים לבחירה של הצד השני…' : 'מחכים לבחירה של $name…',
+        name.isEmpty ? 'Waiting for the other side…' : 'Waiting for $name…',
+      );
+  String get dateChoiceMeet => _t('ממשיכים לדייט — נפגשים עכשיו', 'Let\'s date — meet now');
+  String get dateChoicePhone => _t('נדבר קודם בטלפון', 'Talk on the phone first');
+  String get dateChoiceNo => _t('פחות מתאים', 'Not a match');
+  String datePhoneTitle(String name) =>
+      _t(name.isEmpty ? 'שניכם רוצים לדבר' : 'הטלפון של $name', name.isEmpty ? 'You both want to talk' : '$name\'s number');
+  String get dateCallNow => _t('להתקשר', 'Call');
+  String get dateCopy => _t('העתקה', 'Copy');
+  String get dateMeetBody => _t(
+        'שניכם רוצים להמשיך. אתם באותו מקום — לכו להגיד שלום. הצ\'אט פתוח לתיאום.',
+        'You both want to go on. You are in the same place — go say hi. The chat stays open to find each other.',
+      );
+  String get dateEndedBody => _t(
+        'הצ\'אט הסתיים. החדר פתוח שוב — אפשר לחזור לראות מי כאן.',
+        'This chat has ended. The room is open again.',
+      );
+  String inDateBanner(String name) => _t(
+        name.isEmpty ? 'יש לך התאמה — החדר מושהה עד שתחליטו' : 'יש לך התאמה עם $name — החדר מושהה עד שתחליטו',
+        name.isEmpty ? 'You have a match — the room is paused until you decide' : 'You matched with $name — the room is paused until you decide',
+      );
+  String get inDateOpenChat => _t('לצ\'אט', 'Open chat');
+  String get liveOffStatus => _t('לא ב-LIVE · אף אחד לא רואה אותך', 'Not LIVE · nobody can see you');
+  String get liveOnStatus => _t('ב-LIVE · רואים אותך', 'LIVE · you are visible');
+  String get readyWhenYouAre => _t(
+        'הכל מוכן. לוחצים על הכפתור כשרוצים להתחיל.',
+        'All set. Press the button when you want to start.',
+      );
+  String get addPhotosHint => _t(
+        'אפשר לבחור כמה תמונות יחד מהגלריה. ⭐ = תמונה ראשית — לוחצים על הכוכב כדי להחליף.',
+        'Pick several photos at once from the gallery. ⭐ = main photo — tap a star to change it.',
+      );
+  String get birthDateTypeHint => _t('יום/חודש/שנה', 'DD/MM/YYYY');
+  String get saveAndContinue => _t('שמירה והמשך', 'Save and continue');
+  String get fillNameAndDate =>
+      _t('חסר: שם פרטי ותאריך לידה', 'Missing: first name and birth date');
   String get chatTimeUpTitle => _t('בואו להיפגש!', 'Go and meet!');
   // -- decisions from the operator ------------------------------------------
 
@@ -60,8 +104,8 @@ extension DatingStrings on AppStrings {
   String get noticeRetryAction => _t('לנסות שוב', 'Try again');
 
   String get chatTimeUpBody => _t(
-        'שתי הדקות עברו. אתם באותו מקום — לכו להגיד שלום.',
-        'Your two minutes are up. You are in the same place — go say hi.',
+        'זמן הצ\'אט נגמר — עכשיו מחליטים אם ממשיכים לדייט.',
+        'Chat time is up — now decide whether to go on to a date.',
       );
 
   // -- leaving ---------------------------------------------------------------
@@ -311,6 +355,15 @@ extension DatingStrings on AppStrings {
     switch (code) {
       case 'chat_time_up':
         return chatTimeUpBody;
+      case 'in_a_date':
+        return _t('יש לך התאמה פתוחה. קודם מחליטים שם — ואז החדר נפתח שוב.',
+            'You have an open match. Decide there first — then the room opens again.');
+      case 'person_unavailable':
+        return _t('האדם הזה כבר באמצע התאמה.', 'This person is already in a match.');
+      case 'chat_not_started':
+        return _t('אפשר לבחור אחרי שמישהו ענה.', 'You can choose once someone has replied.');
+      case 'match_closed':
+        return dateEndedBody;
       case 'account_suspended':
         return _t('החשבון הושעה. לבירור — פנו לצוות UP.',
             'This account is suspended. Contact the UP team.');

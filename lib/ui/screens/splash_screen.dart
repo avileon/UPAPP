@@ -112,6 +112,17 @@ class _SplashScreenState extends State<SplashScreen> {
                     ?.copyWith(color: Colors.white),
               ),
             ),
+            // The wordmark says what this is (test night, November 2026).
+            Text(
+              'DATE APP',
+              textDirection: TextDirection.ltr,
+              style: TextStyle(
+                color: p.cyan,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 6,
+              ),
+            ),
             const SizedBox(height: Insets.md),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 240),

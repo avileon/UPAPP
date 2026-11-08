@@ -675,6 +675,39 @@ export class Store {
     this.db.prepare(`UPDATE matches SET status = 'unmatched' WHERE id = ?`).run(matchId);
   }
 
+  // -- after the chat -------------------------------------------------------
+
+  /** userId -> choice for one match. */
+  matchChoices(matchId) {
+    const rows = this.db
+      .prepare(`SELECT user_id, choice FROM match_decisions WHERE match_id = ?`)
+      .all(matchId);
+    return Object.fromEntries(rows.map((r) => [r.user_id, r.choice]));
+  }
+
+  /** Records (or changes) one person's choice. */
+  setMatchChoice(matchId, userId, choice) {
+    this.db
+      .prepare(
+        `INSERT INTO match_decisions (match_id, user_id, choice, created_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT (match_id, user_id) DO UPDATE SET choice = excluded.choice,
+           created_at = excluded.created_at`,
+      )
+      .run(matchId, userId, choice, nowIso());
+  }
+
+  /** Active matches of [userId] made since [sinceIso], newest first. */
+  recentActiveMatches(userId, sinceIso) {
+    return this.db
+      .prepare(
+        `SELECT * FROM matches
+          WHERE (user_a = ? OR user_b = ?) AND status = 'active' AND matched_at >= ?
+          ORDER BY matched_at DESC`,
+      )
+      .all(userId, userId, sinceIso);
+  }
+
   // -- messages ------------------------------------------------------------
 
   listMessages(matchId) {

@@ -218,13 +218,28 @@ export const config = {
   maxMessageLength: 1000,
 
   /**
-   * A chat is a bridge to meeting, not a place to stay. Two minutes from the
-   * first message, then the app tells both sides to go and say hello. The
+   * A chat is a bridge to meeting, not a place to stay. Seven minutes, counted
+   * from the first *reply* — an opening line nobody answered has not started
+   * anything. Then both decide: meet, talk on the phone, or not a match. The
    * grace covers a message typed in the last second and a phone a few seconds
    * behind the server's clock.
    */
-  chatWindowSeconds: Number(process.env.CHAT_WINDOW_SECONDS ?? 120),
+  chatWindowSeconds: int('CHAT_WINDOW_SECONDS', 7 * 60),
   chatGraceSeconds: 5,
+
+  /**
+   * While two people are on a match, the room is closed to both of them: they
+   * see only each other's chat, and nobody else sees them. These bound how
+   * long that lasts when somebody simply stops answering.
+   */
+  date: {
+    /** A match nobody replied to stops holding the room after this. */
+    replyMinutes: int('DATE_REPLY_MINUTES', 10),
+    /** After the chat ends, this long to choose — then the room reopens. */
+    decideMinutes: int('DATE_DECIDE_MINUTES', 10),
+    /** An agreed date keeps both out of the room for this long. */
+    lockHours: int('DATE_LOCK_HOURS', 6),
+  },
 };
 
 /** Refuses to run a production server with development shortcuts enabled. */

@@ -252,6 +252,9 @@ class _FakeRepository implements InteractionRepository {
   Future<void> submitRealityAnswer(String matchId, RealityAnswer answer) async {}
 
   @override
+  Future<void> decide(String matchId, String choice) async {}
+
+  @override
   Future<void> unmatch(String matchId) async {}
 
   @override

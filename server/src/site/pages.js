@@ -199,7 +199,7 @@ ${extra}</head>`;
 <a class="skip" href="#main">דילוג לתוכן</a>
 <header class="top">
   <div class="wrap">
-    <a class="logo" href="/" aria-label="UP — דף הבית">UP</a>
+    <a class="logo" href="/" aria-label="UP Date App — דף הבית">UP<span class="logo-tag">DATE APP</span></a>
     <nav aria-label="ראשי">
       <a class="hide-sm" href="/#how">איך זה עובד</a>
       <a class="hide-sm" href="/#features">למה UP</a>
