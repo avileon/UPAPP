@@ -135,6 +135,15 @@ const APP_CODE = new Set([
  */
 function cacheControlFor(relative) {
   const name = relative.split(sep).join('/');
+  // The one big file. Since up.atar.co went DNS-only (grey cloud) nothing
+  // rewrites headers on the way, so `no-cache` means what it says: keep it,
+  // ask every time, get a 304 when the build has not changed. Without this a
+  // phone downloads ~1 MB of app on every single open, which is most of why
+  // the app was slow to start. If the record is ever proxied through
+  // Cloudflare again, set Browser Cache TTL to "Respect existing headers".
+  if (name === 'main.dart.js') {
+    return 'no-cache';
+  }
   if (APP_CODE.has(name)) {
     return 'no-store, must-revalidate';
   }

@@ -115,6 +115,21 @@ export function sendBinary(res, status, { body, mime, etag, cacheControl }) {
   res.end(body);
 }
 
+/**
+ * Whether a conditional request's If-None-Match names this ETag.
+ *
+ * Not a plain string compare: Caddy compresses responses on the way out and
+ * marks the ETag it forwards (`"abc"` becomes `"abc-zstd"`), so that is what
+ * the browser sends back. A strict compare never matched, and nothing ever
+ * got a 304.
+ */
+export function etagMatches(header, etag) {
+  if (!header || !etag) return false;
+  const bare = (t) => t.trim().replace(/^W\//, '').replace(/^"|"$/g, '').replace(/-(zstd|gzip|br)$/, '');
+  const want = bare(etag);
+  return header.split(',').some((t) => t.trim() === '*' || bare(t) === want);
+}
+
 export function sendJson(res, status, payload) {
   const body = JSON.stringify(payload);
   res.writeHead(status, {

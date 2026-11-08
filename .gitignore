@@ -32,3 +32,8 @@ pubspec.lock
 # directory to find a negated path.
 /web/*
 !/web/push/
+# The loading screen and the bootstrap that loads CanvasKit from this server.
+# `flutter create` keeps files that already exist, so these win over its
+# template.
+!/web/index.html
+!/web/flutter_bootstrap.js

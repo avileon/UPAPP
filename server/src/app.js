@@ -43,6 +43,7 @@ import {
   notFound,
   readJsonBody,
   sendBinary,
+  etagMatches,
   sendJson,
   tooManyRequests,
   unauthorized,
@@ -512,7 +513,7 @@ export function createApp({
     requireUser(req);
     const file = media.open(params.key);
     if (!file) throw notFound('photo_not_found');
-    if (req.headers['if-none-match'] === file.etag) {
+    if (etagMatches(req.headers['if-none-match'], file.etag)) {
       return {
         binary: {
           status: 304,
@@ -2202,7 +2203,7 @@ export function createApp({
       if (req.method === 'GET' && web.exists) {
         const file = web.read(url.pathname.startsWith('/app/') ? '/index.html' : url.pathname);
         if (file) {
-          if (req.headers['if-none-match'] === file.etag) {
+          if (etagMatches(req.headers['if-none-match'], file.etag)) {
             sendBinary(res, 304, { ...file, body: Buffer.alloc(0) });
             return;
           }

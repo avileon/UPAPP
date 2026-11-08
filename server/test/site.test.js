@@ -21,6 +21,7 @@ test('the web app', async (t) => {
   mkdirSync(join(root, 'assets'), { recursive: true });
   writeFileSync(join(root, 'index.html'), '<!doctype html><title>UP</title>');
   writeFileSync(join(root, 'main.dart.js'), 'console.log(1)');
+  writeFileSync(join(root, 'flutter_bootstrap.js'), '/* boot */');
   writeFileSync(join(root, 'assets', 'logo.png'), Buffer.from([0x89, 0x50]));
   writeFileSync(join(tmpdir(), 'up-secret-outside.txt'), 'do not serve me');
 
@@ -73,7 +74,7 @@ test('the web app', async (t) => {
     // Cloudflare's Browser Cache TTL rewrote it to `max-age=14400`, and every
     // phone kept running a four-hour-old build. `no-store` is not cacheable, so
     // there is nothing for a CDN to rewrite.
-    for (const path of ['/app', '/?venue=BAR12', '/index.html', '/main.dart.js']) {
+    for (const path of ['/app', '/?venue=BAR12', '/index.html', '/flutter_bootstrap.js']) {
       const res = await fetch(`${base}${path}`);
       assert.match(
         res.headers.get('cache-control'),
@@ -81,6 +82,24 @@ test('the web app', async (t) => {
         `${path} must not be stored`,
       );
     }
+  });
+
+  await t.test('main.dart.js is revalidated, not re-downloaded', async () => {
+    // ~1 MB on every open was most of the startup time on mobile data. It is
+    // kept but checked every time, so a new build is still picked up at once.
+    const res = await fetch(`${base}/main.dart.js`);
+    assert.equal(res.headers.get('cache-control'), 'no-cache');
+    const etag = res.headers.get('etag');
+    assert.ok(etag);
+    await res.arrayBuffer();
+
+    // Caddy forwards the ETag as "<hash>-zstd"; that is what comes back.
+    for (const sent of [etag, etag.replace(/"$/, '-zstd"'), `W/${etag}`]) {
+      const again = await fetch(`${base}/main.dart.js`, { headers: { 'if-none-match': sent } });
+      assert.equal(again.status, 304, `If-None-Match ${sent}`);
+    }
+    const other = await fetch(`${base}/main.dart.js`, { headers: { 'if-none-match': '"nope-zstd"' } });
+    assert.equal(other.status, 200);
   });
 
   await t.test('everything else still caches, or every load is megabytes', async () => {
