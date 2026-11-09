@@ -28,11 +28,11 @@ _flutter.loader.load({
         if (window.__upSplashDone) window.__upSplashDone();
       });
     } catch (e) {
-      console.error('UP failed to start', e);
+      console.error('AppDate failed to start', e);
       if (window.__upSplashFail) window.__upSplashFail();
     }
   },
 }).catch(function (e) {
-  console.error('UP failed to load', e);
+  console.error('AppDate failed to load', e);
   if (window.__upSplashFail) window.__upSplashFail();
 });

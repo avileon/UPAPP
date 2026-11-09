@@ -143,7 +143,7 @@ test('the public site', async (t) => {
   await t.test('landing page carries what search engines read', async () => {
     const html = await (await get('/')).text();
     assert.match(html, /<html lang="he" dir="rtl">/);
-    assert.match(html, /<title>UP — אפליקציית הכרויות/);
+    assert.match(html, /<title>AppDate — אפליקציית הכרויות/);
     assert.match(html, /<meta name="description" content="[^"]{80,}">/);
     assert.match(html, /<link rel="canonical" href="https:\/\/up\.atar\.co\/">/);
     assert.match(html, /og:image" content="https:\/\/up\.atar\.co\/site\/og\.png"/);
@@ -179,7 +179,7 @@ test('the public site', async (t) => {
     assert.match(sitemap, /<loc>https:\/\/up\.atar\.co\/business<\/loc>/);
     const manifest = await (await get('/manifest.json')).json();
     assert.equal(manifest.start_url, '/app');
-    assert.equal(manifest.short_name, 'UP');
+    assert.equal(manifest.short_name, 'AppDate');
   });
 
   await t.test('assets are served, and nothing outside them', async () => {

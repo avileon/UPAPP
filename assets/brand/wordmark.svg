@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360">
+  <rect width="1200" height="360" fill="#0d0a14"/>
+  <g transform="translate(60,40) scale(0.546875)">
+    <path fill="#ff3d8b" d="M256 408 C 226 382 108 300 108 210 C 108 160 146 124 192 124 C 222 124 244 140 256 162 C 268 140 290 124 320 124 C 366 124 404 160 404 210 C 404 300 286 382 256 408 Z"/>
+    <g fill="none" stroke="#3dffc5" stroke-linecap="round"><path d="M356 112 A 54 54 0 0 1 410 166" stroke-width="14"/><path d="M356 76 A 90 90 0 0 1 446 166" stroke-width="12" opacity="0.6"/></g>
+    <circle cx="362" cy="160" r="20" fill="#3dffc5"/>
+  </g>
+  <text x="340" y="232" font-family="Rubik, Arial Black, sans-serif" font-weight="800" font-size="150" letter-spacing="-3"><tspan fill="#f6f0fc">App</tspan><tspan fill="#ff3d8b">Date</tspan></text>
+</svg>

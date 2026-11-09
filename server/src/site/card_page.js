@@ -23,7 +23,7 @@ const shell = (title, body) => `<!doctype html>
 <meta name="color-scheme" content="dark">
 <title>${esc(title)}</title>
 <meta property="og:title" content="${esc(title)}">
-<meta property="og:site_name" content="UP">
+<meta property="og:site_name" content="AppDate">
 <link rel="icon" href="/site/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/site/site.css?v=1">
 <style>
@@ -43,7 +43,7 @@ const shell = (title, body) => `<!doctype html>
 </style>
 </head>
 <body>
-<header class="top"><div class="wrap"><a class="logo" href="/">UP</a></div></header>
+<header class="top"><div class="wrap"><a class="logo" href="/"><img class="logo-mark" src="/site/favicon.svg" alt="">App<span class="logo-date">Date</span></a></div></header>
 <main class="card-page">
 ${body}
 </main>
@@ -56,14 +56,14 @@ export function cardPage({ token, firstName, hasPhoto, verified }) {
     ? `<img src="/c/${esc(token)}/photo" alt="${esc(name)}" width="400" height="500">`
     : `<div class="initial" aria-hidden="true">${esc(name.slice(0, 1))}</div>`;
   return shell(
-    `${name} נתן/ה לך את הכרטיס שלו/ה ב-UP`,
+    `${name} נתן/ה לך את הכרטיס שלו/ה ב-AppDate`,
     `
   <div class="card-photo">${photo}</div>
   <h1 class="card-name">${esc(name)}</h1>
   ${verified ? '<span class="badge">✓ פנים מאומתות</span>' : ''}
   <p class="lead muted">${esc(name)} נתן/ה לך את הכרטיס שלו/ה. רוצה להמשיך להכיר? שלח/י UP — ותיפתח לכם שיחה.</p>
   <a class="btn-up" href="/app?card=${encodeURIComponent(token)}">תן UP ↑</a>
-  <p class="fine muted">נרשמים בדקה, עם אימות פנים — בלי להוריד כלום. <a href="/">מה זה UP?</a></p>`,
+  <p class="fine muted">נרשמים בדקה, עם אימות פנים — בלי להוריד כלום. <a href="/">מה זה AppDate?</a></p>`,
   );
 }
 
@@ -75,10 +75,10 @@ const GONE = {
 
 export function cardGonePage(problem) {
   return shell(
-    'UP · כרטיס לא בתוקף',
+    'AppDate · כרטיס לא בתוקף',
     `
   <h1 class="card-name" style="margin-top:30px">אופס</h1>
   <p class="lead muted">${esc(GONE[problem] ?? GONE.card_unknown)} בקש/י מהבעלים לגעת שוב, או להראות לך את ה-QR מחדש.</p>
-  <a class="btn-up" href="/">מה זה UP?</a>`,
+  <a class="btn-up" href="/">מה זה AppDate?</a>`,
   );
 }

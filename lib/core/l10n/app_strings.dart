@@ -533,7 +533,7 @@ class AppStrings {
     later: 'אחר כך',
     introTitle: 'רואה מישהו שמעניין אותך?',
     introBody:
-        'UP מראה רק אנשים שבחרו להיות זמינים ונמצאים ממש לידך. בלי מפה, בלי מרחק, בלי גלילה אינסופית.',
+        'AppDate מראה רק אנשים שבחרו להיות זמינים ונמצאים ממש לידך. בלי מפה, בלי מרחק, בלי גלילה אינסופית.',
     introPoint1Title: 'אתה בוחר מתי אתה גלוי',
     introPoint1Body: 'מצב Live נדלק לזמן קצוב ונכבה לבד.',
     introPoint2Title: 'UP הוא פרטי',
@@ -576,7 +576,7 @@ class AppStrings {
     photosNoneYet: 'בלי תמונה אף אחד לא יידע מי אתה. אפשר להוסיף עוד אחר כך.',
     permsTitle: 'שתי הרשאות, ואנחנו בפנים',
     permBluetoothTitle: 'Bluetooth',
-    permBluetoothBody: 'ככה UP יודע מי נמצא ממש לידך. בלי זה אין אפליקציה.',
+    permBluetoothBody: 'ככה AppDate יודעת מי נמצא ממש לידך. בלי זה אין אפליקציה.',
     permNotifTitle: 'התראות',
     permNotifBody: 'רק כשיש Match או הודעה. לא נשלח לך "מישהו מתגעגע אליך".',
     permLocationNote:
@@ -794,7 +794,7 @@ class AppStrings {
     later: 'Later',
     introTitle: 'See someone across the room?',
     introBody:
-        'UP only shows people who chose to be available and are right next to you. No map, no distance, no endless scroll.',
+        'AppDate only shows people who chose to be available and are right next to you. No map, no distance, no endless scroll.',
     introPoint1Title: 'You choose when you’re visible',
     introPoint1Body: 'Live runs on a timer and turns itself off.',
     introPoint2Title: 'An UP is private',
@@ -838,7 +838,7 @@ class AppStrings {
     permsTitle: 'Two permissions and we’re in',
     permBluetoothTitle: 'Bluetooth',
     permBluetoothBody:
-        'This is how UP knows who is actually near you. Without it there is no app.',
+        'This is how AppDate knows who is actually near you. Without it there is no app.',
     permNotifTitle: 'Notifications',
     permNotifBody:
         'Only for matches and messages. No "someone misses you" nonsense.',

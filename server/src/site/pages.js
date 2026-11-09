@@ -66,28 +66,28 @@ const card = (icon, title, text, mint = false) => `
 
 const FAQ = [
   [
-    'מה זה UP?',
-    'UP היא אפליקציית הכרויות שמראה לך רק אנשים שנמצאים איתך באותו מקום — באותו בר, פאב, מועדון או אירוע — ממש עכשיו. נכנסים ל-Live, רואים מי כאן, שולחים UP, וכשזה הדדי נפתח Match וצ׳אט.',
+    'מה זה AppDate?',
+    'AppDate היא אפליקציית הכרויות שמראה לך רק אנשים שנמצאים איתך באותו מקום — באותו בר, פאב, מועדון או אירוע — ממש עכשיו. נכנסים ל-Live, רואים מי כאן, שולחים UP, וכשזה הדדי נפתח Match וצ׳אט.',
   ],
   [
-    'במה UP שונה מטינדר, באמבל ואפליקציות היכרויות אחרות?',
-    'באפליקציות הרגילות מחליקים על אנשים שנמצאים קילומטרים ממך ואולי בכלל לא פעילים. ב-UP כל מי שמופיע נמצא בחדר איתך באותו רגע, עבר אימות פנים חי, והתמונות שלו נבדקות מול הפנים האמיתיות. המטרה היא להיפגש עכשיו, לא להתכתב שבועות.',
+    'במה AppDate שונה מטינדר, באמבל ואפליקציות היכרויות אחרות?',
+    'באפליקציות הרגילות מחליקים על אנשים שנמצאים קילומטרים ממך ואולי בכלל לא פעילים. ב-AppDate כל מי שמופיע נמצא בחדר איתך באותו רגע, עבר אימות פנים חי, והתמונות שלו נבדקות מול הפנים האמיתיות. המטרה היא להיפגש עכשיו, לא להתכתב שבועות.',
   ],
   [
     'צריך להוריד אפליקציה?',
-    'לא חייבים. UP עובדת ישר מהדפדפן — גם באייפון וגם באנדרואיד — ואפשר להוסיף אותה למסך הבית בלחיצה כדי שתיפתח כמו אפליקציה רגילה. למכשירי אנדרואיד יש גם גרסה להתקנה.',
+    'לא חייבים. AppDate עובדת ישר מהדפדפן — גם באייפון וגם באנדרואיד — ואפשר להוסיף אותה למסך הבית בלחיצה כדי שתיפתח כמו אפליקציה רגילה. למכשירי אנדרואיד יש גם גרסה להתקנה.',
   ],
   [
-    'איך UP יודעת שאני באמת נמצא בבר?',
-    'בכל מקום שמצטרף ל-UP תלויה מדבקת QR. סורקים אותה, והטלפון מאשר שהמיקום שלך בתוך רדיוס המקום. רק אז נכנסים לחדר — לשעה. מי שלא נמצא שם פיזית לא יכול להיכנס, גם אם קיבל צילום של הקוד.',
+    'איך AppDate יודעת שאני באמת נמצא בבר?',
+    'בכל מקום שמצטרף ל-AppDate תלויה מדבקת QR. סורקים אותה, והטלפון מאשר שהמיקום שלך בתוך רדיוס המקום. רק אז נכנסים לחדר — לשעה. מי שלא נמצא שם פיזית לא יכול להיכנס, גם אם קיבל צילום של הקוד.',
   ],
   [
-    'האם UP שומרת את המיקום שלי?',
-    'לא. המיקום משמש רק לבדיקה ברגע הכניסה ונזרק מיד — הוא לא נשמר במסד הנתונים ולא מוצג לאף אחד. העיקרון שלנו: UP יודעת שאתה בחדר, לא איפה אתה.',
+    'האם AppDate שומרת את המיקום שלי?',
+    'לא. המיקום משמש רק לבדיקה ברגע הכניסה ונזרק מיד — הוא לא נשמר במסד הנתונים ולא מוצג לאף אחד. העיקרון שלנו: AppDate יודעת שאתה בחדר, לא איפה אתה.',
   ],
   [
     'מה זה אימות פנים ולמה הוא חשוב?',
-    'לפני שנכנסים ל-Live עושים אימות חי במצלמה — כמה סיבובי ראש קצרים. כל תמונת פרופיל נבדקת מול הפנים המאומתות, ותמונה שלא תואמת לא מוצגת. ככה הפרופילים ב-UP הם אנשים אמיתיים שנראים כמו בתמונות.',
+    'לפני שנכנסים ל-Live עושים אימות חי במצלמה — כמה סיבובי ראש קצרים. כל תמונת פרופיל נבדקת מול הפנים המאומתות, ותמונה שלא תואמת לא מוצגת. ככה הפרופילים ב-AppDate הם אנשים אמיתיים שנראים כמו בתמונות.',
   ],
   [
     'כמה UP אפשר לשלוח?',
@@ -98,12 +98,12 @@ const FAQ = [
     'הכניסה לחדר תקפה לשעה. חמש דקות לפני הסוף תקבלו תזכורת, ומי שעדיין שם סורק שוב וממשיך. מי שהלך — פשוט נעלם מהחדר. אין פרופיל שנשאר "באוויר".',
   ],
   [
-    'אפשר להשתמש ב-UP גם בלי בר?',
+    'אפשר להשתמש ב-AppDate גם בלי בר?',
     'כן. במצב "באזור שלי" רואים אנשים שנמצאים ב-Live ברדיוס של כחצי קילומטר ממך — בלי לסרוק QR.',
   ],
   [
-    'UP מתאימה רק לדייטים?',
-    'לא רק. בוחרים מטרה בכל כניסה: "דייט" או "להכיר אנשים". סינון לפי העדפת מגדר פועל רק במצב דייט.',
+    'AppDate מתאימה רק לדייטים?',
+    'כן — AppDate היא אפליקציה לדייטים בלבד. רואים רק את מי שמתאים להעדפה שלכם (גברים / נשים / כולם), וכשיש Match יש 7 דקות צ׳אט ואז מחליטים: נפגשים, מדברים בטלפון או ממשיכים הלאה.',
   ],
   [
     'מה אם מישהו מטריד אותי?',
@@ -111,13 +111,13 @@ const FAQ = [
   ],
   [
     'יש לי בר / פאב / מועדון — איך מצטרפים?',
-    'נרשמים בדף UP לעסקים: שם העסק, מיקום (מהטלפון כשאתם בעסק או לפי כתובת) ופרטי קשר. אחרי אישור מקבלים QR אישי להדפסה ולתלייה, ומשם האורחים שלכם נכנסים לחדר של המקום.',
+    'נרשמים בדף AppDate לעסקים: שם העסק, מיקום (מהטלפון כשאתם בעסק או לפי כתובת) ופרטי קשר. אחרי אישור מקבלים QR אישי להדפסה ולתלייה, ומשם האורחים שלכם נכנסים לחדר של המקום.',
   ],
 ];
 
 const BUSINESS_FAQ = [
   [
-    'מה העסק מקבל מ-UP?',
+    'מה העסק מקבל מ-AppDate?',
     'חדר משלו באפליקציה: מי שסורק את ה-QR שלכם נכנס לחדר של המקום, רואה מי עוד שם ויכול לשלוח UP. אורחים נשארים יותר, חוזרים, ומספרים לחברים שאצלכם "קורה משהו". בכניסה לחדר הלוגו שלכם קופץ אצל האורח עם קונפטי.',
   ],
   [
@@ -153,8 +153,8 @@ export function sitePages({ publicUrl }) {
   const org = {
     '@type': 'Organization',
     '@id': `${base}/#org`,
-    name: 'UP',
-    alternateName: ['UP הכרויות', 'אפליקציית UP'],
+    name: 'AppDate',
+    alternateName: ['AppDate הכרויות', 'אפליקציית AppDate', 'אפ דייט'],
     url: `${base}/`,
     logo: `${base}/site/icon-512.png`,
   };
@@ -171,7 +171,7 @@ export function sitePages({ publicUrl }) {
 <meta name="theme-color" content="#0d0a14">
 <meta name="color-scheme" content="dark">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="UP">
+<meta property="og:site_name" content="AppDate">
 <meta property="og:locale" content="he_IL">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
@@ -179,7 +179,7 @@ export function sitePages({ publicUrl }) {
 <meta property="og:image" content="${OG}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="UP — אפליקציית הכרויות במקום">
+<meta property="og:image:alt" content="AppDate — אפליקציית הכרויות במקום">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -188,7 +188,7 @@ export function sitePages({ publicUrl }) {
 <link rel="icon" href="/site/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="/site/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.json">
-<meta name="apple-mobile-web-app-title" content="UP">
+<meta name="apple-mobile-web-app-title" content="AppDate">
 <link rel="preload" href="/site/Rubik-800.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/site/IBMPlexSansHebrew-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/site/site.css?v=1">
@@ -199,10 +199,10 @@ ${extra}</head>`;
 <a class="skip" href="#main">דילוג לתוכן</a>
 <header class="top">
   <div class="wrap">
-    <a class="logo" href="/" aria-label="UP Date App — דף הבית">UP<span class="logo-tag">DATE APP</span></a>
+    <a class="logo" href="/" aria-label="AppDate — דף הבית"><img class="logo-mark" src="/site/favicon.svg" alt="">App<span class="logo-date">Date</span></a>
     <nav aria-label="ראשי">
       <a class="hide-sm" href="/#how">איך זה עובד</a>
-      <a class="hide-sm" href="/#features">למה UP</a>
+      <a class="hide-sm" href="/#features">למה AppDate</a>
       <a href="/business"${active === 'business' ? ' aria-current="page"' : ''}>לעסקים</a>
       <a class="btn btn-pink btn-sm" href="/app">כניסה</a>
     </nav>
@@ -212,29 +212,29 @@ ${extra}</head>`;
   const footer = `
 <footer>
   <div class="wrap">
-    <a class="logo" href="/" style="font-size:22px">UP</a>
+    <a class="logo" href="/" style="font-size:22px"><img class="logo-mark" src="/site/favicon.svg" alt="">App<span class="logo-date">Date</span></a>
     <a href="/#how">איך זה עובד</a>
     <a href="/#faq">שאלות נפוצות</a>
-    <a href="/business">UP לעסקים</a>
+    <a href="/business">AppDate לעסקים</a>
     <a href="/business#join">רישום עסק</a>
     <a href="/app">כניסה לאפליקציה</a>
-    <span class="sp">לגילאי 18 ומעלה · © ${new Date().getFullYear()} UP</span>
+    <span class="sp">לגילאי 18 ומעלה · © ${new Date().getFullYear()} AppDate</span>
   </div>
 </footer>`;
 
   // -- the landing page ---------------------------------------------------------
 
   const landingHtml = () => {
-    const title = 'UP — אפליקציית הכרויות לאנשים שנמצאים איתך עכשיו';
+    const title = 'AppDate — אפליקציית הכרויות לאנשים שנמצאים איתך עכשיו';
     const description =
-      'UP היא אפליקציית הכרויות שמחברת בין אנשים שנמצאים באותו בר, פאב או אירוע — ממש עכשיו. סורקים QR, רואים מי כאן, שולחים UP, ו-Match רק כשזה הדדי. אימות פנים חי, בלי התקנה.';
+      'AppDate היא אפליקציית הכרויות שמחברת בין אנשים שנמצאים באותו בר, פאב או אירוע — ממש עכשיו. סורקים QR, רואים מי כאן, שולחים UP, ו-Match רק כשזה הדדי. אימות פנים חי, בלי התקנה.';
     const ld = [
       org,
       {
         '@type': 'WebSite',
         '@id': `${base}/#site`,
-        name: 'UP',
-        alternateName: 'UP — אפליקציית הכרויות',
+        name: 'AppDate',
+        alternateName: 'AppDate — אפליקציית הכרויות',
         url: `${base}/`,
         inLanguage: 'he-IL',
         publisher: { '@id': `${base}/#org` },
@@ -242,8 +242,8 @@ ${extra}</head>`;
       {
         '@type': 'WebApplication',
         '@id': `${base}/#app`,
-        name: 'UP',
-        alternateName: ['UP אפליקציית הכרויות', 'אפליקציית UP', 'UP dating app'],
+        name: 'AppDate',
+        alternateName: ['AppDate אפליקציית הכרויות', 'אפליקציית AppDate', 'AppDate dating app', 'אפ דייט'],
         description,
         url: `${base}/app`,
         applicationCategory: 'SocialNetworkingApplication',
@@ -276,7 +276,7 @@ ${header('home')}
   <div class="wrap">
     <div>
       <div class="eyebrow"><i aria-hidden="true"></i> אנשים אמיתיים. באותו מקום. עכשיו.</div>
-      <h1>UP — אפליקציית ההכרויות <span class="pink glow-pink">למי שנמצא כאן</span></h1>
+      <h1>AppDate — אפליקציית ההכרויות <span class="pink glow-pink">למי שנמצא כאן</span></h1>
       <p class="lead">נכנסת לבר? סרקו את ה-QR, תראו מי עוד בחדר, ושלחו UP למי שתפס לכם את העין. כשזה הדדי — יש Match, ואפשר פשוט לגשת ולהגיד שלום.</p>
       <div class="btns">
         <a class="btn btn-pink" href="/app">להתחיל עכשיו — בחינם בדפדפן</a>
@@ -307,13 +307,13 @@ ${header('home')}
 <section class="block alt" id="how">
   <div class="wrap">
     <div class="section-head">
-      <h2>איך UP עובדת?</h2>
+      <h2>איך AppDate עובדת?</h2>
       <p>שלושה צעדים, פחות מדקה. בלי להחליק על זרים שנמצאים בצד השני של העיר.</p>
     </div>
     <div class="grid g3 steps">
       <article class="card step"><h3>סורקים את ה-QR במקום</h3><p>על הבר, על השולחן או בכניסה. הטלפון מאשר שאתם באמת שם, ואתם בחדר של המקום לשעה. אפשר גם "באזור שלי" — בלי QR.</p></article>
       <article class="card step"><h3>רואים מי כאן — עכשיו</h3><p>הפנים של מי שבחדר ממלאים את המסך. נוגעים בפנים כדי לראות עוד תמונות, ומחליקים לאדם הבא.</p></article>
-      <article class="card step"><h3>שולחים UP ומחכים להדדיות</h3><p>לחיצה על התמונה שולחת UP (יש 3 שניות לביטול). כשהצד השני שולח בחזרה — Match, קונפטי וצ׳אט. משם זה כבר אתם.</p></article>
+      <article class="card step"><h3>שולחים UP ומחכים להדדיות</h3><p>לחיצה על כפתור ה-UP שולחת (יש 3 שניות לביטול). כשהצד השני שולח בחזרה — Match, קונפטי ו-7 דקות צ׳אט. אחר כך מחליטים: נפגשים, טלפון או ממשיכים הלאה.</p></article>
     </div>
   </div>
 </section>
@@ -321,7 +321,7 @@ ${header('home')}
 <section class="block" id="features">
   <div class="wrap">
     <div class="section-head">
-      <h2>למה דווקא UP?</h2>
+      <h2>למה דווקא AppDate?</h2>
       <p>בנינו את אפליקציית ההכרויות שרצינו שתהיה: כנה, מאומתת ומחוברת למקום שבו אתם נמצאים.</p>
     </div>
     <div class="grid g3">
@@ -330,7 +330,7 @@ ${header('home')}
       ${card('spark', 'Reality Verified', 'אחרי שנפגשתם, משוב פרטי וקצר: התמונות מייצגות את האדם במציאות? זה לא דירוג יופי — זו כנות.')}
       ${card('heart', 'Match רק בהדדיות', 'צ׳אט נפתח רק כששני הצדדים שלחו UP. אף אחד לא יכול להציף אתכם בהודעות.', true)}
       ${card('clock', '4 UP בלילה, לכל מקום', 'מגבלה קטנה שעושה הבדל גדול: כל UP הוא בחירה אמיתית. להחזיר UP לא נספר במכסה.')}
-      ${card('shield', 'UP יודעת שאתם בחדר — לא איפה אתם', 'המיקום נבדק רק ברגע הכניסה ונמחק מיד. לא נשמר, לא מוצג, לא נמכר.', true)}
+      ${card('shield', 'AppDate יודעת שאתם בחדר — לא איפה אתם', 'המיקום נבדק רק ברגע הכניסה ונמחק מיד. לא נשמר, לא מוצג, לא נמכר.', true)}
       ${card('radar', '"באזור שלי"', 'לא בבר? היכנסו ל-Live ותראו מי עוד פעיל ברדיוס של כחצי קילומטר.')}
       ${card('eye', 'שליטה מלאה', 'מסתירים מישהו עד סוף הערב, חוסמים או מדווחים — בשתי לחיצות. ה-Live זמני ונעלם כשיוצאים.', true)}
       ${card('phone', 'בלי להוריד כלום', 'עובדת מהדפדפן בכל טלפון — אייפון ואנדרואיד — ונכנסת למסך הבית כמו אפליקציה. בעברית ובאנגלית.')}
@@ -341,12 +341,12 @@ ${header('home')}
 <section class="block alt" id="compare">
   <div class="wrap">
     <div class="section-head">
-      <h2>UP מול אפליקציות היכרויות רגילות</h2>
-      <p>לא עוד אפליקציית סווייפים. UP בנויה להיפגש באותו ערב.</p>
+      <h2>AppDate מול אפליקציות היכרויות רגילות</h2>
+      <p>לא עוד אפליקציית סווייפים. AppDate בנויה להיפגש באותו ערב.</p>
     </div>
     <div style="overflow-x:auto">
     <table class="compare">
-      <thead><tr><th scope="col"></th><th scope="col">UP</th><th scope="col">אפליקציות רגילות</th></tr></thead>
+      <thead><tr><th scope="col"></th><th scope="col">AppDate</th><th scope="col">אפליקציות רגילות</th></tr></thead>
       <tbody>
         <tr><th scope="row">את מי רואים</th><td>רק מי שנמצא איתך באותו מקום, עכשיו</td><td>אנשים ברדיוס של קילומטרים, גם כאלה שלא נכנסו חודשים</td></tr>
         <tr><th scope="row">אמינות הפרופיל</th><td>אימות פנים חי + בדיקת כל תמונה</td><td>תמונות מכל מקום, לפעמים בלי אימות</td></tr>
@@ -363,7 +363,7 @@ ${header('home')}
   <div class="wrap">
     <div class="band">
       <div>
-        <h2>UP לעסקים: ה-QR שהופך את הבר שלכם למקום להכיר בו אנשים</h2>
+        <h2>AppDate לעסקים: ה-QR שהופך את הבר שלכם למקום להכיר בו אנשים</h2>
         <ul>
           <li>חדר משלכם באפליקציה — רק מי שנמצא אצלכם נכנס אליו</li>
           <li>מדבקת QR קבועה להדפסה. בלי ציוד, בלי חיבור לקופה</li>
@@ -372,7 +372,7 @@ ${header('home')}
         </ul>
         <div class="btns"><a class="btn btn-mint" href="/business#join">רישום העסק וקבלת QR</a><a class="btn btn-ghost" href="/business">פרטים נוספים</a></div>
       </div>
-      <div aria-hidden="true"><div class="sticker-mini"><div class="b">UP</div><div class="n">הבר שלכם</div>
+      <div aria-hidden="true"><div class="sticker-mini"><div class="b">App<span>Date</span></div><div class="n">הבר שלכם</div>
         <svg viewBox="0 0 29 29" width="150" height="150" shape-rendering="crispEdges"><path fill="#111" d="M0 0h7v7H0zM1 1v5h5V1zM2 2h3v3H2zM22 0h7v7h-7zM23 1v5h5V1zM24 2h3v3h-3zM0 22h7v7H0zM1 23v5h5v-5zM2 24h3v3H2zM9 0h2v2H9zM13 1h3v2h-3zM9 4h4v2H9zM15 5h4v3h-4zM10 9h3v3h-3zM0 9h2v4H0zM4 10h3v2H4zM15 10h2v4h-2zM19 9h4v2h-4zM25 10h4v2h-4zM8 14h5v2H8zM20 13h3v4h-3zM2 15h4v2H2zM25 15h3v3h-3zM9 18h2v4H9zM13 17h4v2h-4zM18 19h3v3h-3zM23 20h2v2h-2zM13 21h3v3h-3zM9 24h2v4H9zM18 24h4v2h-4zM24 24h4v4h-4zM14 26h2v3h-2z"/></svg>
         <div class="c">סרקו כדי לראות מי כאן ולשלוח UP</div></div></div>
     </div>
@@ -381,7 +381,7 @@ ${header('home')}
 
 <section class="block alt" id="faq">
   <div class="wrap" style="max-width:860px">
-    <div class="section-head"><h2>שאלות נפוצות על UP</h2></div>
+    <div class="section-head"><h2>שאלות נפוצות על AppDate</h2></div>
     <div class="faq">
         ${faqHtml(FAQ)}
     </div>
@@ -390,9 +390,9 @@ ${header('home')}
 
 <section class="final">
   <div class="wrap">
-    <h2>הערב הבא שלכם מתחיל ב-<span class="pink glow-pink">UP</span></h2>
+    <h2>הערב הבא שלכם מתחיל ב-<span class="pink glow-pink">AppDate</span></h2>
     <p class="muted" style="font-size:18px">פותחים, מאמתים פנים פעם אחת, וסורקים בבר הבא.</p>
-    <div class="btns"><a class="btn btn-pink" href="/app">כניסה ל-UP</a><a class="btn btn-ghost" href="/business">אני בעל עסק</a></div>
+    <div class="btns"><a class="btn btn-pink" href="/app">כניסה ל-AppDate</a><a class="btn btn-ghost" href="/business">אני בעל עסק</a></div>
   </div>
 </section>
 
@@ -401,10 +401,10 @@ ${footer}
 
 <div class="modal" id="install-help" role="dialog" aria-modal="true" aria-labelledby="ih-t">
   <div class="sheet">
-    <h3 id="ih-t">הוספת UP למסך הבית</h3>
+    <h3 id="ih-t">הוספת AppDate למסך הבית</h3>
     <p class="muted" id="ih-ios" hidden>באייפון (Safari):</p>
     <ol id="ih-steps"></ol>
-    <div class="btns"><a class="btn btn-pink" href="/app">פתיחת UP</a><button class="btn btn-ghost" type="button" id="ih-close">סגירה</button></div>
+    <div class="btns"><a class="btn btn-pink" href="/app">פתיחת AppDate</a><button class="btn btn-ghost" type="button" id="ih-close">סגירה</button></div>
   </div>
 </div>
 <script>
@@ -427,7 +427,7 @@ ${footer}
     }
     var steps = ios
       ? ['פתחו את הדף ב-Safari', 'לחצו על כפתור השיתוף (ריבוע עם חץ למעלה)', 'בחרו "הוספה למסך הבית" ואשרו']
-      : ['פתחו את התפריט של הדפדפן (שלוש הנקודות)', 'בחרו "התקנת אפליקציה" או "הוספה למסך הבית"', 'אשרו — UP תופיע עם שאר האפליקציות'];
+      : ['פתחו את התפריט של הדפדפן (שלוש הנקודות)', 'בחרו "התקנת אפליקציה" או "הוספה למסך הבית"', 'אשרו — AppDate תופיע עם שאר האפליקציות'];
     document.getElementById('ih-steps').innerHTML = steps.map(function (s) { return '<li>' + s + '</li>'; }).join('');
     modal.classList.add('on');
   };
@@ -440,9 +440,9 @@ ${footer}
   // -- businesses -------------------------------------------------------------------
 
   const businessHtml = () => {
-    const title = 'UP לעסקים — QR להכרויות לבר, פאב ומועדון';
+    const title = 'AppDate לעסקים — QR להכרויות לבר, פאב ומועדון';
     const description =
-      'הפכו את הבר, הפאב או המועדון שלכם למקום שבו מכירים אנשים. רושמים את העסק ב-UP, מקבלים מדבקת QR אישית, והאורחים רואים מי עוד נמצא אצלכם ושולחים UP.';
+      'הפכו את הבר, הפאב או המועדון שלכם למקום שבו מכירים אנשים. רושמים את העסק ב-AppDate, מקבלים מדבקת QR אישית, והאורחים רואים מי עוד נמצא אצלכם ושולחים UP.';
     const ld = [
       org,
       {
@@ -458,8 +458,8 @@ ${footer}
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'UP', item: `${base}/` },
-          { '@type': 'ListItem', position: 2, name: 'UP לעסקים', item: `${base}/business` },
+          { '@type': 'ListItem', position: 1, name: 'AppDate', item: `${base}/` },
+          { '@type': 'ListItem', position: 2, name: 'AppDate לעסקים', item: `${base}/business` },
         ],
       },
       faqLd(BUSINESS_FAQ),
@@ -476,14 +476,14 @@ ${header('business')}
 <section class="hero">
   <div class="wrap">
     <div>
-      <div class="eyebrow"><i aria-hidden="true"></i> UP לעסקים</div>
+      <div class="eyebrow"><i aria-hidden="true"></i> AppDate לעסקים</div>
       <h1>הבר שלכם, <span class="mint">המקום שבו מכירים אנשים</span></h1>
-      <p class="lead">רשמו את העסק ל-UP וקבלו QR משלכם. מי שסורק אותו נכנס לחדר של המקום, רואה מי עוד כאן ושולח UP — והערב אצלכם נהיה חברתי יותר.</p>
+      <p class="lead">רשמו את העסק ל-AppDate וקבלו QR משלכם. מי שסורק אותו נכנס לחדר של המקום, רואה מי עוד כאן ושולח UP — והערב אצלכם נהיה חברתי יותר.</p>
       <div class="btns"><a class="btn btn-mint" href="#join">רישום העסק — 2 דקות</a><a class="btn btn-ghost" href="#how-biz">איך זה עובד</a></div>
       <div class="trust"><span>בלי ציוד</span><span>QR להדפסה</span><span>אימות מיקום לכל אורח</span></div>
       <p id="has-venue" hidden style="margin-top:20px"><a href="/business/status">כבר רשמתם עסק? לדף העסק שלכם ←</a></p>
     </div>
-    <div aria-hidden="true"><div class="sticker-mini" style="transform:rotate(3deg);max-width:300px"><div class="b">UP</div><div class="n">השם של העסק שלכם</div>
+    <div aria-hidden="true"><div class="sticker-mini" style="transform:rotate(3deg);max-width:300px"><div class="b">App<span>Date</span></div><div class="n">השם של העסק שלכם</div>
       <svg viewBox="0 0 29 29" width="170" height="170" shape-rendering="crispEdges"><path fill="#111" d="M0 0h7v7H0zM1 1v5h5V1zM2 2h3v3H2zM22 0h7v7h-7zM23 1v5h5V1zM24 2h3v3h-3zM0 22h7v7H0zM1 23v5h5v-5zM2 24h3v3H2zM9 0h2v2H9zM13 1h3v2h-3zM9 4h4v2H9zM15 5h4v3h-4zM10 9h3v3h-3zM0 9h2v4H0zM4 10h3v2H4zM15 10h2v4h-2zM19 9h4v2h-4zM25 10h4v2h-4zM8 14h5v2H8zM20 13h3v4h-3zM2 15h4v2H2zM25 15h3v3h-3zM9 18h2v4H9zM13 17h4v2h-4zM18 19h3v3h-3zM23 20h2v2h-2zM13 21h3v3h-3zM9 24h2v4H9zM18 24h4v2h-4zM24 24h4v4h-4zM14 26h2v3h-2z"/></svg>
       <div class="c">סרקו כדי לראות מי כאן עכשיו ולשלוח UP</div></div></div>
   </div>
@@ -504,7 +504,7 @@ ${header('business')}
   <div class="wrap">
     <div class="section-head"><h2>מה זה נותן לעסק</h2></div>
     <div class="grid g3">
-      ${card('users', 'סיבה להגיע — ולהישאר', 'אנשים מגיעים לבר כדי לפגוש אנשים. UP הופכת את זה לקל: רואים מי כאן ושוברים את הקרח בלחיצה.')}
+      ${card('users', 'סיבה להגיע — ולהישאר', 'אנשים מגיעים לבר כדי לפגוש אנשים. AppDate הופכת את זה לקל: רואים מי כאן ושוברים את הקרח בלחיצה.')}
       ${card('qr', 'מדבקה אחת, בלי ציוד', 'QR קבוע שמדפיסים ותולים. בלי טאבלט, בלי אפליקציה לעסק, בלי חיבור לקופה.', true)}
       ${card('shield', 'רק מי שאצלכם', 'כל כניסה נבדקת מול המיקום של העסק. צילום של הקוד שנשלח לחבר בבית — לא יעבוד.')}
       ${card('spark', 'המותג שלכם על המסך', 'הלוגו שלכם קופץ עם קונפטי אצל כל מי שנכנס לחדר — ונשאר בזיכרון.', true)}
@@ -516,7 +516,7 @@ ${header('business')}
 
 <section class="block alt" id="join">
   <div class="wrap" style="max-width:720px">
-    <div class="section-head"><h2>רישום עסק ל-UP</h2><p>אחרי השליחה תקבלו קישור אישי לדף העסק — שם תראו את ה-QR ואת סטטוס האישור.</p></div>
+    <div class="section-head"><h2>רישום עסק ל-AppDate</h2><p>אחרי השליחה תקבלו קישור אישי לדף העסק — שם תראו את ה-QR ואת סטטוס האישור.</p></div>
 
     <form class="form" id="apply" novalidate>
       <h3><span class="n">1</span> פרטי העסק</h3>
@@ -545,7 +545,7 @@ ${header('business')}
       <div class="field"><label for="f-phone">טלפון</label><input id="f-phone" type="tel" required inputmode="tel" autocomplete="tel" dir="ltr" placeholder="050-0000000"></div>
       <div class="field"><label for="f-email">אימייל (לא חובה)</label><input id="f-email" type="email" autocomplete="email" dir="ltr"></div>
       <div class="hp" aria-hidden="true"><label>Website<input id="f-website" tabindex="-1" autocomplete="off"></label></div>
-      <label class="check"><input type="checkbox" id="f-terms"> <span>אני מוסמך/ת לרשום את העסק, ומאשר/ת ש-UP תיצור איתי קשר לגבי הרישום. UP מיועדת לגילאי 18 ומעלה.</span></label>
+      <label class="check"><input type="checkbox" id="f-terms"> <span>אני מוסמך/ת לרשום את העסק, ומאשר/ת ש-AppDate תיצור איתי קשר לגבי הרישום. AppDate מיועדת לגילאי 18 ומעלה.</span></label>
       <div class="err" id="err" role="alert"></div>
       <button class="btn btn-pink" type="submit" id="submit" style="width:100%">שליחה וקבלת QR</button>
     </form>
@@ -675,7 +675,7 @@ ${footer}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>UP · דף העסק</title>
+<title>AppDate · דף העסק</title>
 <link rel="icon" href="/site/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/site/site.css?v=1">
 <style>
@@ -693,7 +693,8 @@ ${footer}
     @page { size: A5; margin: 10mm; }
     body { background:#fff !important; } body > *:not(#sticker) { display:none !important; }
     #sticker { display:flex !important; position:static; flex-direction:column; align-items:center; gap:12px; text-align:center; color:#111; }
-    #sticker .brand { font: 800 72px "Rubik", sans-serif; color:#ff3d8b; line-height:1; }
+    #sticker .brand { font: 800 72px "Rubik", sans-serif; color:#1b1023; line-height:1; direction:ltr; }
+    #sticker .brand span { color:#ff3d8b; }
     #sticker .name { font-size:30px; font-weight:600; }
     #sticker svg { width: 110mm; height:auto; }
     #sticker .cta { font-size:20px; } #sticker .small { font-size:13px; color:#555; }
@@ -701,7 +702,7 @@ ${footer}
 </style>
 </head>
 <body>
-<header class="top"><div class="wrap"><a class="logo" href="/">UP</a><nav><a href="/business">UP לעסקים</a></nav></div></header>
+<header class="top"><div class="wrap"><a class="logo" href="/"><img class="logo-mark" src="/site/favicon.svg" alt="">App<span class="logo-date">Date</span></a><nav><a href="/business">AppDate לעסקים</a></nav></div></header>
 <main class="wrap" style="max-width:640px;padding-top:30px;padding-bottom:60px">
   <div id="loading" class="muted">טוען…</div>
   <div id="nokey" hidden class="form">
@@ -709,7 +710,7 @@ ${footer}
     <p class="muted">הקישור לדף הזה נשלח אליכם ברישום. אם הוא לא אצלכם — <a href="/business#join">רשמו את העסק</a> או צרו איתנו קשר.</p>
   </div>
   <div id="view" hidden>
-    <p class="muted" style="margin:0">דף העסק שלכם ב-UP</p>
+    <p class="muted" style="margin:0">דף העסק שלכם ב-AppDate</p>
     <h1 id="v-name" style="font-size:36px;margin-top:4px"></h1>
     <p><span class="st" id="v-status"></span> <span class="muted" id="v-addr"></span></p>
 
@@ -731,7 +732,7 @@ ${footer}
     <p class="muted" style="font-size:13px;margin-top:20px">שמרו את הקישור לדף הזה — הוא הגישה שלכם. אל תשתפו אותו.</p>
   </div>
 </main>
-<div id="sticker"><div class="brand">UP</div><div class="name" id="s-name"></div><div id="s-qr"></div>
+<div id="sticker"><div class="brand">App<span>Date</span></div><div class="name" id="s-name"></div><div id="s-qr"></div>
   <div class="cta">סרקו כדי לראות מי כאן עכשיו ולשלוח UP</div><div class="small">כניסה לשעה · מאומת לפי מיקום · up.atar.co</div></div>
 <script src="/site/qrcode.js"></script>
 <script>
@@ -776,7 +777,7 @@ ${footer}
     img.onload = function () {
       var c = document.createElement('canvas'); c.width = size; c.height = size;
       var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, size, size); x.drawImage(img, 0, 0, size, size);
-      var a = document.createElement('a'); a.download = 'UP-QR-' + $('v-code').textContent + '.png'; a.href = c.toDataURL('image/png'); a.click();
+      var a = document.createElement('a'); a.download = 'AppDate-QR-' + $('v-code').textContent + '.png'; a.href = c.toDataURL('image/png'); a.click();
     };
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(svg));
   };
@@ -815,8 +816,8 @@ ${url('/business', '0.8')}
 
   const manifest = () =>
     JSON.stringify({
-      name: 'UP — הכרויות במקום',
-      short_name: 'UP',
+      name: 'AppDate — הכרויות במקום',
+      short_name: 'AppDate',
       description: 'אפליקציית הכרויות לאנשים שנמצאים איתך באותו מקום, עכשיו.',
       lang: 'he',
       dir: 'rtl',

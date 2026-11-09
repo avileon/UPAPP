@@ -60,6 +60,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  # The AppDate mark (sources: assets/brand/*.svg).
+  assets:
+    - assets/brand/mark.png
+
   # Night Glow type. Static instances (Rubik is cut from its variable font at
   # 500/700/800/900) so every platform picks the exact weight. Licences: OFL,
   # beside the files.

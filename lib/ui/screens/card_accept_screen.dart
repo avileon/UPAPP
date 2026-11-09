@@ -158,7 +158,7 @@ class _CardAcceptScreenState extends State<CardAcceptScreen> {
     final AppStrings s = context.strings;
     final UpPalette p = context.palette;
     final CardInfo? card = _card;
-    final String name = card?.firstName.isNotEmpty ?? false ? card!.firstName : 'UP';
+    final String name = card?.firstName.isNotEmpty ?? false ? card!.firstName : 'AppDate';
 
     return UpScaffold(
       child: Stack(

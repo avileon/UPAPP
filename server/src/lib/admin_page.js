@@ -27,7 +27,7 @@ const TEMPLATE = String.raw`<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>UP · ניהול</title>
+<title>AppDate · ניהול</title>
 <style>
   :root {
     --bg: #0d0a14; --surface: #17121f; --line: #2a2236; --fg: #f4eefb;
@@ -150,7 +150,7 @@ const TEMPLATE = String.raw`<!doctype html>
 </head>
 <body>
 <main>
-  <h1><b>UP</b> · ניהול <span class="muted" id="me" style="font-size:14px;font-weight:400"></span>
+  <h1><b>AppDate</b> · ניהול <span class="muted" id="me" style="font-size:14px;font-weight:400"></span>
     <button class="ghost" id="logout" style="float:inline-end;padding:6px 10px;font-size:13px" hidden>יציאה</button></h1>
   <p class="muted">משתמשים, דיווחים, אימותים ומקומות.</p>
 
@@ -265,7 +265,7 @@ const TEMPLATE = String.raw`<!doctype html>
 <div id="sticker" role="dialog" aria-label="מדבקת QR">
   <button class="ghost close noprint" onclick="closeSticker()">✕ סגירה</button>
   <div id="s-logo"></div>
-  <div class="brand">UP</div>
+  <div class="brand"><img src="/site/icon-192.png" alt="" style="width:72px;height:72px;border-radius:16px;vertical-align:middle"> <span style="color:#1b1023">App</span>Date</div>
   <div class="name" id="s-name"></div>
   <div id="s-qr"></div>
   <div class="cta">סרקו כדי לראות מי כאן עכשיו ולשלוח UP</div>
@@ -1010,7 +1010,7 @@ const TEMPLATE = String.raw`<!doctype html>
     api('POST', '/admin/operators', { name: name, email: $('o-email').value.trim() }).then(function (o) {
       $('o-name').value = ''; $('o-email').value = '';
       var link = location.origin + '/admin';
-      var text = 'כניסה לניהול UP: ' + link + '\nהמפתח שלך: ' + o.key;
+      var text = 'כניסה לניהול AppDate: ' + link + '\nהמפתח שלך: ' + o.key;
       var box = $('o-new'); box.innerHTML = '';
       box.appendChild(el('div', { class: 'card', style: 'border-color:var(--mint);margin-top:12px' }, [
         el('div', { text: 'המפתח של ' + o.name + ' (מוצג רק עכשיו):' }),

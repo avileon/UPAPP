@@ -67,7 +67,7 @@ export function notifyNewMessage(store, { recipientId, senderName, body, matchId
   detach(
     deliver(store, recipientId, {
       kind: 'message',
-      title: senderName || 'UP',
+      title: senderName || 'AppDate',
       // Enough to decide whether to open it, short enough to fit on a lock
       // screen without being cut mid-word by the operating system.
       body: truncate(body, 120),
@@ -80,7 +80,7 @@ export function notifyMatch(store, { recipientId, otherName, matchId }) {
   detach(
     deliver(store, recipientId, {
       kind: 'match',
-      title: 'UP',
+      title: 'AppDate',
       body: otherName ? `${otherName} — It’s an UP!` : 'It’s an UP!',
       matchId,
     }),
@@ -95,7 +95,7 @@ export function notifyIncomingUp(store, { recipientId }) {
   detach(
     deliver(store, recipientId, {
       kind: 'up',
-      title: 'UP',
+      title: 'AppDate',
       body: 'מישהו כאן שלח לך UP! ⬆',
     }),
   );
@@ -105,7 +105,7 @@ export function notifyVenueEnding(store, { recipientId, venueName }) {
   detach(
     deliver(store, recipientId, {
       kind: 'venue',
-      title: 'UP',
+      title: 'AppDate',
       body: `השעה שלך ב-${venueName} עומדת להיגמר — סרקו שוב כדי להישאר`,
     }),
   );
@@ -125,7 +125,7 @@ export function notifyVerificationDecided(store, { recipientId, approved }) {
   detach(
     deliver(store, recipientId, {
       kind: 'verification',
-      title: 'UP',
+      title: 'AppDate',
       body: approved
         ? 'האימות שלך אושר ✓ אפשר להמשיך ב-Live בלי הגבלת זמן'
         : 'לא הצלחנו לאשר את האימות. היכנסו לאפליקציה כדי לנסות שוב',

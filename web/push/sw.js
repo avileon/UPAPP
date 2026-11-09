@@ -29,7 +29,7 @@ self.addEventListener('push', (event) => {
   // A push with no readable payload still has to show something: the browser
   // permission was granted on the promise that every message is visible, and
   // an engine that receives one and shows nothing may revoke the subscription.
-  let data = { kind: 'message', title: 'UP', body: 'הודעה חדשה' };
+  let data = { kind: 'message', title: 'AppDate', body: 'הודעה חדשה' };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch (_) {
@@ -50,7 +50,7 @@ self.addEventListener('push', (event) => {
       const watching = clients.some((client) => client.visibilityState === 'visible');
       if (watching && data.kind === 'message') return;
 
-      await self.registration.showNotification(data.title || 'UP', {
+      await self.registration.showNotification(data.title || 'AppDate', {
         body: data.body || '',
         icon: '/icons/Icon-192.png',
         badge: '/icons/Icon-192.png',

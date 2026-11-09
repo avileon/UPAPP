@@ -54,14 +54,14 @@ export class WalletSigner {
       hexBackgroundColor: '#0d0a14',
       logo: {
         sourceUri: { uri: logo },
-        contentDescription: { defaultValue: { language: 'he', value: 'UP' } },
+        contentDescription: { defaultValue: { language: 'he', value: 'AppDate' } },
       },
-      cardTitle: { defaultValue: { language: 'he', value: 'UP · כרטיס ביקור' } },
+      cardTitle: { defaultValue: { language: 'he', value: 'AppDate · כרטיס ביקור' } },
       subheader: { defaultValue: { language: 'he', value: 'סרקו ותנו UP' } },
-      header: { defaultValue: { language: 'he', value: firstName || 'UP' } },
+      header: { defaultValue: { language: 'he', value: firstName || 'AppDate' } },
       barcode: { type: 'QR_CODE', value: cardUrl, alternateText: 'up.atar.co' },
       linksModuleData: {
-        uris: [{ uri: cardUrl, description: 'הכרטיס שלי ב-UP', id: 'card' }],
+        uris: [{ uri: cardUrl, description: 'הכרטיס שלי ב-AppDate', id: 'card' }],
       },
     };
     const header = { alg: 'RS256', typ: 'JWT' };

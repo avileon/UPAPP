@@ -88,7 +88,7 @@ class _UpMaterialAppState extends State<_UpMaterialApp> {
       listenable: session,
       builder: (BuildContext context, Widget? _) {
         return MaterialApp(
-          title: 'UP',
+          title: 'AppDate',
           navigatorKey: _navigator,
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),

@@ -31,10 +31,11 @@ p { margin: 0 0 1em; }
 .top { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   background: #0d0a14cc; border-bottom: 1px solid #ffffff0d; }
 .top .wrap { display: flex; align-items: center; gap: 16px; height: 64px; }
-.logo { font-family: "Rubik", sans-serif; font-weight: 800; font-size: 28px; color: var(--pink);
-  text-decoration: none; letter-spacing: 1px; text-shadow: 0 0 18px #ff3d8b99; }
-.logo-tag { display: inline-block; margin-inline-start: 8px; font-size: 11px; font-weight: 800;
-  letter-spacing: 0.18em; color: var(--mint, #4df2b0); vertical-align: middle; direction: ltr; }
+.logo { font-family: "Rubik", sans-serif; font-weight: 800; font-size: 26px; color: var(--fg);
+  text-decoration: none; letter-spacing: -0.3px; direction: ltr; unicode-bidi: isolate;
+  display: inline-flex; align-items: center; }
+.logo-mark { width: 1.25em; height: 1.25em; border-radius: 0.3em; margin-right: 8px; box-shadow: 0 0 16px #ff3d8b55; }
+.logo-date { color: var(--pink); text-shadow: 0 0 18px #ff3d8b66; }
 .top nav { display: flex; gap: 22px; margin-inline-start: auto; align-items: center; }
 .top nav a { color: var(--fg); text-decoration: none; font-weight: 600; font-size: 15px; opacity: .85; }
 .top nav a:hover { opacity: 1; }
@@ -134,7 +135,8 @@ section.alt { background: linear-gradient(180deg, var(--bg2), var(--bg)); border
 .band li::before { content: "✦"; position: absolute; inset-inline-start: 0; color: var(--mint); }
 .sticker-mini { background: #fff; color: #111; border-radius: 22px; padding: 22px; text-align: center; max-width: 280px;
   margin: 0 auto; transform: rotate(-3deg); box-shadow: 0 20px 60px #0008; }
-.sticker-mini .b { font: 800 46px "Rubik", sans-serif; color: var(--pink); line-height: 1; }
+.sticker-mini .b { font: 800 46px "Rubik", sans-serif; color: #1b1023; line-height: 1; direction: ltr; }
+.sticker-mini .b span { color: var(--pink); }
 .sticker-mini .n { font-weight: 600; font-size: 18px; margin: 6px 0 10px; }
 .sticker-mini .c { font-size: 14px; color: #333; }
 @media (max-width: 800px) { .band { grid-template-columns: 1fr; padding: 26px; } }

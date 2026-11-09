@@ -7,16 +7,16 @@
   <meta charset="UTF-8">
   <meta name="robots" content="noindex">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="UP — אפליקציית היכרויות למי שנמצא כאן ועכשיו">
+  <meta name="description" content="AppDate — אפליקציית היכרויות למי שנמצא כאן ועכשיו">
   <meta name="theme-color" content="#0d0a14">
   <meta name="color-scheme" content="dark">
 
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="UP">
+  <meta name="apple-mobile-web-app-title" content="AppDate">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
   <link rel="icon" type="image/png" href="favicon.png"/>
-  <title>UP</title>
+  <title>AppDate</title>
   <link rel="manifest" href="manifest.json">
 
   <!--
@@ -43,9 +43,12 @@
     }
     #up-splash.gone { opacity: 0; pointer-events: none; }
     #up-splash .logo {
-      font-weight: 900; font-size: 64px; letter-spacing: -1px; color: #ff3d8b;
-      text-shadow: 0 0 28px #ff3d8b88; animation: up-pulse 1.6s ease-in-out infinite;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      font-weight: 900; font-size: 44px; letter-spacing: -1px; color: #f6f0fc; direction: ltr;
+      animation: up-pulse 1.6s ease-in-out infinite;
     }
+    #up-splash .logo img { border-radius: 22px; box-shadow: 0 0 28px #ff3d8b66; }
+    #up-splash .logo span { color: #ff3d8b; }
     #up-splash .bar { width: 140px; height: 4px; border-radius: 4px; background: #2c2339; overflow: hidden; }
     #up-splash .bar i {
       display: block; width: 40%; height: 100%; border-radius: 4px; background: #3dffc5;
@@ -70,8 +73,8 @@
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
     }
     #up-install.show { display: flex; }
-    #up-install .ic { flex: none; width: 44px; height: 44px; border-radius: 12px; background: #ff3d8b;
-      color: #fff; font-weight: 900; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+    #up-install .ic { flex: none; width: 44px; height: 44px; }
+    #up-install .ic img { border-radius: 11px; display: block; }
     #up-install .tx { flex: 1; min-width: 0; }
     #up-install b { display: block; font-size: 15px; margin-bottom: 2px; }
     #up-install span { font-size: 13px; color: #ad9fc2; }
@@ -84,12 +87,12 @@
 </head>
 <body>
   <div id="up-splash" role="status" aria-live="polite">
-    <div class="logo" aria-hidden="true">UP</div>
+    <div class="logo" aria-hidden="true"><img src="icons/Icon-192.png" width="96" height="96" alt=""><div>App<span>Date</span></div></div>
     <div class="bar" aria-hidden="true"><i></i></div>
     <div class="msg" id="up-splash-msg">טוען…</div>
     <button type="button" onclick="location.reload()">נסו שוב</button>
   </div>
-  <noscript><p style="text-align:center;padding:40px">כדי להשתמש ב-UP צריך להפעיל JavaScript בדפדפן.</p></noscript>
+  <noscript><p style="text-align:center;padding:40px">כדי להשתמש ב-AppDate צריך להפעיל JavaScript בדפדפן.</p></noscript>
 
   <script>
     // Honest progress text, so a slow connection reads as "slow" rather than
@@ -127,9 +130,9 @@
     days of quiet.
   -->
   <div id="up-install" role="dialog" aria-labelledby="up-install-t">
-    <div class="ic" aria-hidden="true">UP</div>
+    <div class="ic" aria-hidden="true"><img src="icons/Icon-192.png" width="44" height="44" alt=""></div>
     <div class="tx">
-      <b id="up-install-t">להתקין את UP בטלפון?</b>
+      <b id="up-install-t">להתקין את AppDate בטלפון?</b>
       <span id="up-install-b">אייקון במסך הבית, מסך מלא והתראות — בלי חנות אפליקציות.</span>
     </div>
     <div class="act">

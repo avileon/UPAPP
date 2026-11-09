@@ -60,7 +60,7 @@ export class MailSettings {
 export function sendMail(settings, { subject, text }, timeoutMs = 20_000) {
   const implicit = Number(settings.port) === 465;
   const body = [
-    `From: UP <${settings.user}>`,
+    `From: AppDate <${settings.user}>`,
     `To: <${settings.to}>`,
     `Subject: ${header(subject)}`,
     `Date: ${new Date().toUTCString()}`,

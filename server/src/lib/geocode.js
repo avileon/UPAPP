@@ -32,7 +32,7 @@ export class Geocoder {
       url.searchParams.set('limit', '5');
       url.searchParams.set('accept-language', 'he');
       const res = await this.fetch(url, {
-        headers: { 'user-agent': 'UP-venue-signup/1.0 (+https://up.atar.co)' },
+        headers: { 'user-agent': 'AppDate-venue-signup/1.0 (+https://up.atar.co)' },
         signal: AbortSignal.timeout(8000),
       });
       if (!res.ok) throw new Error(`geocoder ${res.status}`);

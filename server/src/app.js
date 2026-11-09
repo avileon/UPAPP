@@ -216,7 +216,7 @@ export function createApp({
     const name = store.findProfile(userId)?.first_name || '(ללא שם)';
     const hours = config.live.verificationGraceHours;
     mail.notify({
-      subject: `UP · אימות פנים ממתין לאישור — ${name}`,
+      subject: `AppDate · אימות פנים ממתין לאישור — ${name}`,
       text: [
         `${name} עבר/ה לבדיקה ידנית.`,
         method === 'live'
@@ -1677,7 +1677,7 @@ export function createApp({
     if (!mail.configured) throw badRequest('mail_not_configured');
     try {
       await mail.deliver({
-        subject: 'UP · בדיקת מייל',
+        subject: 'AppDate · בדיקת מייל',
         text: 'אם הגיע אליך המייל הזה, התראות על אימות פנים יגיעו לכאן.',
       });
     } catch (error) {
@@ -2152,7 +2152,7 @@ export function createApp({
     // Flutter's template says "A new Flutter project." — not what a search
     // result should show, and the app itself is not what should rank: the
     // landing page is.
-    let html = file.body.toString('utf8').replace(/<title>[^<]*<\/title>/, '<title>UP</title>');
+    let html = file.body.toString('utf8').replace(/<title>[^<]*<\/title>/, '<title>AppDate</title>');
     const robots = '<meta name="robots" content="noindex">';
     html = /<head[^>]*>/.test(html)
       ? html.replace(/<head[^>]*>/, (tag) => `${tag}\n  ${robots}`)

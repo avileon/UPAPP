@@ -68,6 +68,11 @@ service = """
 if "CardHceService" not in text:
     text = text.replace("</application>", service.lstrip(), 1)
 
+# The name under the icon. The package id stays co.vibit.up.up, so the
+# renamed app still installs over the old one.
+import re
+text = re.sub(r'android:label="[^"]*"', 'android:label="AppDate"', text, count=1)
+
 manifest.write_text(text, encoding="utf-8")
 print("manifest patched")
 

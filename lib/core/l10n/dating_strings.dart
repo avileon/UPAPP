@@ -110,7 +110,7 @@ extension DatingStrings on AppStrings {
 
   // -- leaving ---------------------------------------------------------------
 
-  String get exitTitle => _t('לצאת מ-UP?', 'Leave UP?');
+  String get exitTitle => _t('לצאת מ-AppDate?', 'Leave AppDate?');
   String get exitBody => _t(
         'בטוח שאתה רוצה לצאת מהאפליקציה?',
         'Are you sure you want to leave the app?',
@@ -136,7 +136,7 @@ extension DatingStrings on AppStrings {
   String get scanTypeCode => _t('או הקלידו את הקוד', 'Or type the code');
   String get scanCodeHint => _t('הקוד שמתחת ל-QR', 'The code under the QR');
   String get scanInvalid =>
-      _t('זה לא קוד של מקום ב-UP', 'That is not an UP place code');
+      _t('זה לא קוד של מקום ב-AppDate', 'That is not an AppDate place code');
   String get scanCameraUnavailable => _t(
         'המצלמה לא זמינה כאן. אפשר להקליד את הקוד שמתחת ל-QR.',
         'The camera is not available here. Type the code under the QR.',
@@ -169,7 +169,7 @@ extension DatingStrings on AppStrings {
       _t('ברוכים הבאים ל-$name!', 'Welcome to $name!');
 
   String get joinUnknown =>
-      _t('המקום הזה לא רשום ב-UP', 'This place is not on UP');
+      _t('המקום הזה לא רשום ב-AppDate', 'This place is not on AppDate');
   String get locating => _t('מאתרים מיקום…', 'Finding your location…');
   String get joining => _t('נכנסים…', 'Joining…');
   String venueLiveTitle(String name) => _t('אתם ב-$name', 'You are at $name');
@@ -178,8 +178,8 @@ extension DatingStrings on AppStrings {
   String get scanAgain => _t('סריקה חוזרת', 'Scan again');
   String get areaLiveTitle => _t('אתם באזור', 'You are Live around here');
   String get quietAreaBody => _t(
-        'עוד אין אנשים ב-Live סביבך. השאירו את UP פתוח — מי שיצטרף יופיע כאן.',
-        'Nobody Live around you yet. Keep UP open — whoever joins shows up here.',
+        'עוד אין אנשים ב-Live סביבך. השאירו את AppDate פתוחה — מי שיצטרף יופיע כאן.',
+        'Nobody Live around you yet. Keep AppDate open — whoever joins shows up here.',
       );
   String get seePeople => _t('לראות מי כאן', 'See who is here');
   String get stillHere => _t('עדיין כאן? סרקו שוב כדי להישאר', 'Still here? Scan again to stay');
@@ -365,8 +365,8 @@ extension DatingStrings on AppStrings {
       case 'match_closed':
         return dateEndedBody;
       case 'account_suspended':
-        return _t('החשבון הושעה. לבירור — פנו לצוות UP.',
-            'This account is suspended. Contact the UP team.');
+        return _t('החשבון הושעה. לבירור — פנו לצוות AppDate.',
+            'This account is suspended. Contact the AppDate team.');
       case 'too_far':
         return _t('נראה שאתם לא במקום. היכנסו פנימה ונסו שוב.',
             'You do not seem to be there. Step inside and try again.');

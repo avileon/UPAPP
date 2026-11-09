@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/l10n/app_localizations.dart';
-import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
 import '../../state/app_scope.dart';
+import '../components/brand.dart';
 import '../components/up_buttons.dart';
 import '../components/up_scaffold.dart';
 import '../navigation/routes.dart';
@@ -92,37 +92,12 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final UpPalette p = context.palette;
     return UpScaffold(
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            ShaderMask(
-              shaderCallback: (Rect bounds) => LinearGradient(
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-                colors: <Color>[p.amber, p.cyan],
-              ).createShader(bounds),
-              child: Text(
-                'UP',
-                style: Theme.of(context)
-                    .textTheme
-                    .displayLarge
-                    ?.copyWith(color: Colors.white),
-              ),
-            ),
-            // The wordmark says what this is (test night, November 2026).
-            Text(
-              'DATE APP',
-              textDirection: TextDirection.ltr,
-              style: TextStyle(
-                color: p.cyan,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 6,
-              ),
-            ),
+            const AppDateLogo(size: 120),
             const SizedBox(height: Insets.md),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 240),

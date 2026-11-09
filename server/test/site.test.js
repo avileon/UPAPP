@@ -19,7 +19,7 @@ import { StaticSite } from '../src/lib/static.js';
 test('the web app', async (t) => {
   const root = mkdtempSync(join(tmpdir(), 'up-site-'));
   mkdirSync(join(root, 'assets'), { recursive: true });
-  writeFileSync(join(root, 'index.html'), '<!doctype html><title>UP</title>');
+  writeFileSync(join(root, 'index.html'), '<!doctype html><title>AppDate</title>');
   writeFileSync(join(root, 'main.dart.js'), 'console.log(1)');
   writeFileSync(join(root, 'flutter_bootstrap.js'), '/* boot */');
   writeFileSync(join(root, 'assets', 'logo.png'), Buffer.from([0x89, 0x50]));
@@ -46,17 +46,17 @@ test('the web app', async (t) => {
     assert.equal(res.status, 200);
     assert.match(res.headers.get('content-type'), /text\/html/);
     const html = await res.text();
-    assert.match(html, /<h1>UP/);
+    assert.match(html, /<h1>AppDate/);
     assert.match(html, /application\/ld\+json/);
 
     const app = await fetch(`${base}/app`);
-    assert.match(await app.text(), /<title>UP<\/title>/);
+    assert.match(await app.text(), /<title>AppDate<\/title>/);
   });
 
   await t.test('stickers and notifications that point at the root still open the app', async () => {
     for (const path of ['/?venue=BAR12', '/?chat=abc']) {
       const html = await (await fetch(`${base}${path}`)).text();
-      assert.match(html, /<title>UP<\/title>/, path);
+      assert.match(html, /<title>AppDate<\/title>/, path);
       assert.match(html, /noindex/, path);
     }
   });
@@ -112,7 +112,7 @@ test('the web app', async (t) => {
     // The app owns its own routing: /chat is a screen, not a file.
     const res = await fetch(`${base}/chat`);
     assert.equal(res.status, 200);
-    assert.match(await res.text(), /<title>UP<\/title>/);
+    assert.match(await res.text(), /<title>AppDate<\/title>/);
   });
 
   await t.test('the API still wins over the app', async () => {

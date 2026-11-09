@@ -65,8 +65,8 @@ extension CardStrings on AppStrings {
   String get cardOpeningChat => _t('פותחים שיחה…', 'Opening the chat…');
   String get cardToChat => _t('לשיחה', 'Open chat');
   String get cardVerifyFirst => _t(
-        'רגע לפני: אימות פנים קצר, כדי שכולם ב-UP יהיו אמיתיים.',
-        'One thing first: a quick face check, so everyone on UP is real.',
+        'רגע לפני: אימות פנים קצר, כדי שכולם ב-AppDate יהיו אמיתיים.',
+        'One thing first: a quick face check, so everyone on AppDate is real.',
       );
   String get cardVerifyAction => _t('לאימות', 'Verify');
 
