@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -33,15 +35,59 @@ class _QrScanScreenState extends State<QrScanScreen> {
   bool _done = false;
   String? _error;
 
+  /// The camera did not come up in time: show why, and a way to retry.
+  bool _stuck = false;
+  Timer? _watchdog;
+
+  @override
+  void initState() {
+    super.initState();
+    _armWatchdog();
+  }
+
+  /// Phones sometimes grant the camera and still never start the preview
+  /// (the indicator is on, the box stays black). Rather than a black square
+  /// forever, after a few seconds say so and offer a restart from a tap —
+  /// a start inside a user gesture is the one browsers never block.
+  void _armWatchdog() {
+    _watchdog?.cancel();
+    _watchdog = Timer(const Duration(seconds: 6), () {
+      if (!mounted || _done) {
+        return;
+      }
+      final MobileScannerState v = _scanner.value;
+      if (!v.isRunning || v.size.isEmpty) {
+        setState(() => _stuck = true);
+      }
+    });
+  }
+
+  Future<void> _restart() async {
+    setState(() {
+      _stuck = false;
+      _error = null;
+    });
+    try {
+      await _scanner.stop();
+      await _scanner.start();
+    } catch (_) {
+      // Shown by the scanner's own error state, or by the watchdog.
+    }
+    _armWatchdog();
+  }
+
   @override
   void dispose() {
+    _watchdog?.cancel();
     _scanner.dispose();
     _typed.dispose();
     super.dispose();
   }
 
   void _onDetect(BarcodeCapture capture) {
-    if (_done) {
+    // The web scanner sends an empty capture when it starts (to clear old
+    // results). Nothing was scanned — that is not an invalid code.
+    if (_done || capture.barcodes.isEmpty) {
       return;
     }
     for (final Barcode barcode in capture.barcodes) {
@@ -121,6 +167,16 @@ class _QrScanScreenState extends State<QrScanScreen> {
                     child: MobileScanner(
                       controller: _scanner,
                       onDetect: _onDetect,
+                      placeholderBuilder: (BuildContext context) =>
+                          _CameraNote(text: s.scanStarting, busy: true),
+                      errorBuilder: (BuildContext context,
+                              MobileScannerException e) =>
+                          _CameraNote(
+                        text: e.errorCode ==
+                                MobileScannerErrorCode.permissionDenied
+                            ? s.scanCameraUnavailable
+                            : '${s.scanStuck}\n(${e.errorDetails?.message ?? e.errorCode.name})',
+                      ),
                     ),
                   ),
                   IgnorePointer(
@@ -141,6 +197,20 @@ class _QrScanScreenState extends State<QrScanScreen> {
               ),
             ),
           ),
+          if (_stuck) ...<Widget>[
+            const SizedBox(height: Insets.md),
+            Text(
+              s.scanStuck,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: Insets.sm),
+            UpButton(
+              label: s.scanRetry,
+              style: UpButtonStyle.ghost,
+              onPressed: _restart,
+            ),
+          ],
           if (_error != null) ...<Widget>[
             const SizedBox(height: Insets.md),
             Text(
@@ -165,6 +235,44 @@ class _QrScanScreenState extends State<QrScanScreen> {
           UpButton(label: s.cont, onPressed: _submitTyped),
           const SizedBox(height: Insets.xl),
         ],
+      ),
+    );
+  }
+}
+
+/// What sits in the camera box while there is no picture to show.
+class _CameraNote extends StatelessWidget {
+  const _CameraNote({required this.text, this.busy = false});
+
+  final String text;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(Insets.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              if (busy) ...<Widget>[
+                const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+                const SizedBox(height: Insets.md),
+              ],
+              Text(
+                text,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

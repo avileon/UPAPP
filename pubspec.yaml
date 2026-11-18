@@ -50,7 +50,7 @@ dependencies:
   web: ^1.0.0
   camera: ^0.11.0
   geolocator: ^14.0.0
-  mobile_scanner: ^7.0.0
+  mobile_scanner: ^7.5.0
   url_launcher: ^6.3.0
 
 dev_dependencies:
@@ -88,3 +88,12 @@ flutter:
           weight: 600
         - asset: assets/fonts/IBMPlexSansHebrew-Bold.ttf
           weight: 700
+
+# The released mobile_scanner 7.5.0 creates the web preview <video> without
+# `muted` / `playsinline`; on phones the preview stayed black. Fixed upstream
+# in 676312e (#1855), not yet on pub.dev. Drop this once 7.5.1+ is out.
+dependency_overrides:
+  mobile_scanner:
+    git:
+      url: https://github.com/juliansteenbakker/mobile_scanner.git
+      ref: 676312ed7a89acdbc4d256ec0c198409474fc8c4
