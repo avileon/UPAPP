@@ -15,6 +15,7 @@ import '../components/common.dart';
 import '../components/up_buttons.dart';
 import '../components/up_scaffold.dart';
 import '../navigation/routes.dart';
+import 'web_qr_view.dart';
 
 /// Scans a venue's QR and returns its code (pops with a `String`).
 ///
@@ -53,7 +54,8 @@ class _QrScanScreenState extends State<QrScanScreen> {
   void _armWatchdog() {
     _watchdog?.cancel();
     _watchdog = Timer(const Duration(seconds: 6), () {
-      if (!mounted || _done) {
+      // The browser scanner watches itself; this is for mobile_scanner.
+      if (!mounted || _done || webQrSupported) {
         return;
       }
       final MobileScannerState v = _scanner.value;
@@ -194,20 +196,27 @@ class _QrScanScreenState extends State<QrScanScreen> {
                 children: <Widget>[
                   ColoredBox(
                     color: Colors.black,
-                    child: MobileScanner(
-                      controller: _scanner,
-                      onDetect: _onDetect,
-                      placeholderBuilder: (BuildContext context) =>
-                          _CameraNote(text: s.scanStarting, busy: true),
-                      errorBuilder: (BuildContext context,
-                              MobileScannerException e) =>
-                          _CameraNote(
-                        text: e.errorCode ==
-                                MobileScannerErrorCode.permissionDenied
-                            ? s.scanCameraUnavailable
-                            : '${s.scanStuck}\n(${e.errorDetails?.message ?? e.errorCode.name})',
+                    child: webQrSupported
+                        ? WebQrView(
+                            onCode: (String raw) => _handle(<String?>[raw]),
+                            startingText: s.scanStarting,
+                            stuckText: s.scanStuck,
+                            retryText: s.scanRetry,
+                          )
+                        : MobileScanner(
+                        controller: _scanner,
+                        onDetect: _onDetect,
+                        placeholderBuilder: (BuildContext context) =>
+                            _CameraNote(text: s.scanStarting, busy: true),
+                        errorBuilder: (BuildContext context,
+                                MobileScannerException e) =>
+                            _CameraNote(
+                          text: e.errorCode ==
+                                  MobileScannerErrorCode.permissionDenied
+                              ? s.scanCameraUnavailable
+                              : '${s.scanStuck}\n(${e.errorDetails?.message ?? e.errorCode.name})',
+                        ),
                       ),
-                    ),
                   ),
                   IgnorePointer(
                     child: Center(
