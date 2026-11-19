@@ -39,6 +39,20 @@ const TYPES = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
+/** Replaces Flutter's retired service worker on phones that still run it. */
+const RETIRE_FLUTTER_WORKER = `// AppDate: retire the old Flutter service worker.
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => k.startsWith('flutter')).map((k) => caches.delete(k)));
+    await self.registration.unregister();
+    const pages = await self.clients.matchAll({ type: 'window' });
+    for (const page of pages) page.navigate(page.url);
+  })());
+});
+`;
+
 export class StaticSite {
   constructor(directory = 'public') {
     this.root = resolve(
@@ -80,6 +94,22 @@ export class StaticSite {
 
   /** Reads a file and the headers it should be served with. */
   read(pathname) {
+    // Phones that opened the app before 8.11.2026 still have Flutter's old
+    // service worker, which keeps serving the app it cached back then. Since
+    // the bootstrap stopped shipping that worker, its update check got
+    // index.html (the SPA fallback) with a text/html type, the browser
+    // refused the update, and the old worker — with the old app — stayed
+    // forever. Answer that URL with a worker whose only job is to remove
+    // itself and reload the page onto the current app.
+    if (pathname.replace(/^\/+/, '') === 'flutter_service_worker.js') {
+      const body = Buffer.from(RETIRE_FLUTTER_WORKER);
+      return {
+        body,
+        mime: 'text/javascript; charset=utf-8',
+        etag: `"${createHash('sha1').update(body).digest('hex')}"`,
+        cacheControl: 'no-store',
+      };
+    }
     const file = this.resolveFile(pathname);
     if (!file) return null;
 
