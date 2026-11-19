@@ -124,7 +124,7 @@ extension DatingStrings on AppStrings {
   String get modeArea => _t('באזור שלי', 'Around me');
   String get modeAreaHint =>
       _t('כל מי שב-Live בסביבה הקרובה', 'Everyone Live close by');
-  String get modeVenue => _t('במקום (QR)', 'At a place (QR)');
+  String get modeVenue => _t('לסרוק QR של המקום', 'Scan the place QR');
   String get modeVenueHint =>
       _t('סורקים את ה-QR של הפאב, הבר או האולם', 'Scan the bar or hall QR');
   String get scanQr => _t('סריקת QR', 'Scan QR');
@@ -137,6 +137,17 @@ extension DatingStrings on AppStrings {
   String get scanCodeHint => _t('הקוד שמתחת ל-QR', 'The code under the QR');
   String get scanInvalid =>
       _t('זה לא קוד של מקום ב-AppDate', 'That is not an AppDate place code');
+  String get scanPhoto => _t('לחצו כאן לצלם את הקוד עם המצלמה', 'Tap here to photograph the code with the camera');
+  String get scanPhotoNoCode => _t(
+        'לא מצאנו QR בתמונה. צלמו שוב מקרוב, שהקוד ימלא את התמונה.',
+        'No QR found in the photo. Take it again closer, so the code fills the frame.',
+      );
+  String get scanStarting => _t('פותחים את המצלמה…', 'Opening the camera…');
+  String get scanStuck => _t(
+        'המצלמה לא נפתחה. נסו שוב, או סרקו עם אפליקציית המצלמה של הטלפון.',
+        'The camera did not open. Try again, or scan with the phone camera app.',
+      );
+  String get scanRetry => _t('לפתוח שוב את המצלמה', 'Open the camera again');
   String get scanCameraUnavailable => _t(
         'המצלמה לא זמינה כאן. אפשר להקליד את הקוד שמתחת ל-QR.',
         'The camera is not available here. Type the code under the QR.',

@@ -50,7 +50,11 @@ dependencies:
   web: ^1.0.0
   camera: ^0.11.0
   geolocator: ^14.0.0
-  mobile_scanner: ^7.0.0
+  # Pinned exactly. With no lockfile every CI build took the newest version,
+  # and the web changes in 7.4.3-7.5.0 (Oct 30 - Nov 1) left the in-app
+  # camera box black on phones. 7.4.2 is what the builds used while scanning
+  # worked. Move only after testing on a phone.
+  mobile_scanner: 7.4.2
   url_launcher: ^6.3.0
 
 dev_dependencies:

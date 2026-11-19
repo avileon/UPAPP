@@ -1,5 +1,12 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="he">
+<!--
+  No dir="rtl" on <html>. Flutter does its own right-to-left inside the
+  canvas; on the document it shifts how the browser places the real HTML
+  elements Flutter lays over the canvas — the camera <video> of the QR
+  scanner among them — and the camera box stayed black. The splash and the
+  install prompt below set dir on themselves instead.
+-->
 <head>
   <!-- Replaced by `flutter build web --base-href`. Must start and end with "/". -->
   <base href="$FLUTTER_BASE_HREF">
@@ -86,7 +93,7 @@
   </style>
 </head>
 <body>
-  <div id="up-splash" role="status" aria-live="polite">
+  <div id="up-splash" dir="rtl" role="status" aria-live="polite">
     <div class="logo" aria-hidden="true"><img src="icons/Icon-192.png" width="96" height="96" alt=""><div>App<span>Date</span></div></div>
     <div class="bar" aria-hidden="true"><i></i></div>
     <div class="msg" id="up-splash-msg">טוען…</div>
@@ -129,7 +136,7 @@
     needs in Safari. Never inside the installed app, and "later" means a few
     days of quiet.
   -->
-  <div id="up-install" role="dialog" aria-labelledby="up-install-t">
+  <div id="up-install" dir="rtl" role="dialog" aria-labelledby="up-install-t">
     <div class="ic" aria-hidden="true"><img src="icons/Icon-192.png" width="44" height="44" alt=""></div>
     <div class="tx">
       <b id="up-install-t">להתקין את AppDate בטלפון?</b>

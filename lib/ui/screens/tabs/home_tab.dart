@@ -94,14 +94,9 @@ class HomeTab extends StatelessWidget {
                         ),
                         const SizedBox(height: Insets.md),
                       ],
-                      // Dating only since November 2026 — no "why are you
-                      // here" question any more, just where.
-                      if (!live.isLive) ...<Widget>[
-                        _PlacePicker(
-                          venueMode: session.venueMode,
-                          onSelect: session.setVenueMode,
-                        ),
-                      ],
+                      // Dating only, and "where" is asked when GO LIVE is
+                      // pressed (Avi, 19.11.2026) — no pickers above the
+                      // button.
                       if (incoming > 0) ...<Widget>[
                         const SizedBox(height: Insets.md),
                         _IncomingBanner(
@@ -128,9 +123,7 @@ class HomeTab extends StatelessWidget {
                                 : Sizes.goLiveDiameter,
                             label: live.isLive
                                 ? s.stopLive
-                                : (session.venueMode
-                                    ? s.scanQr.replaceAll(' ', '\n')
-                                    : s.goLive),
+                                : s.goLive,
                             onPressed: () => _toggleLive(context),
                           ),
                         ),
@@ -148,7 +141,7 @@ class HomeTab extends StatelessWidget {
                       const SizedBox(height: Insets.sm),
                       if (!live.isLive)
                         Text(
-                          session.venueMode ? s.modeVenueHint : s.invisibleBody,
+                          s.invisibleBody,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
@@ -161,8 +154,7 @@ class HomeTab extends StatelessWidget {
                           enabled: true,
                         ),
                         const Spacer(),
-                        if (!session.venueMode)
-                          _DurationPicker(
+                        _DurationPicker(
                             selected: session.liveDuration,
                             minutesShort: s.minutesShort,
                             caption: s.durationLabel,
@@ -593,7 +585,13 @@ Future<void> _toggleLive(BuildContext context) async {
     await live.stop();
     return;
   }
-  if (session.venueMode) {
+  // Where: asked now, every time.
+  final bool? atPlace = await _askWhere(context);
+  if (atPlace == null || !context.mounted) {
+    return;
+  }
+  session.setVenueMode(atPlace);
+  if (atPlace) {
     await _scanAndJoin(context);
     return;
   }
@@ -633,100 +631,85 @@ Future<void> _toggleLive(BuildContext context) async {
   }
 }
 
-/// Around me, or at a place.
-class _PlacePicker extends StatelessWidget {
-  const _PlacePicker({required this.venueMode, required this.onSelect});
+/// GO LIVE was pressed: around me, or at a place (scan its QR)?
+/// `null` when the sheet was dismissed.
+Future<bool?> _askWhere(BuildContext context) {
+  final AppStrings s = context.strings;
+  final UpPalette p = context.palette;
 
-  final bool venueMode;
-  final ValueChanged<bool> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final AppStrings s = context.strings;
-    final UpPalette p = context.palette;
-
-    Widget option({
-      required bool selected,
-      required IconData icon,
-      required String label,
-      required VoidCallback onTap,
-    }) {
-      return Expanded(
-        child: Material(
-          color: selected ? p.cyan.withValues(alpha: 0.16) : p.surface.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(Radii.md),
-          child: InkWell(
-            onTap: onTap,
+  Widget option(
+    BuildContext sheet, {
+    required bool value,
+    required IconData icon,
+    required String label,
+  }) {
+    return Material(
+      color: p.surface,
+      borderRadius: BorderRadius.circular(Radii.md),
+      child: InkWell(
+        onTap: () => Navigator.of(sheet).pop(value),
+        borderRadius: BorderRadius.circular(Radii.md),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: Insets.md + 2,
+            horizontal: Insets.md,
+          ),
+          decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Radii.md),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                vertical: Insets.sm + 2,
-                horizontal: Insets.sm,
-              ),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(Radii.md),
-                border: Border.all(
-                  color: selected ? p.cyan : p.line,
-                  width: selected ? 1.6 : 1,
+            border: Border.all(color: p.cyan.withValues(alpha: 0.6)),
+          ),
+          child: Row(
+            children: <Widget>[
+              Icon(icon, color: p.cyan),
+              const SizedBox(width: Insets.md),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Icon(icon, size: 18, color: selected ? p.cyan : p.muted),
-                  const SizedBox(width: Insets.xs + 2),
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                        color: selected ? p.cyan : p.foreground,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ],
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Text(
-          s.whereQuestion,
-          textAlign: TextAlign.center,
-          style: Theme.of(context)
-              .textTheme
-              .labelMedium
-              ?.copyWith(color: p.muted, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: Insets.sm),
-        Row(
+  return showModalBottomSheet<bool>(
+    context: context,
+    backgroundColor: p.background,
+    showDragHandle: true,
+    builder: (BuildContext sheet) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(Insets.lg, 0, Insets.lg, Insets.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
+            Text(
+              s.whereQuestion,
+              textAlign: TextAlign.center,
+              style: Theme.of(sheet).textTheme.titleLarge,
+            ),
+            const SizedBox(height: Insets.lg),
             option(
-              selected: !venueMode,
+              sheet,
+              value: false,
               icon: Icons.near_me_rounded,
               label: s.modeArea,
-              onTap: () => onSelect(false),
             ),
-            const SizedBox(width: Insets.sm),
+            const SizedBox(height: Insets.sm),
             option(
-              selected: venueMode,
+              sheet,
+              value: true,
               icon: Icons.qr_code_scanner_rounded,
               label: s.modeVenue,
-              onTap: () => onSelect(true),
             ),
           ],
         ),
-      ],
-    );
-  }
+      ),
+    ),
+  );
 }
 
 /// "Your hour at X is over" — with the way back in.
