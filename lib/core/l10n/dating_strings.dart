@@ -137,6 +137,11 @@ extension DatingStrings on AppStrings {
   String get scanCodeHint => _t('הקוד שמתחת ל-QR', 'The code under the QR');
   String get scanInvalid =>
       _t('זה לא קוד של מקום ב-AppDate', 'That is not an AppDate place code');
+  String get scanPhoto => _t('צלמו את ה-QR במצלמה', 'Take a photo of the QR');
+  String get scanPhotoNoCode => _t(
+        'לא מצאנו QR בתמונה. צלמו שוב מקרוב, שהקוד ימלא את התמונה.',
+        'No QR found in the photo. Take it again closer, so the code fills the frame.',
+      );
   String get scanStarting => _t('פותחים את המצלמה…', 'Opening the camera…');
   String get scanStuck => _t(
         'המצלמה לא נפתחה. נסו שוב, או סרקו עם אפליקציית המצלמה של הטלפון.',

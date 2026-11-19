@@ -10,6 +10,7 @@ import '../../core/theme/palette.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/api/backend_config.dart';
 import '../../data/api/venue_api.dart';
+import '../../data/qr/qr_photo.dart';
 import '../components/common.dart';
 import '../components/up_buttons.dart';
 import '../components/up_scaffold.dart';
@@ -90,9 +91,18 @@ class _QrScanScreenState extends State<QrScanScreen> {
     if (_done || capture.barcodes.isEmpty) {
       return;
     }
-    for (final Barcode barcode in capture.barcodes) {
-      final String? raw = barcode.rawValue;
-      if (raw == null) {
+    _handle(<String?>[
+      for (final Barcode barcode in capture.barcodes) barcode.rawValue,
+    ]);
+  }
+
+  /// What a scan said, from the live preview or from a photo.
+  void _handle(List<String?> values) {
+    if (_done) {
+      return;
+    }
+    for (final String? raw in values) {
+      if (raw == null || raw.isEmpty) {
         continue;
       }
       // Someone's business card rather than a place: answer it instead.
@@ -110,6 +120,26 @@ class _QrScanScreenState extends State<QrScanScreen> {
       }
     }
     setState(() => _error = context.strings.scanInvalid);
+  }
+
+  /// The way in that does not need the live preview: the phone's own camera
+  /// takes a photo, the browser reads the QR out of it.
+  Future<void> _fromPhoto() async {
+    setState(() => _error = null);
+    String? raw;
+    try {
+      raw = await qrFromPhoto();
+    } catch (_) {
+      raw = '';
+    }
+    if (!mounted || raw == null) {
+      return;
+    }
+    if (raw.isEmpty) {
+      setState(() => _error = context.strings.scanPhotoNoCode);
+      return;
+    }
+    _handle(<String?>[raw]);
   }
 
   /// The token of an UP card link (`…/c/<token>`), or null.
@@ -197,6 +227,14 @@ class _QrScanScreenState extends State<QrScanScreen> {
               ),
             ),
           ),
+          if (qrPhotoSupported) ...<Widget>[
+            const SizedBox(height: Insets.md),
+            UpButton(
+              label: s.scanPhoto,
+              style: UpButtonStyle.ghost,
+              onPressed: _fromPhoto,
+            ),
+          ],
           if (_stuck) ...<Widget>[
             const SizedBox(height: Insets.md),
             Text(
