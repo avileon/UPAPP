@@ -124,7 +124,7 @@ extension DatingStrings on AppStrings {
   String get modeArea => _t('באזור שלי', 'Around me');
   String get modeAreaHint =>
       _t('כל מי שב-Live בסביבה הקרובה', 'Everyone Live close by');
-  String get modeVenue => _t('במקום (QR)', 'At a place (QR)');
+  String get modeVenue => _t('לסרוק QR של המקום', 'Scan the place QR');
   String get modeVenueHint =>
       _t('סורקים את ה-QR של הפאב, הבר או האולם', 'Scan the bar or hall QR');
   String get scanQr => _t('סריקת QR', 'Scan QR');
